@@ -87,22 +87,9 @@ function sheet_(name) {
   let sh = ss.getSheetByName(name);
   if (!sh && HEADERS[name]) {
     sh = ss.insertSheet(name);
-    const formattedHeaders = HEADERS[name].map(h => formatHeaderLabel_(h));
-    sh.getRange(1, 1, 1, formattedHeaders.length).setValues([formattedHeaders]);
-    sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, formattedHeaders.length).setFontWeight('bold');
+    cleanAndAlignSheet_(sh, name, HEADERS[name]);
   }
   if (!sh) throw new Error('Missing sheet: ' + name + '. Run initializeSystem() to repair the database.');
-  if (HEADERS[name] && sh.getLastColumn() > 0) {
-    const currentNorm = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
-      .map(h => normalizeKey_(h));
-    const missing = HEADERS[name].filter(h => currentNorm.indexOf(normalizeKey_(h)) < 0);
-    if (missing.length) {
-      const missingFormatted = missing.map(h => formatHeaderLabel_(h));
-      sh.getRange(1, currentNorm.length + 1, 1, missing.length).setValues([missingFormatted]);
-      sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold');
-    }
-  }
   return sh;
 }
 
@@ -256,6 +243,79 @@ function jsonSafe_(v) {
   return v;
 }
 
+function cleanAndAlignSheet_(sh, sheetName, canonicalHeaders) {
+  if (!sh || !canonicalHeaders || !canonicalHeaders.length) return;
+  const numCanonical = canonicalHeaders.length;
+  const canonicalFormatted = canonicalHeaders.map(h => formatHeaderLabel_(h));
+  const canonicalNorm = canonicalHeaders.map(h => normalizeKey_(h));
+
+  const lastCol = sh.getLastColumn();
+  const lastRow = sh.getLastRow();
+
+  // If brand new or empty sheet
+  if (lastCol === 0 || lastRow === 0) {
+    sh.clearContents();
+    sh.getRange(1, 1, 1, numCanonical).setValues([canonicalFormatted]);
+    formatSheetProfessionally_(sh, sheetName, canonicalHeaders);
+    return;
+  }
+
+  // Read existing header row
+  const existingHeaders = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const existingNorm = existingHeaders.map(h => normalizeKey_(h));
+
+  // Check if existing headers match canonical headers in exact order and length
+  const isIdentical = (lastCol === numCanonical) && canonicalNorm.every((cn, idx) => cn === existingNorm[idx]);
+
+  if (!isIdentical) {
+    // There are extra, duplicate, or misaligned columns
+    const cleanedData = [];
+    if (lastRow > 1) {
+      const allValues = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      for (let r = 0; r < allValues.length; r++) {
+        const row = allValues[r];
+        if (!row.join('').trim()) continue; // skip phantom blank rows
+        const newRow = canonicalHeaders.map(ch => {
+          const normCh = normalizeKey_(ch);
+          const idx = existingNorm.indexOf(normCh);
+          return (idx >= 0 && row[idx] !== undefined && row[idx] !== null) ? row[idx] : '';
+        });
+        cleanedData.push(newRow);
+      }
+    }
+
+    // Clear contents and re-write canonical header and clean aligned rows
+    sh.clearContents();
+    sh.getRange(1, 1, 1, numCanonical).setValues([canonicalFormatted]);
+
+    if (cleanedData.length > 0) {
+      sh.getRange(2, 1, cleanedData.length, numCanonical).setValues(cleanedData);
+    }
+
+    // Delete any excess columns beyond canonical
+    const maxCols = sh.getMaxColumns();
+    if (maxCols > numCanonical) {
+      try {
+        sh.deleteColumns(numCanonical + 1, maxCols - numCanonical);
+      } catch (e) {}
+    }
+  } else {
+    // Headers already match, just ensure capitalized labels are set
+    sh.getRange(1, 1, 1, numCanonical).setValues([canonicalFormatted]);
+  }
+
+  // Trim excessive trailing empty rows beyond data
+  const currentLastRow = Math.max(sh.getLastRow(), 1);
+  const maxRows = sh.getMaxRows();
+  if (maxRows > currentLastRow + 25) {
+    try {
+      sh.deleteRows(currentLastRow + 26, maxRows - (currentLastRow + 25));
+    } catch (e) {}
+  }
+
+  formatSheetProfessionally_(sh, sheetName, canonicalHeaders);
+}
+
 function formatSheetProfessionally_(sh, sheetName, headers) {
   if (!sh || !headers || !headers.length) return;
   const numCols = headers.length;
@@ -321,13 +381,17 @@ function formatSheetProfessionally_(sh, sheetName, headers) {
       // Plain text formatting for IDs, phone numbers, codes to preserve exact characters
       if (['employeeid', 'uan', 'phone', 'pono', 'reportno', 'dcno'].indexOf(normH) >= 0) {
         colDataRange.setNumberFormat('@').setHorizontalAlignment('center');
-      } else if (['id', 'code', 'projectid', 'level', 'status', 'grade', 'version', 'active', 'returnable'].indexOf(normH) >= 0) {
+      } else if (['id', 'code', 'projectid', 'level', 'version', 'grade', 'active', 'returnable'].indexOf(normH) >= 0) {
         colDataRange.setHorizontalAlignment('center');
+      } else if (normH === 'status') {
+        colDataRange.setHorizontalAlignment('center').setFontWeight('bold');
       } else if (normH.indexOf('date') >= 0) {
         colDataRange.setHorizontalAlignment('center').setNumberFormat('yyyy-MM-dd');
       } else if (normH.indexOf('at') >= 0 || normH === 'at') {
         colDataRange.setHorizontalAlignment('center').setNumberFormat('yyyy-MM-dd HH:mm');
-      } else if (['staff', 'workers', 'totalmanpower', 'manhours', 'safemanhours', 'cumsafemanhours', 'totalmanhours', 'inductions', 'tbtcount', 'tbtpersons', 'totalscaffold', 'totalladder', 'totalreceived', 'balancestock', 'totalscore', 'maxscore', 'percent', 'workinghours', 'permithot', 'permitelectrical', 'permitcold', 'permitgeneral', 'lticount', 'areasqft', 'issuedqty', 'totalreceivedqty'].indexOf(normH) >= 0) {
+      } else if (normH === 'percent') {
+        colDataRange.setHorizontalAlignment('right').setNumberFormat('0"%"');
+      } else if (['staff', 'workers', 'totalmanpower', 'manhours', 'safemanhours', 'cumsafemanhours', 'totalmanhours', 'inductions', 'tbtcount', 'tbtpersons', 'totalscaffold', 'totalladder', 'totalreceived', 'balancestock', 'totalscore', 'maxscore', 'workinghours', 'permithot', 'permitelectrical', 'permitcold', 'permitgeneral', 'lticount', 'areasqft', 'issuedqty', 'totalreceivedqty'].indexOf(normH) >= 0) {
         colDataRange.setHorizontalAlignment('right').setNumberFormat('#,##0');
       }
 
@@ -450,8 +514,8 @@ function formatAllSheets_() {
   const ss = ss_();
   Object.keys(HEADERS).forEach(name => {
     let sh = ss.getSheetByName(name);
-    if (!sh) sh = ensureSheetSchema_(ss, name, HEADERS[name]);
-    formatSheetProfessionally_(sh, name, HEADERS[name]);
+    if (!sh) sh = ss.insertSheet(name);
+    cleanAndAlignSheet_(sh, name, HEADERS[name]);
   });
 }
 

@@ -28,11 +28,33 @@ function initializeSystem() {
     }
     Logger.log('Database spreadsheet: ' + ss.getUrl());
 
+    // 1. Ensure all canonical sheets exist
     Object.keys(HEADERS).forEach(name => {
-      ensureSheetSchema_(ss, name, HEADERS[name]);
+      let sh = ss.getSheetByName(name);
+      if (!sh) sh = ss.insertSheet(name);
     });
-    const extra = ss.getSheetByName('Sheet1');
-    if (extra && ss.getSheets().length > 1) ss.deleteSheet(extra);
+
+    // 2. Delete any unwanted or obsolete sheets (e.g. Sheet1, old temporary sheets)
+    const validSheetNames = Object.values(SHEETS);
+    ss.getSheets().forEach(s => {
+      const sName = s.getName();
+      if (validSheetNames.indexOf(sName) < 0) {
+        if (ss.getSheets().length > 1) {
+          try {
+            ss.deleteSheet(s);
+            Logger.log('Deleted unwanted sheet: ' + sName);
+          } catch (e) {
+            Logger.log('Could not delete sheet ' + sName + ': ' + e);
+          }
+        }
+      }
+    });
+
+    // 3. Clean headers, remove duplicate columns, and align canonical schema
+    Object.keys(HEADERS).forEach(name => {
+      const sh = ss.getSheetByName(name);
+      if (sh) cleanAndAlignSheet_(sh, name, HEADERS[name]);
+    });
 
     let rootId = props.getProperty('ROOT_FOLDER_ID');
     let root;
@@ -286,17 +308,7 @@ function setupStatus() {
 function ensureSheetSchema_(ss, name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
-  if (sh.getLastRow() === 0 || sh.getLastColumn() === 0) {
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-  } else {
-    const current = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
-      .map(h => String(h || '').trim());
-    const missing = headers.filter(h => current.indexOf(h) < 0);
-    if (missing.length) {
-      sh.getRange(1, current.length + 1, 1, missing.length).setValues([missing]);
-    }
-  }
-  formatSheetProfessionally_(sh, name, headers);
+  cleanAndAlignSheet_(sh, name, headers);
   return sh;
 }
 
