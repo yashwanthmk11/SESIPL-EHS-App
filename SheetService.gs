@@ -8,7 +8,8 @@ function toCamelCase_(str) {
   if (/^[a-z][a-zA-Z0-9]*$/.test(s)) return s;
   return s
     .toLowerCase()
-    .replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
+    .replace(/[^a-z0-9]+([a-z0-9])/g, (_, chr) => chr.toUpperCase())
+    .replace(/[^a-zA-Z0-9]/g, '')
     .replace(/^[A-Z]/, chr => chr.toLowerCase());
 }
 
@@ -249,6 +250,12 @@ function cleanAndAlignSheet_(sh, sheetName, canonicalHeaders) {
   const canonicalFormatted = canonicalHeaders.map(h => formatHeaderLabel_(h));
   const canonicalNorm = canonicalHeaders.map(h => normalizeKey_(h));
 
+  // Ensure sheet has enough columns for canonical headers
+  const currentMaxCols = sh.getMaxColumns();
+  if (currentMaxCols < numCanonical) {
+    sh.insertColumnsAfter(currentMaxCols, numCanonical - currentMaxCols);
+  }
+
   const lastCol = sh.getLastColumn();
   const lastRow = sh.getLastRow();
 
@@ -289,6 +296,11 @@ function cleanAndAlignSheet_(sh, sheetName, canonicalHeaders) {
     sh.getRange(1, 1, 1, numCanonical).setValues([canonicalFormatted]);
 
     if (cleanedData.length > 0) {
+      const currentMaxRows = sh.getMaxRows();
+      const requiredRows = cleanedData.length + 1;
+      if (currentMaxRows < requiredRows) {
+        sh.insertRowsAfter(currentMaxRows, requiredRows - currentMaxRows);
+      }
       sh.getRange(2, 1, cleanedData.length, numCanonical).setValues(cleanedData);
     }
 
@@ -319,6 +331,13 @@ function cleanAndAlignSheet_(sh, sheetName, canonicalHeaders) {
 function formatSheetProfessionally_(sh, sheetName, headers) {
   if (!sh || !headers || !headers.length) return;
   const numCols = headers.length;
+
+  // Ensure sheet has enough columns
+  const currentMaxCols = sh.getMaxColumns();
+  if (currentMaxCols < numCols) {
+    sh.insertColumnsAfter(currentMaxCols, numCols - currentMaxCols);
+  }
+
   const lastRow = Math.max(sh.getLastRow(), 1);
 
   // 1. Freeze Header Row

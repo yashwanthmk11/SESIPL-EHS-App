@@ -35,11 +35,15 @@
       google.script.run
         .withSuccessHandler((value) => {
           if (isMutation) finishMutation();
+          if (value === null || value === undefined) {
+            reject(new Error("Server returned an empty response. Session may have expired."));
+            return;
+          }
           resolve(value);
         })
         .withFailureHandler((error) => {
           if (isMutation) finishMutation();
-          reject(error);
+          reject(error || new Error("Operation failed on server."));
         })
         [fn](...args);
     });
@@ -250,6 +254,11 @@
 
   async function boot() {
     const bootRes = await run("apiBootstrap", TOKEN);
+    if (!bootRes || !bootRes.ok || !bootRes.data) {
+      const msg = (bootRes && bootRes.error) ? bootRes.error : "Session expired or invalid server response. Please log in.";
+      await doLogout();
+      throw new Error(msg);
+    }
     STATE = bootRes.data;
     USER = bootRes.user || USER;
     $("login-screen").hidden = true;
@@ -2656,10 +2665,18 @@
   }
 
   async function refresh() {
-    const bootRes = await run("apiBootstrap", TOKEN);
-    STATE = bootRes.data;
-    USER = bootRes.user;
-    render();
+    try {
+      const bootRes = await run("apiBootstrap", TOKEN);
+      if (!bootRes || !bootRes.ok || !bootRes.data) {
+        await doLogout();
+        return;
+      }
+      STATE = bootRes.data;
+      USER = bootRes.user;
+      render();
+    } catch (e) {
+      await doLogout();
+    }
   }
 
   function showModal(html) {

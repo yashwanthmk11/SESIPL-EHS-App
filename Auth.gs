@@ -32,11 +32,13 @@ function login(employeeId, uan) {
 
   const token = Utilities.getUuid();
   const sessionUser = publicUser_(user);
-  CacheService.getScriptCache().put(
-    "sess_" + token,
-    JSON.stringify(sessionUser),
-    SESSION_TTL_SEC,
-  );
+  const sessionStr = JSON.stringify(sessionUser);
+  try {
+    CacheService.getScriptCache().put("sess_" + token, sessionStr, SESSION_TTL_SEC);
+  } catch (e) {}
+  try {
+    PropertiesService.getUserProperties().setProperty("sess_" + token, sessionStr);
+  } catch (e) {}
   writeAudit_(user.employeeId, "LOGIN", "User", user.employeeId, "");
   return {
     ok: true,
@@ -48,16 +50,31 @@ function login(employeeId, uan) {
 }
 
 function logout(token) {
-  if (token) CacheService.getScriptCache().remove("sess_" + token);
+  if (token) {
+    try { CacheService.getScriptCache().remove("sess_" + token); } catch (e) {}
+    try { PropertiesService.getUserProperties().deleteProperty("sess_" + token); } catch (e) {}
+  }
   return { ok: true };
 }
 
 function requireUser_(token) {
   if (!token) throw new Error("Session expired. Please login again.");
-  const raw = CacheService.getScriptCache().get("sess_" + token);
+  let raw = null;
+  try {
+    raw = CacheService.getScriptCache().get("sess_" + token);
+  } catch (e) {}
+  if (!raw) {
+    try {
+      raw = PropertiesService.getUserProperties().getProperty("sess_" + token);
+    } catch (e) {}
+    if (raw) {
+      try {
+        CacheService.getScriptCache().put("sess_" + token, raw, SESSION_TTL_SEC);
+      } catch (e) {}
+    }
+  }
   if (!raw) throw new Error("Session expired. Please login again.");
   const user = JSON.parse(raw);
-  CacheService.getScriptCache().put("sess_" + token, raw, SESSION_TTL_SEC);
   return user;
 }
 

@@ -1,6 +1,12 @@
 function apiBootstrap(token) {
-  const user = requireUser_(token);
-  return { ok: true, user: user, data: buildBootstrap_(user) };
+  try {
+    const user = requireUser_(token);
+    const data = buildBootstrap_(user);
+    return { ok: true, user: user, data: data };
+  } catch (e) {
+    Logger.log("apiBootstrap error: " + e);
+    return { ok: false, error: String(e && e.message ? e.message : e) };
+  }
 }
 
 function buildBootstrap_(user) {
