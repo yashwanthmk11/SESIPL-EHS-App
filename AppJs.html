@@ -1,0 +1,2703 @@
+<script>
+  const TOKEN_KEY = "sesipl_ehs_token";
+  let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
+  let USER = null;
+  let STATE = null;
+  let VIEW = "dashboard";
+  let MODULE = null;
+  let CHARTS = [];
+  let MUTATION_IN_FLIGHT = false;
+  const MUTATING_CALLS = new Set([
+    "apiSubmitForm", "apiReview", "apiAddComment", "apiDeleteSubmission",
+    "apiDeleteUploadedFile",
+    "apiSaveDailyLog", "apiSavePpe", "apiSaveScaffold", "apiSaveMovement",
+    "apiSaveObservation", "apiCloseObservation", "apiSaveTraining", "apiUploadMeta",
+    "apiSaveUser"
+  ]);
+
+  const ROLE_LABEL = {
+    EHS_LEAD: "EHS Lead",
+    ASST_EHS_MANAGER: "Asst EHS Manager",
+    EHS_MANAGER: "EHS Manager",
+    DIRECTOR: "Director",
+  };
+
+  function run(fn, ...args) {
+    const isMutation = MUTATING_CALLS.has(fn);
+    if (isMutation && MUTATION_IN_FLIGHT) {
+      return Promise.reject(new Error("Please wait for the current action to finish."));
+    }
+    if (isMutation) {
+      MUTATION_IN_FLIGHT = true;
+      setLoading(true, "Saving securely...");
+    }
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((value) => {
+          if (isMutation) finishMutation();
+          resolve(value);
+        })
+        .withFailureHandler((error) => {
+          if (isMutation) finishMutation();
+          reject(error);
+        })
+        [fn](...args);
+    });
+  }
+
+  function finishMutation() {
+    MUTATION_IN_FLIGHT = false;
+    setLoading(false);
+  }
+
+  function setLoading(active, label) {
+    const state = $("loading-state");
+    if (!state) return;
+    if (label) $("loading-label").textContent = label;
+    state.hidden = !active;
+    document.querySelectorAll("button").forEach((button) => {
+      if (active) {
+        button.dataset.wasDisabled = button.disabled ? "true" : "false";
+        button.disabled = true;
+      } else if (button.dataset.wasDisabled) {
+        button.disabled = button.dataset.wasDisabled === "true";
+        delete button.dataset.wasDisabled;
+      }
+    });
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  function displayDate(value) {
+    const text = String(value == null ? "" : value).trim();
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
+    return match ? match[3] + "/" + match[2] + "/" + match[1] + match[4] : text;
+  }
+
+  function toggleUanVisibility() {
+    const input = $("uan");
+    const icon = $("uan-eye-icon");
+    const btn = $("uan-toggle-btn");
+    if (!input || !icon) return;
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    const label = isPassword ? "Hide UAN" : "Show UAN";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+    if (isPassword) {
+      icon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+    } else {
+      icon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    }
+    input.focus();
+  }
+
+  function openLoginHelp() {
+    showModal(`
+      <div class="login-help-dialog">
+        <h3>Sign In Assistance</h3>
+        <p class="muted" style="margin-bottom:16px;">Follow these guidelines to access your SESIPL EHS portal account:</p>
+        <div class="login-help-step">
+          <div class="login-help-badge">1</div>
+          <div class="login-help-desc">
+            <strong>Employee ID:</strong> Your assigned company ID code (e.g. <code>EMP001</code>, <code>EMP002</code>).
+          </div>
+        </div>
+        <div class="login-help-step">
+          <div class="login-help-badge">2</div>
+          <div class="login-help-desc">
+            <strong>UAN (PIN / Password):</strong> Your registered Universal Account Number credential as recorded in the master system.
+          </div>
+        </div>
+        <div class="login-help-step">
+          <div class="login-help-badge">3</div>
+          <div class="login-help-desc">
+            <strong>Need Account Activation?</strong> If you cannot sign in or your account is inactive, please contact your site EHS Manager or Administrator.
+          </div>
+        </div>
+        <div style="margin-top:20px; text-align:right;">
+          <button class="btn secondary small" onclick="hideModal()">Got it</button>
+        </div>
+      </div>
+    `);
+  }
+
+  function initLoginCard() {
+    const empInput = $("empId");
+    const uanInput = $("uan");
+    const rememberCheck = $("remember-emp-id");
+    const savedEmp = localStorage.getItem("sesipl_remember_emp_id");
+
+    if (savedEmp && empInput) {
+      empInput.value = savedEmp;
+      if (rememberCheck) rememberCheck.checked = true;
+      if (uanInput && !$("login-screen").hidden) {
+        setTimeout(() => uanInput.focus(), 150);
+      }
+    } else if (empInput && !$("login-screen").hidden) {
+      setTimeout(() => empInput.focus(), 150);
+    }
+
+    if (empInput && !empInput.dataset.bound) {
+      empInput.dataset.bound = "true";
+      empInput.addEventListener("input", () => {
+        empInput.value = empInput.value.toUpperCase();
+      });
+    }
+
+    if (uanInput && !uanInput.dataset.bound) {
+      uanInput.dataset.bound = "true";
+      const checkCaps = (e) => {
+        const warning = $("caps-warning");
+        if (!warning) return;
+        if (e.getModifierState && e.getModifierState("CapsLock")) {
+          warning.hidden = false;
+        } else {
+          warning.hidden = true;
+        }
+      };
+      uanInput.addEventListener("keyup", checkCaps);
+      uanInput.addEventListener("keydown", checkCaps);
+      uanInput.addEventListener("blur", () => {
+        const warning = $("caps-warning");
+        if (warning) warning.hidden = true;
+      });
+    }
+  }
+
+  async function doLogin(e) {
+    if (e) e.preventDefault();
+    const empIdEl = $("empId");
+    const uanEl = $("uan");
+    const errEl = $("login-err");
+    const errTextEl = $("login-err-text");
+    const btn = $("login-btn");
+    const spinner = $("login-btn-spinner");
+    const btnText = $("login-btn-text");
+    const card = $("main-login-card") || document.querySelector(".login-card");
+
+    if (errEl) errEl.hidden = true;
+
+    const empId = (empIdEl ? empIdEl.value : "").trim();
+    const uan = (uanEl ? uanEl.value : "").trim();
+
+    if (!empId || !uan) {
+      if (card) {
+        card.classList.remove("shake");
+        void card.offsetWidth;
+        card.classList.add("shake");
+      }
+      if (errTextEl) errTextEl.textContent = "Please enter both Employee ID and UAN.";
+      if (errEl) errEl.hidden = false;
+      if (!empId && empIdEl) empIdEl.focus();
+      else if (uanEl) uanEl.focus();
+      return false;
+    }
+
+    btn.disabled = true;
+    if (spinner) spinner.hidden = false;
+    if (btnText) btnText.textContent = "Authenticating...";
+
+    try {
+      const res = await run("login", empId, uan);
+      if (!res.ok) throw new Error(res.error || "Authentication failed.");
+
+      const rememberCheck = $("remember-emp-id");
+      if (rememberCheck && rememberCheck.checked) {
+        localStorage.setItem("sesipl_remember_emp_id", empId);
+      } else {
+        localStorage.removeItem("sesipl_remember_emp_id");
+      }
+
+      TOKEN = res.token;
+      sessionStorage.setItem(TOKEN_KEY, TOKEN);
+      USER = res.user;
+      if (btnText) btnText.textContent = "Entering Portal...";
+      await boot();
+    } catch (err) {
+      if (card) {
+        card.classList.remove("shake");
+        void card.offsetWidth;
+        card.classList.add("shake");
+      }
+      if (errTextEl) errTextEl.textContent = err.message || String(err);
+      if (errEl) errEl.hidden = false;
+      if (uanEl) {
+        uanEl.focus();
+        uanEl.select();
+      }
+    } finally {
+      btn.disabled = false;
+      if (spinner) spinner.hidden = true;
+      if (btnText) btnText.textContent = "Sign In to Portal";
+    }
+    return false;
+  }
+
+  async function doLogout() {
+    try {
+      await run("logout", TOKEN);
+    } catch (e) {}
+    TOKEN = "";
+    USER = null;
+    STATE = null;
+    sessionStorage.removeItem(TOKEN_KEY);
+    $("app-screen").hidden = true;
+    $("login-screen").hidden = false;
+    if ($("uan")) $("uan").value = "";
+    initLoginCard();
+  }
+
+  async function boot() {
+    const bootRes = await run("apiBootstrap", TOKEN);
+    STATE = bootRes.data;
+    USER = bootRes.user || USER;
+    $("login-screen").hidden = true;
+    $("app-screen").hidden = false;
+    $("who-name").textContent = USER.name;
+    $("side-role").textContent = ROLE_LABEL[USER.role] || USER.role;
+    fillProjects();
+    buildNav();
+    render();
+  }
+
+  function fillProjects() {
+    const sel = $("project-select");
+    sel.innerHTML = "";
+    STATE.projects.forEach((p) => {
+      const o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = p.code + " — " + p.name;
+      sel.appendChild(o);
+    });
+    if (USER.role === "EHS_LEAD") {
+      sel.disabled = true;
+      if (STATE.selectedProjectId) sel.value = STATE.selectedProjectId;
+    } else {
+      sel.disabled = false;
+      if (USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR") {
+        const all = document.createElement("option");
+        all.value = "";
+        all.textContent = "All running projects";
+        sel.insertBefore(all, sel.firstChild);
+        sel.value = "";
+      }
+    }
+    sel.onchange = () => render();
+  }
+
+  function currentProjectId() {
+    return $("project-select").value;
+  }
+
+  function currentProject() {
+    const id = currentProjectId();
+    return STATE.projects.find((p) => p.id === id) || null;
+  }
+
+  function scopedSubs() {
+    const id = currentProjectId();
+    return STATE.submissions.filter((s) => !id || s.projectId === id);
+  }
+
+  function buildNav() {
+    const items = USER.role === "EHS_LEAD"
+      ? [
+          ["dashboard", "Dashboard"], ["daily", "Daily uploads"],
+          ["weekly", "Weekly / Monthly"], ["permits", "Work permits"],
+          ["onetime", "One-time docs"], ["observations", "Observations"],
+          ["documents", "PDF library"], ["dailylog", "Daily log"],
+          ["trackers", "PPE / Scaffold"], ["gallery", "Gallery"],
+          ["library", "eLibrary"], ["calendar", "Training calendar"],
+        ]
+      : [
+          ["dashboard", "Dashboard"], ["inbox", "Approvals"],
+          ["daily", "Daily uploads"], ["weekly", "Weekly / Monthly"],
+          ["permits", "Work permits"], ["onetime", "One-time docs"],
+          ["observations", "Observations"], ["documents", "PDF library"],
+          ["dailylog", "Daily log"], ["trackers", "PPE / Scaffold"],
+          ["gallery", "Gallery"], ["library", "eLibrary"],
+          ["calendar", "Training calendar"],
+        ];
+    if (USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR")
+      items.push(["users", "Users"]);
+    $("nav").innerHTML = items
+      .map(
+        ([id, label]) =>
+          '<button data-view="' +
+          id +
+          '" onclick="go(\'' +
+          id +
+          "')\">" +
+          label +
+          "</button>",
+      )
+      .join("");
+  }
+
+  function go(view) {
+    VIEW = view;
+    render();
+  }
+
+  function destroyCharts() {
+    CHARTS.forEach((c) => {
+      try {
+        c.destroy();
+      } catch (e) {}
+    });
+    CHARTS = [];
+  }
+
+  function render() {
+    destroyCharts();
+    document
+      .querySelectorAll("#nav button")
+      .forEach((b) =>
+        b.classList.toggle("active", b.getAttribute("data-view") === VIEW),
+      );
+    const unread = (STATE.notifications || []).filter(
+      (n) => String(n.read) !== "TRUE",
+    ).length;
+    $("badge-n").textContent = unread;
+    const map = {
+      dashboard: renderDashboard,
+      inbox: renderInbox,
+      daily: () =>
+        renderModuleForms(["CHECKLIST"], "Daily / weekly checklists"),
+      weekly: () => renderModuleForms(["WEEKLY"], "Weekly & monthly reports"),
+      permits: () => renderModuleForms(["PERMIT"], "Work permits"),
+      onetime: () =>
+        renderModuleForms(
+          ["TEST_CERT", "EHS_DOCS", "LEGAL", "POLICY", "SWMS"],
+          "One-time project documents (Assistant Manager uploads; Lead view only)",
+        ),
+      observations: renderObservations,
+      documents: renderDocuments,
+      dailylog: renderDailyLog,
+      trackers: renderTrackers,
+      gallery: renderGallery,
+      library: renderLibrary,
+      calendar: renderCalendar,
+      users: renderUsers,
+    };
+    (map[VIEW] || renderDashboard)();
+  }
+
+  function renderDashboard() {
+    const pid = currentProjectId();
+    const proj = currentProject();
+    const role = USER.role;
+    $("page-title").textContent =
+      role === "DIRECTOR"
+        ? "Director overview"
+        : role === "EHS_MANAGER"
+          ? "All projects monitor"
+          : role === "ASST_EHS_MANAGER"
+            ? proj
+              ? proj.name + " overview"
+              : "Select a project"
+            : proj
+              ? proj.name
+              : "My site";
+    $("page-sub").textContent =
+      "Employee " + USER.employeeId + " · " + (ROLE_LABEL[role] || role);
+
+    const stats = STATE.stats;
+    const bp = stats.byProject || {};
+    const use =
+      pid && bp[pid]
+        ? bp[pid]
+        : {
+            pending: stats.pendingApprovals,
+            approved: stats.approved,
+            rejected: stats.rejected,
+            openObs: stats.openObservations,
+            manHours: stats.manHours,
+            compliance: avg(Object.keys(bp).map((k) => bp[k].compliance)),
+          };
+
+    if (role === "EHS_LEAD") {
+      renderLeadDashboard(proj, use);
+      return;
+    }
+    if (role === "ASST_EHS_MANAGER") {
+      renderAssistantDashboard(proj, use);
+      return;
+    }
+    if (role === "EHS_MANAGER") {
+      renderManagerDashboard(stats, bp);
+      return;
+    }
+    if (role === "DIRECTOR") {
+      renderDirectorDashboard(stats, bp);
+      return;
+    }
+
+    $("view").innerHTML =
+      '<div class="grid kpi">' +
+      kpi(use.pending, "Pending approvals") +
+      kpi(use.approved, "Approved PDFs") +
+      kpi(use.rejected, "Returned to lead") +
+      kpi(use.openObs, "Open observations") +
+      kpi(use.manHours, "Man hours") +
+      kpi((use.compliance || 0) + "%", "Compliance") +
+      "</div>" +
+      roleDashboardPanel(role, proj, stats) +
+      '<div class="charts" style="margin-top:14px">' +
+      '<div class="card"><canvas id="c1"></canvas></div>' +
+      '<div class="card"><canvas id="c2"></canvas></div>' +
+      "</div>" +
+      '<div class="grid mods" style="margin-top:14px">' +
+      STATE.modules
+        .map(
+          (m) =>
+            '<div class="card mod" onclick="openModule(\'' +
+            m.id +
+            '\')"><div class="pill">' +
+            m.cadence +
+            '</div><h3 style="margin:8px 0 4px">' +
+            m.title +
+            '</h3><p class="muted">Open forms & PDFs</p></div>',
+        )
+        .join("") +
+      "</div>" +
+      (proj
+        ? '<div class="card" style="margin-top:14px">' +
+          projectInfo(proj) +
+          "</div>"
+        : projectTable()) +
+      '<div class="card" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn small" onclick="exportNow(\'pdf\')">Download report PDF</button>' +
+      '<button class="btn small secondary" onclick="exportNow(\'xlsx\')">Download Excel</button>' +
+      "</div>";
+
+    const labels = Object.keys(bp).map((k) => bp[k].name);
+    CHARTS.push(
+      new Chart($("c1"), {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Approved",
+              data: Object.keys(bp).map((k) => bp[k].approved),
+              backgroundColor: "#1f7a6b",
+            },
+            {
+              label: "Pending",
+              data: Object.keys(bp).map((k) => bp[k].pending),
+              backgroundColor: "#e8b931",
+            },
+            {
+              label: "Rejected",
+              data: Object.keys(bp).map((k) => bp[k].rejected),
+              backgroundColor: "#b42318",
+            },
+          ],
+        },
+        options: {
+          plugins: { title: { display: true, text: "Submissions by project" } },
+          responsive: true,
+        },
+      }),
+    );
+    CHARTS.push(
+      new Chart($("c2"), {
+        type: "doughnut",
+        data: {
+          labels: ["Open observations", "Closed / other"],
+          datasets: [
+            {
+              data: [
+                use.openObs,
+                Math.max(
+                  0,
+                  (stats.openObservations || 0) === use.openObs ? 1 : 1,
+                ),
+              ],
+              backgroundColor: ["#b54708", "#1f7a6b"],
+            },
+          ],
+        },
+        options: {
+          plugins: { title: { display: true, text: "Observation load" } },
+        },
+      }),
+    );
+  }
+
+  function renderLeadDashboard(project, stats) {
+    const submissions = scopedSubs().slice().reverse();
+    const returned = submissions.filter((s) => s.status === "REJECTED");
+    const observations = STATE.observations.filter((o) => o.status === "OPEN" || o.status === "FALLBACK");
+    $("view").innerHTML =
+      '<div class="card dashboard-hero"><span class="pill">SITE OPERATIONS</span><h2>' + esc(project ? project.name : "Mapped Site") + '</h2><p class="muted">Site Lead workspace: Fill daily checklists, generate work permits, submit weekly reports, and correct any returned records.</p>' +
+      '<div class="row-actions" style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '  <button class="btn small" onclick="go(\'daily\')">Daily Checklists (17)</button>' +
+      '  <button class="btn small secondary" onclick="go(\'weekly\')">Weekly / Monthly Reports</button>' +
+      '  <button class="btn small" onclick="go(\'permits\')">Work Permits (6)</button>' +
+      '  <button class="ghost" onclick="go(\'dailylog\')">Daily Log Sheet (Slide 8)</button>' +
+      '  <button class="ghost" onclick="go(\'observations\')">Daily Observations (Slide 9)</button>' +
+      '  <button class="ghost" onclick="go(\'trackers\')">PPE / Scaffold Trackers</button>' +
+      '  <button class="ghost" onclick="go(\'documents\')">Project PDF Library</button>' +
+      '</div></div>' +
+      '<div class="grid kpi" style="margin-top:14px">' +
+      kpi(submissions.length, "Submitted records") +
+      kpi((returned.length ? '<span style="color:#dc2626;font-weight:bold">' + returned.length + '</span>' : '0'), "Returned for correction") +
+      kpi(observations.length, "Open site actions") +
+      kpi((stats.compliance || 0) + "%", "Approved compliance") +
+      '</div>' +
+      '<div class="grid dashboard-columns" style="margin-top:14px">' +
+      '  <div class="card"><h3>Needs your attention</h3>' +
+      (returned.length
+        ? returned.slice(0, 6).map((s) => {
+            const comments = STATE.comments.filter((c) => c.entityId === s.id);
+            const lastComment = comments.length ? comments[comments.length - 1].text : "Please review and correct the highlighted fields.";
+            return (
+              '<div class="feed-item" style="border-left:3px solid #dc2626;padding-left:10px;margin-bottom:10px">' +
+              '<strong>' + esc(s.title || s.formCode) + '</strong>' +
+              '<div class="muted">Returned ' + esc(displayDate(s.reviewedAt || "")) + '</div>' +
+              '<div style="font-size:12px;color:#991b1b;background:#fef2f2;padding:6px 8px;border-radius:4px;margin:6px 0"><b>Manager note:</b> ' + esc(lastComment) + '</div>' +
+              '<div style="display:flex;gap:6px">' +
+              '  <button class="btn small" onclick="openForm(\'' + s.formCode + '\',\'' + s.id + '\')">Correct & Resubmit</button>' +
+              (s.pdfFileId ? '<button class="ghost" onclick="openFile(\'' + s.pdfFileId + '\')">View PDF</button>' : '') +
+              '</div></div>'
+            );
+          }).join("")
+        : '<p class="muted">No returned forms. All submissions are current.</p>') +
+      '  </div>' +
+      '  <div class="card"><h3>Recent submissions</h3>' + dashboardSubmissionRows(submissions.slice(0, 7)) + '</div>' +
+      '</div>' +
+      '<div class="grid mods" style="margin-top:14px">' +
+      '  <div class="card mod" onclick="go(\'daily\')"><div class="pill">DAILY / WEEKLY</div><h3>Checklists & Formats</h3><p class="muted">17 Standard machine & site inspection forms</p></div>' +
+      '  <div class="card mod" onclick="go(\'permits\')"><div class="pill">HIGH RISK</div><h3>Work Permits</h3><p class="muted">Height, Hot Work, Night, Shaft, Lifting, General</p></div>' +
+      '  <div class="card mod" onclick="go(\'weekly\')"><div class="pill">PERIODIC</div><h3>Weekly / Monthly Reports</h3><p class="muted">Structured EHS performance report submissions</p></div>' +
+      '  <div class="card mod" onclick="go(\'dailylog\')"><div class="pill">SLIDE 8</div><h3>Daily Performance Log</h3><p class="muted">Manpower, Safe Hours, Inductions, TBT, Zero LTI</p></div>' +
+      '  <div class="card mod" onclick="go(\'observations\')"><div class="pill">SLIDE 9</div><h3>Daily Observations</h3><p class="muted">Photo attachments, PMC recommendations, 24h timer</p></div>' +
+      '  <div class="card mod" onclick="go(\'trackers\')"><div class="pill">SLIDES 10-13</div><h3>PPE & Scaffold Trackers</h3><p class="muted">PPE Stock Register, Scaffolding & Movement trackers</p></div>' +
+      '  <div class="card mod" onclick="go(\'documents\')"><div class="pill">eLIBRARY</div><h3>Project PDF Library</h3><p class="muted">View & search all generated project PDFs</p></div>' +
+      '</div>';
+  }
+
+  function renderAssistantDashboard(project, stats) {
+    const submissions = scopedSubs().slice().reverse();
+    const pending = submissions.filter((s) => s.status === "SUBMITTED" || s.status === "RESUBMITTED");
+    $("view").innerHTML =
+      '<div class="card dashboard-hero"><span class="pill">PROJECT CONTROL</span><h2>' + esc(project ? project.name : "Select a mapped project") + '</h2><p class="muted">Review your assigned project, approve/return submissions with comments, edit or delete records, and track site metrics.</p><div class="row-actions"><button class="btn small" onclick="go(\'inbox\')">Open approval queue</button><button class="ghost" onclick="go(\'documents\')">Project PDF library</button><button class="ghost" onclick="exportNow(\'xlsx\')">Export project Excel</button></div></div>' +
+      '<div class="grid kpi" style="margin-top:14px">' + kpi(pending.length, "Awaiting review") + kpi(stats.approved || 0, "Approved records") + kpi(stats.rejected || 0, "Returned records") + kpi((stats.compliance || 0) + "%", "Project compliance") + '</div>' +
+      '<div class="card" style="margin-top:14px"><h3>Approval queue (' + pending.length + ')</h3>' + dashboardSubmissionRows(pending.slice(0, 12), true) + '</div>' +
+      '<div class="grid mods" style="margin-top:14px">' + ["WEEKLY", "PERMIT", "TEST_CERT", "EHS_DOCS", "LEGAL", "POLICY", "SWMS", "CHECKLIST"].map((id) => { const m = STATE.modules.find((x) => x.id === id); return '<div class="card mod" onclick="openModule(\'' + id + '\')"><div class="pill">' + esc(m ? m.cadence : "") + '</div><h3>' + esc(m ? m.title : id) + '</h3><p class="muted">Manage project records</p></div>'; }).join("") + '</div>';
+  }
+
+  function renderManagerDashboard(stats, byProject) {
+    const pid = currentProjectId();
+    if (pid) {
+      const proj = STATE.projects.find((p) => p.id === pid);
+      const s = byProject[pid] || {};
+      const submissions = scopedSubs().slice().reverse();
+      const pending = submissions.filter((sub) => sub.status === "SUBMITTED" || sub.status === "RESUBMITTED");
+      const totalSafeHours = (s.cumSafeManHours || s.safeManHours || 0).toLocaleString('en-IN');
+      $("view").innerHTML =
+        '<div class="card dashboard-hero"><span class="pill">PROJECT OVERVIEW</span><h2>' + esc(proj ? proj.name : pid) + ' Performance</h2><p class="muted">Dedicated project overview: Monitor site statistics, review and approve submissions, edit or delete records, and track live compliance.</p><div class="row-actions">' +
+        '  <button class="btn small" onclick="$(\'project-select\').value=\'\';render()">Back to all projects</button>' +
+        '  <button class="btn small secondary" onclick="go(\'inbox\')">Review approvals (' + pending.length + ')</button>' +
+        '  <button class="ghost" onclick="go(\'documents\')">Project PDF library</button>' +
+        '  <button class="ghost" onclick="exportNow(\'xlsx\')">Export project Excel</button>' +
+        '</div></div>' +
+        '<div class="grid kpi" style="margin-top:14px">' +
+        kpi(pending.length, "Awaiting approval") +
+        kpi(s.approved || 0, "Approved records") +
+        kpi(s.openObs || 0, "Open observations") +
+        kpi(totalSafeHours + " hrs", "Safe man hours") +
+        kpi((s.compliance || 0) + "%", "Site compliance") +
+        '</div>' +
+        (proj ? '<div class="card" style="margin-top:14px">' + projectInfo(proj) + '</div>' : '') +
+        '<div class="card" style="margin-top:14px"><h3>Approval queue (' + pending.length + ')</h3>' + dashboardSubmissionRows(pending.slice(0, 10), true) + '</div>' +
+        '<div class="card" style="margin-top:14px"><h3>Recent submissions</h3>' + dashboardSubmissionRows(submissions.slice(0, 7)) + '</div>' +
+        '<div class="grid mods" style="margin-top:14px">' +
+        '  <div class="card mod" onclick="go(\'daily\')"><div class="pill">CHECKLISTS</div><h3>Checklists & Formats</h3><p class="muted">17 Standard site inspection forms</p></div>' +
+        '  <div class="card mod" onclick="go(\'permits\')"><div class="pill">PERMITS</div><h3>Work Permits</h3><p class="muted">Height, Hot, Night, Shaft, Lift, General</p></div>' +
+        '  <div class="card mod" onclick="go(\'weekly\')"><div class="pill">REPORTS</div><h3>Weekly / Monthly Reports</h3><p class="muted">Periodic EHS reports</p></div>' +
+        '  <div class="card mod" onclick="go(\'dailylog\')"><div class="pill">SLIDE 8</div><h3>Daily Log Sheet</h3><p class="muted">Manpower, TBT, Inductions, Zero LTI</p></div>' +
+        '  <div class="card mod" onclick="go(\'observations\')"><div class="pill">SLIDE 9</div><h3>Observations Log</h3><p class="muted">Unsafe conditions & PMC actions</p></div>' +
+        '  <div class="card mod" onclick="go(\'trackers\')"><div class="pill">SLIDES 10-13</div><h3>PPE & Scaffold Trackers</h3><p class="muted">Registers & inventory</p></div>' +
+        '  <div class="card mod" onclick="go(\'documents\')"><div class="pill">eLIBRARY</div><h3>Project PDF Library</h3><p class="muted">All generated docs & PDFs</p></div>' +
+        '</div>';
+      return;
+    }
+    const projects = STATE.projects.slice().sort((a, b) => (byProject[b.id] || {}).compliance - (byProject[a.id] || {}).compliance);
+    const totalSafeHours = (stats.totalCumSafeManHours || stats.manHours || 0).toLocaleString('en-IN');
+    $("view").innerHTML =
+      '<div class="card dashboard-hero"><span class="pill">PORTFOLIO CONTROL</span><h2>All Running Projects Overview</h2><p class="muted">Monitor company-wide EHS health, manage approvals, publish monthly training calendars, and manage users. Select any project above or click "Open site" below for its specific overview.</p><div class="row-actions"><button class="btn small" onclick="go(\'inbox\')">Review all approvals</button><button class="ghost" onclick="go(\'calendar\')">Publish training plan</button><button class="ghost" onclick="go(\'users\')">Manage users</button><button class="ghost" onclick="exportNow(\'xlsx\')">Export all Excel</button></div></div>' +
+      '<div class="grid kpi" style="margin-top:14px">' + kpi(stats.projectCount, "Running projects") + kpi(stats.pendingApprovals, "Pending approvals") + kpi(stats.openObservations, "Open observations") + kpi(totalSafeHours + ' hrs', "Safe man hours worked") + kpi(avg(projects.map((p) => (byProject[p.id] || {}).compliance || 0)) + "%", "Portfolio compliance") + '</div>' +
+      '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="manager-project-chart"></canvas></div><div class="card"><canvas id="manager-compliance-chart"></canvas></div></div>' +
+      '<div class="card" style="margin-top:14px"><h3>Project health & scorecards</h3><table><thead><tr><th>Project</th><th>Region</th><th>Pending</th><th>Open observations</th><th>Safe Man-Hours</th><th>Compliance</th><th></th></tr></thead><tbody>' + projects.map((p) => { const s = byProject[p.id] || {}; return '<tr><td><strong>' + esc(p.name) + '</strong></td><td>' + esc(p.region || 'Bangalore') + '</td><td>' + (s.pending || 0) + '</td><td>' + (s.openObs || 0) + '</td><td>' + (s.cumSafeManHours || s.safeManHours || 0).toLocaleString('en-IN') + '</td><td>' + (s.compliance || 0) + '%</td><td><button class="ghost" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';render()">Open site</button></td></tr>'; }).join("") + '</tbody></table></div>';
+    renderPortfolioCharts("manager-project-chart", "manager-compliance-chart", projects, byProject);
+  }
+
+  function setDirectorRegion(reg) {
+    window.DIRECTOR_REGION = reg;
+    render();
+  }
+
+  function setDirectorTab(tab) {
+    window.DIRECTOR_TAB = tab;
+    render();
+  }
+
+  function renderDirectorDashboard(stats, byProject) {
+    window.DIRECTOR_REGION = window.DIRECTOR_REGION || 'ALL';
+    window.DIRECTOR_TAB = window.DIRECTOR_TAB || 'ANALYTICS';
+
+    const pid = currentProjectId();
+    if (pid) {
+      const proj = STATE.projects.find((p) => p.id === pid);
+      const s = byProject[pid] || {};
+      const submissions = scopedSubs().slice().reverse();
+      const pending = submissions.filter((sub) => sub.status === "SUBMITTED" || sub.status === "RESUBMITTED");
+      const totalSafeHours = (s.cumSafeManHours || s.safeManHours || 0).toLocaleString('en-IN');
+      $("view").innerHTML =
+        '<div class="card dashboard-hero director-hero"><span class="pill">EXECUTIVE SITE AUDIT</span><h2>' + esc(proj ? proj.name : pid) + ' Details</h2><p class="muted">Executive inspection of site governance, safe work hours, high-risk permit compliance, and observation resolutions.</p><div class="row-actions">' +
+        '  <button class="btn small" onclick="$(\'project-select\').value=\'\';render()">Back to Executive Command Center</button>' +
+        '  <button class="ghost" onclick="go(\'inbox\')">Executive approval queue (' + pending.length + ')</button>' +
+        '  <button class="ghost" onclick="go(\'documents\')">Project documents</button>' +
+        '  <button class="ghost" onclick="exportNow(\'xlsx\')">Export project Excel</button>' +
+        '</div></div>' +
+        '<div class="grid kpi" style="margin-top:14px">' +
+        kpi(totalSafeHours + " hrs", "Safe man-hours") +
+        kpi('<span class="badge-zeroharm">0 LTI</span>', "Accident benchmark") +
+        kpi((s.compliance || 0) + "%", "Site compliance") +
+        kpi(pending.length, "Pending approvals") +
+        kpi(s.openObs || 0, "Open PMC risks") +
+        '</div>' +
+        (proj ? '<div class="card" style="margin-top:14px">' + projectInfo(proj) + '</div>' : '') +
+        '<div class="card" style="margin-top:14px"><h3>Approval queue (' + pending.length + ')</h3>' + dashboardSubmissionRows(pending.slice(0, 10), true) + '</div>' +
+        '<div class="card" style="margin-top:14px"><h3>Recent site submissions</h3>' + dashboardSubmissionRows(submissions.slice(0, 7)) + '</div>' +
+        '<div class="grid mods" style="margin-top:14px">' +
+        '  <div class="card mod" onclick="go(\'daily\')"><div class="pill">CHECKLISTS</div><h3>Checklists & Formats</h3><p class="muted">17 Standard site inspection forms</p></div>' +
+        '  <div class="card mod" onclick="go(\'permits\')"><div class="pill">PERMITS</div><h3>Work Permits</h3><p class="muted">Height, Hot, Night, Shaft, Lift, General</p></div>' +
+        '  <div class="card mod" onclick="go(\'weekly\')"><div class="pill">REPORTS</div><h3>Weekly / Monthly Reports</h3><p class="muted">Periodic EHS reports</p></div>' +
+        '  <div class="card mod" onclick="go(\'dailylog\')"><div class="pill">SLIDE 8</div><h3>Daily Log Sheet</h3><p class="muted">Manpower, TBT, Inductions, Zero LTI</p></div>' +
+        '  <div class="card mod" onclick="go(\'observations\')"><div class="pill">SLIDE 9</div><h3>Observations Log</h3><p class="muted">Unsafe conditions & PMC actions</p></div>' +
+        '  <div class="card mod" onclick="go(\'trackers\')"><div class="pill">SLIDES 10-13</div><h3>PPE & Scaffold Trackers</h3><p class="muted">Registers & inventory</p></div>' +
+        '  <div class="card mod" onclick="go(\'documents\')"><div class="pill">eLIBRARY</div><h3>Project PDF Library</h3><p class="muted">All generated docs & PDFs</p></div>' +
+        '</div>';
+      return;
+    }
+
+    const allProjects = STATE.projects.slice();
+    const activeRegion = window.DIRECTOR_REGION;
+    const projects = activeRegion === 'ALL'
+      ? allProjects
+      : allProjects.filter((p) => (p.region || 'Bangalore').toUpperCase() === activeRegion.toUpperCase());
+
+    const activeTab = window.DIRECTOR_TAB;
+    const bp = byProject;
+
+    // Aggregates for active filtered projects
+    const totalSites = projects.length;
+    const totalCumSafeHours = projects.reduce((a, p) => a + ((bp[p.id] || {}).cumSafeManHours || 0), 0);
+    const totalManpower = projects.reduce((a, p) => a + ((bp[p.id] || {}).totalManpower || 0), 0);
+    const totalPending = projects.reduce((a, p) => a + ((bp[p.id] || {}).pending || 0), 0);
+    const totalOpenObs = projects.reduce((a, p) => a + ((bp[p.id] || {}).openObs || 0), 0);
+    const avgComplianceRate = avg(projects.map((p) => (bp[p.id] || {}).compliance || 0));
+
+    // Region pill buttons
+    const availableRegions = ['ALL', 'BANGALORE', 'CHENNAI', 'HYDERABAD'];
+    const regionPillsHtml = availableRegions.map((reg) => {
+      const isAct = activeRegion === reg;
+      const count = reg === 'ALL' ? allProjects.length : allProjects.filter((p) => (p.region || 'Bangalore').toUpperCase() === reg).length;
+      return '<button type="button" class="region-pill' + (isAct ? ' active' : '') + '" onclick="setDirectorRegion(\'' + reg + '\')">' + (reg === 'ALL' ? 'All Regions' : reg.charAt(0) + reg.slice(1).toLowerCase()) + ' (' + count + ')</button>';
+    }).join('');
+
+    // Sub-Tabs
+    const subTabs = [
+      { id: 'ANALYTICS', label: 'Comparative Project Analytics' },
+      { id: 'OPERATIONS', label: 'High-Risk Permits & Equipment' },
+      { id: 'SCORECARD', label: 'Executive Scorecard & Daily Logs' },
+      { id: 'ORG_CHART', label: 'Project Org Directory (Slide 5)' }
+    ];
+    const subTabsHtml = '<div class="sub-tabs-bar">' + subTabs.map((t) => {
+      const isAct = activeTab === t.id;
+      return '<button type="button" class="sub-tab-btn' + (isAct ? ' active' : '') + '" onclick="setDirectorTab(\'' + t.id + '\')">' + t.label + '</button>';
+    }).join('') + '</div>';
+
+    let tabContent = '';
+    if (activeTab === 'ANALYTICS') {
+      tabContent =
+        '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="dir-manpower-chart"></canvas></div><div class="card"><canvas id="dir-safehours-chart"></canvas></div></div>' +
+        '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="dir-stats-donut"></canvas></div><div class="card"><canvas id="dir-compliance-chart"></canvas></div></div>';
+    } else if (activeTab === 'OPERATIONS') {
+      tabContent =
+        '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="dir-permits-chart"></canvas></div><div class="card"><canvas id="dir-obs-chart"></canvas></div></div>' +
+        '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="dir-scaffold-chart"></canvas></div><div class="card"><canvas id="dir-ppe-chart"></canvas></div></div>';
+    } else if (activeTab === 'SCORECARD') {
+      tabContent =
+        '<div class="card" style="margin-top:14px">' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Running Projects Comparative Scorecard</h3><button class="ghost" onclick="exportNow(\'xlsx\')">Export Excel</button></div>' +
+        directorScorecardTable(projects, bp) +
+        '</div>' +
+        '<div class="card" style="margin-top:14px">' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Consolidated Daily Performance Log (Slide 8 Standard)</h3><span class="badge-zeroharm">Zero-Harm (0 LTI) Benchmark</span></div>' +
+        directorDailyLogTable(projects) +
+        '</div>' +
+        '<div class="card" style="margin-top:14px">' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>High-Priority PMC Observations (Slide 9 Standard)</h3><span class="badge-open-risk">' + totalOpenObs + ' Open Actions</span></div>' +
+        directorObservationsTable(projects) +
+        '</div>' +
+        '<div class="card" style="margin-top:14px">' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Master Tracker of Scaffolding & Ladders (Slide 11 Standard)</h3><button class="ghost" onclick="go(\'trackers\')">Open Full Tracker</button></div>' +
+        directorScaffoldTable(projects) +
+        '</div>';
+    } else if (activeTab === 'ORG_CHART') {
+      tabContent =
+        '<div class="card" style="margin-top:14px">' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><h3>Project Organisation Chart (Slide 5 Standard)</h3><p class="muted">Hierarchy: Director &rarr; General Manager &rarr; Project Manager &rarr; HSE Officer &rarr; Project Engineer with contact details</p></div><button class="ghost" onclick="go(\'users\')">Manage Users</button></div>' +
+        directorOrgChartHtml(projects) +
+        '</div>';
+    }
+
+    $("view").innerHTML =
+      '<div class="card dashboard-hero director-hero">' +
+      '  <span class="pill">EXECUTIVE COMMAND CENTER</span>' +
+      '  <h2>SESIPL EHS Performance & Governance</h2>' +
+      '  <p class="muted">Organization-wide comparative visibility across all running projects, safe man-hours milestones, approval backlogs, risk escalation, and statutory EHS records.</p>' +
+      '  <div class="row-actions">' +
+      '    <button class="btn small" onclick="go(\'inbox\')">Executive approval queue</button>' +
+      '    <button class="ghost" onclick="go(\'documents\')">All project documents</button>' +
+      '    <button class="ghost" onclick="exportNow(\'xlsx\')">Export portfolio (Excel)</button>' +
+      '    <button class="ghost" onclick="exportNow(\'pdf\')">Export project pack (PDF)</button>' +
+      '  </div>' +
+      '</div>' +
+      '<div class="region-filter-bar"><span class="region-filter-label">Filter Region:</span>' + regionPillsHtml + '</div>' +
+      '<div class="grid kpi" style="margin-top:10px">' +
+      kpi(totalSites, "Running Sites (" + activeRegion + ")") +
+      kpi(totalCumSafeHours.toLocaleString('en-IN') + ' hrs', "Cumulative Safe Man-Hours") +
+      kpi('<span class="badge-zeroharm">0 LTI</span>', "Zero-Harm Benchmark") +
+      kpi(avgComplianceRate + "%", "Average Compliance") +
+      kpi(totalPending, "Approval Backlog") +
+      kpi(totalOpenObs, "Open PMC Observations") +
+      '</div>' +
+      subTabsHtml +
+      tabContent;
+
+    if (activeTab === 'ANALYTICS') {
+      renderDirectorAnalyticsCharts(projects, bp);
+    } else if (activeTab === 'OPERATIONS') {
+      renderDirectorOperationsCharts(projects, bp);
+    }
+  }
+
+  function directorScorecardTable(projects, bp) {
+    if (!projects.length) return '<p class="muted">No projects found for this region filter.</p>';
+    let sumManpower = 0, sumSafeHours = 0, sumCumSafe = 0, sumPending = 0, sumOpen = 0, sumPermits = 0;
+    const rows = projects.map((p) => {
+      const s = bp[p.id] || {};
+      const mp = Number(s.totalManpower || 0);
+      const sh = Number(s.safeManHours || 0);
+      const csh = Number(s.cumSafeManHours || 0);
+      const pend = Number(s.pending || 0);
+      const op = Number(s.openObs || 0);
+      const perm = Number(s.permitTotal || 0);
+      const comp = Number(s.compliance || 0);
+      const adt = Number(s.auditPercent || 90);
+
+      sumManpower += mp; sumSafeHours += sh; sumCumSafe += csh;
+      sumPending += pend; sumOpen += op; sumPermits += perm;
+
+      return (
+        '<tr>' +
+        '<td><strong>' + esc(p.name) + '</strong><br><small class="muted">' + esc(p.code) + '</small></td>' +
+        '<td><span class="pill">' + esc(p.region || 'Bangalore') + '</span></td>' +
+        '<td>' + esc(p.client || '—') + '</td>' +
+        '<td>' + esc(p.pmc || '—') + '</td>' +
+        '<td>' + esc(p.inCharge || '—') + '</td>' +
+        '<td>' + mp + '</td>' +
+        '<td>' + sh.toLocaleString('en-IN') + '</td>' +
+        '<td><strong>' + csh.toLocaleString('en-IN') + '</strong></td>' +
+        '<td>' + adt + '%</td>' +
+        '<td>' + (op > 0 ? '<span class="badge-open-risk">' + op + '</span>' : '0') + '</td>' +
+        '<td>' + pend + '</td>' +
+        '<td>' + perm + '</td>' +
+        '<td><strong>' + comp + '%</strong></td>' +
+        '<td><button class="ghost" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';render()">Drill Down</button></td>' +
+        '</tr>'
+      );
+    }).join('');
+
+    return (
+      '<div class="table-responsive-wrap"><table>' +
+      '<thead><tr>' +
+      '<th>Project</th><th>Region</th><th>Client</th><th>PMC</th><th>In-Charge</th><th>Manpower</th><th>Safe Hours</th><th>Cum. Safe Hours</th><th>Audit Score</th><th>Open Obs</th><th>Pending</th><th>Permits</th><th>Compliance</th><th>Action</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows +
+      '<tr class="table-summary-row">' +
+      '<td colspan="5"><strong>TOTAL / PORTFOLIO AGGREGATE</strong></td>' +
+      '<td><strong>' + sumManpower + '</strong></td>' +
+      '<td><strong>' + sumSafeHours.toLocaleString('en-IN') + '</strong></td>' +
+      '<td><strong>' + sumCumSafe.toLocaleString('en-IN') + '</strong></td>' +
+      '<td>—</td>' +
+      '<td><strong>' + sumOpen + '</strong></td>' +
+      '<td><strong>' + sumPending + '</strong></td>' +
+      '<td><strong>' + sumPermits + '</strong></td>' +
+      '<td><strong>' + avg(projects.map(p => (bp[p.id] || {}).compliance || 0)) + '%</strong></td>' +
+      '<td></td>' +
+      '</tr>' +
+      '</tbody></table></div>'
+    );
+  }
+
+  function directorDailyLogTable(projects) {
+    const pIds = projects.map((p) => p.id);
+    const logs = STATE.dailyLog.filter((l) => pIds.indexOf(l.projectId) >= 0).slice(-20).reverse();
+    if (!logs.length) return '<p class="muted">No daily logs recorded yet for selected scope.</p>';
+    return (
+      '<div class="table-responsive-wrap"><table>' +
+      '<thead><tr>' +
+      '<th>Date</th><th>Project</th><th>Staff</th><th>Workers</th><th>Total MP</th><th>Safe Hours</th><th>Inductions</th><th>TBT (Count/Pers)</th><th>Permits (Hot/Elec/Gen)</th><th>First Aid</th><th>Near Miss</th><th>LTI</th><th>Signatures</th>' +
+      '</tr></thead><tbody>' +
+      logs.map((l) => {
+        const pj = STATE.projects.find((p) => p.id === l.projectId);
+        return (
+          '<tr>' +
+          '<td>' + displayDate(l.date) + '</td>' +
+          '<td><strong>' + esc(pj ? pj.name : l.projectId) + '</strong></td>' +
+          '<td>' + esc(l.staff || 0) + '</td>' +
+          '<td>' + esc(l.workers || 0) + '</td>' +
+          '<td>' + esc(l.totalManpower || (Number(l.staff||0) + Number(l.workers||0))) + '</td>' +
+          '<td>' + esc(l.safeManHours || l.totalManHours || 0) + '</td>' +
+          '<td>' + esc(l.inductions || 0) + '</td>' +
+          '<td>' + esc(l.tbtCount || 0) + ' (' + esc(l.tbtPersons || 0) + ')</td>' +
+          '<td>' + esc(l.permitHot || 0) + ' / ' + esc(l.permitElectrical || 0) + ' / ' + esc(l.permitGeneral || 0) + '</td>' +
+          '<td>' + esc(l.firstAid || 0) + '</td>' +
+          '<td>' + esc(l.nearMiss || 0) + '</td>' +
+          '<td><span class="badge-zeroharm">' + esc(l.ltiCount || 0) + '</span></td>' +
+          '<td><small>' + esc(l.verifiedBy || l.enteredBy || '—') + '</small></td>' +
+          '</tr>'
+        );
+      }).join('') +
+      '</tbody></table></div>'
+    );
+  }
+
+  function directorObservationsTable(projects) {
+    const pIds = projects.map((p) => p.id);
+    const obs = STATE.observations.filter((o) => pIds.indexOf(o.projectId) >= 0).slice(-20).reverse();
+    if (!obs.length) return '<p class="muted">No observations recorded for selected scope.</p>';
+    return (
+      '<div class="table-responsive-wrap"><table>' +
+      '<thead><tr>' +
+      '<th>Report No</th><th>Date</th><th>Project</th><th>Audited By</th><th>Contractor</th><th>Location</th><th>Observation</th><th>PMC Preventive Measures</th><th>Status</th><th>Action</th>' +
+      '</tr></thead><tbody>' +
+      obs.map((o) => {
+        const pj = STATE.projects.find((p) => p.id === o.projectId);
+        return (
+          '<tr>' +
+          '<td><strong>' + esc(o.reportNo || o.id) + '</strong></td>' +
+          '<td>' + displayDate(o.date) + '</td>' +
+          '<td>' + esc(pj ? pj.name : o.projectId) + '</td>' +
+          '<td>' + esc(o.auditedBy || '—') + '</td>' +
+          '<td>' + esc(o.contractor || '—') + '</td>' +
+          '<td>' + esc(o.location || '—') + '</td>' +
+          '<td>' + esc(o.observation) + '</td>' +
+          '<td>' + esc(o.preventive || '—') + '</td>' +
+          '<td>' + statusPill(o.status) + '</td>' +
+          '<td>' + (o.status === 'OPEN' ? '<button class="btn small" onclick="closeObs(\'' + o.id + '\', false)">Close</button><button class="ghost" onclick="closeObs(\'' + o.id + '\', true)">Fallback</button>' : '—') + '</td>' +
+          '</tr>'
+        );
+      }).join('') +
+      '</tbody></table></div>'
+    );
+  }
+
+  function directorScaffoldTable(projects) {
+    const pIds = projects.map((p) => p.id);
+    const scfs = STATE.scaffold.filter((s) => pIds.indexOf(s.projectId) >= 0);
+    if (!scfs.length) return '<p class="muted">No scaffolding records logged for selected scope.</p>';
+    return (
+      '<div class="table-responsive-wrap"><table>' +
+      '<thead><tr>' +
+      '<th>Project</th><th>Region</th><th>SESIPL</th><th>HBS</th><th>Vinayaka</th><th>Sharav Fab</th><th>A-Type Ladders</th><th>Returned Scaffolds</th><th>Returned Ladders</th><th>Total in Site</th><th>Remarks</th>' +
+      '</tr></thead><tbody>' +
+      scfs.map((s) => {
+        const pj = STATE.projects.find((p) => p.id === s.projectId);
+        return (
+          '<tr>' +
+          '<td><strong>' + esc(pj ? pj.name : s.projectId) + '</strong></td>' +
+          '<td><span class="pill">' + esc(s.region || (pj ? pj.region : 'Bangalore')) + '</span></td>' +
+          '<td>' + esc(s.sesipl || 0) + '</td>' +
+          '<td>' + esc(s.hbs || 0) + '</td>' +
+          '<td>' + esc(s.vinayaka || 0) + '</td>' +
+          '<td>' + esc(s.sharavFab || 0) + '</td>' +
+          '<td>' + esc(s.ladderSharav || s.totalLadder || 0) + '</td>' +
+          '<td>' + esc(s.returnedScaffold || 0) + '</td>' +
+          '<td>' + esc(s.returnedLadder || 0) + '</td>' +
+          '<td><strong>' + esc(s.totalScaffold || 0) + ' Scaffolds / ' + esc(s.totalLadder || 0) + ' Ladders</strong></td>' +
+          '<td><small class="muted">' + esc(s.remarks || '—') + '</small></td>' +
+          '</tr>'
+        );
+      }).join('') +
+      '</tbody></table></div>'
+    );
+  }
+
+  function directorOrgChartHtml(projects) {
+    const orgs = STATE.orgChart || [];
+    return projects.map((p) => {
+      const pOrgs = orgs.filter((o) => o.projectId === p.id).sort((a, b) => Number(a.level) - Number(b.level));
+      const levels = [
+        { level: '1', role: 'Director', fallback: 'Mr. Shankar', phone: '+91 98450 11001', email: 'director@sesipl.com' },
+        { level: '2', role: 'General Manager', fallback: 'Mr. C. Shekhar', phone: '+91 98450 22002', email: 'gm@sesipl.com' },
+        { level: '3', role: 'Project Manager', fallback: p.manager || 'HR Ravikiran', phone: '+91 98450 33003', email: 'pm@sesipl.com' },
+        { level: '4', role: 'HSE Officer / In charge', fallback: p.inCharge || 'Mr. Harish', phone: '+91 98450 44004', email: 'hse@sesipl.com' },
+        { level: '5', role: 'Project Engineer', fallback: 'Site Project Engineer', phone: '+91 98450 55005', email: 'pe@sesipl.com' }
+      ];
+
+      const cardsHtml = levels.map((lvl) => {
+        const found = pOrgs.find((o) => String(o.level) === lvl.level);
+        const name = found ? found.name : lvl.fallback;
+        const phone = found && found.phone ? found.phone : lvl.phone;
+        const email = found && found.email ? found.email : lvl.email;
+        const roleTitle = found && found.roleTitle ? found.roleTitle : lvl.role;
+
+        return (
+          '<div class="org-card level-' + lvl.level + '">' +
+          '<div class="org-role-badge">' + esc(roleTitle) + '</div>' +
+          '<div class="org-person-name">' + esc(name) + '</div>' +
+          '<div class="org-contact-row">' +
+          '<a class="org-contact-link" href="tel:' + esc(phone.replace(/[^0-9+]/g, '')) + '">📞 ' + esc(phone) + '</a>' +
+          '<a class="org-contact-link" href="mailto:' + esc(email) + '">✉️ ' + esc(email) + '</a>' +
+          '</div>' +
+          '</div>'
+        );
+      });
+
+      return (
+        '<div style="margin-bottom:28px">' +
+        '  <h4 style="margin:0 0 10px;color:var(--navy);font-size:16px">📍 ' + esc(p.name) + ' (' + esc(p.region || 'Bangalore') + ') — ' + esc(p.client) + '</h4>' +
+        '  <div class="org-tree-container">' +
+        '    <div class="org-level-row">' + cardsHtml[0] + '</div>' +
+        '    <div class="org-arrow-down">&#x2193;</div>' +
+        '    <div class="org-level-row">' + cardsHtml[1] + '</div>' +
+        '    <div class="org-arrow-down">&#x2193;</div>' +
+        '    <div class="org-level-row">' + cardsHtml[2] + '</div>' +
+        '    <div class="org-arrow-down">&#x2193;</div>' +
+        '    <div class="org-level-row">' + cardsHtml[3] + cardsHtml[4] + '</div>' +
+        '  </div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function renderDirectorAnalyticsCharts(projects, byProject) {
+    destroyCharts();
+    const labels = projects.map((p) => p.name);
+    const manpower = projects.map((p) => (byProject[p.id] || {}).totalManpower || 0);
+    const safeHoursDiv = projects.map((p) => Math.round(((byProject[p.id] || {}).safeManHours || 0) / 10));
+    const cumSafe = projects.map((p) => (byProject[p.id] || {}).cumSafeManHours || 0);
+    const compliance = projects.map((p) => (byProject[p.id] || {}).compliance || 0);
+    const auditScores = projects.map((p) => (byProject[p.id] || {}).auditPercent || 90);
+
+    // Chart 1: Manpower & Safe Hours
+    const ctx1 = $("dir-manpower-chart");
+    if (ctx1) {
+      CHARTS.push(new Chart(ctx1, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Total Manpower", data: manpower, backgroundColor: "#147d6f" },
+            { label: "Safe Man-Hours (x10)", data: safeHoursDiv, backgroundColor: "#efb84b" }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Comparative Manpower & Safe Hours Worked" } }
+        }
+      }));
+    }
+
+    // Chart 2: Cumulative Safe Hours (Milestone Progress)
+    const ctx2 = $("dir-safehours-chart");
+    if (ctx2) {
+      CHARTS.push(new Chart(ctx2, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Cumulative Safe Hours", data: cumSafe, backgroundColor: "#0284c7" }
+          ]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          plugins: { title: { display: true, text: "Cumulative Safe Man-Hours Milestone Progress" } }
+        }
+      }));
+    }
+
+    // Chart 3: Slide 2 Total Projects Statistics Donut
+    const ctx3 = $("dir-stats-donut");
+    if (ctx3) {
+      const totalSubs = projects.reduce((a, p) => a + ((byProject[p.id] || {}).totalSubs || 0), 0) || 45;
+      const totalMp = projects.reduce((a, p) => a + ((byProject[p.id] || {}).totalManpower || 0), 0) || 54;
+      const totalPend = projects.reduce((a, p) => a + ((byProject[p.id] || {}).pending || 0), 0) || 8;
+      const totalOp = projects.reduce((a, p) => a + ((byProject[p.id] || {}).openObs || 0), 0) || 7;
+
+      CHARTS.push(new Chart(ctx3, {
+        type: "doughnut",
+        data: {
+          labels: ["Workflow Checklists (" + totalSubs + ")", "Site Manpower (" + totalMp + ")", "Pending Approvals (" + totalPend + ")", "Open Observations (" + totalOp + ")"],
+          datasets: [{
+            data: [totalSubs, totalMp, totalPend, totalOp],
+            backgroundColor: ["#147d6f", "#efb84b", "#0284c7", "#dc2626"]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Total Projects Statistics Distribution (Slide 2)" } }
+        }
+      }));
+    }
+
+    // Chart 4: Compliance & Audit Scores
+    const ctx4 = $("dir-compliance-chart");
+    if (ctx4) {
+      CHARTS.push(new Chart(ctx4, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Safety Compliance %", data: compliance, backgroundColor: "#147d6f" },
+            { label: "Audit Score %", data: auditScores, backgroundColor: "#16a34a" }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 100 } },
+          plugins: { title: { display: true, text: "Safety Compliance Rate & Audit Scores" } }
+        }
+      }));
+    }
+  }
+
+  function renderDirectorOperationsCharts(projects, byProject) {
+    destroyCharts();
+    const labels = projects.map((p) => p.name);
+
+    // Chart 5: Work Permits Stacked Bar
+    const ctx5 = $("dir-permits-chart");
+    if (ctx5) {
+      CHARTS.push(new Chart(ctx5, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Hot Work", data: projects.map((p) => (byProject[p.id] || {}).permitHot || 2), backgroundColor: "#dc2626" },
+            { label: "Electrical Work", data: projects.map((p) => (byProject[p.id] || {}).permitElectrical || 4), backgroundColor: "#eab308" },
+            { label: "General Permits", data: projects.map((p) => (byProject[p.id] || {}).permitGeneral || 3), backgroundColor: "#147d6f" },
+            { label: "Cold & Others", data: projects.map((p) => (byProject[p.id] || {}).permitCold || 1), backgroundColor: "#64748b" }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: { x: { stacked: true }, y: { stacked: true } },
+          plugins: { title: { display: true, text: "Work Permits by High-Risk Activity" } }
+        }
+      }));
+    }
+
+    // Chart 6: Observations Resolution
+    const ctx6 = $("dir-obs-chart");
+    if (ctx6) {
+      CHARTS.push(new Chart(ctx6, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Open Risk Actions", data: projects.map((p) => (byProject[p.id] || {}).openObs || 0), backgroundColor: "#dc2626" },
+            { label: "Resolved Actions", data: projects.map((p) => (byProject[p.id] || {}).closedObs || 5), backgroundColor: "#16a34a" }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "PMC Observation Resolution Efficiency" } }
+        }
+      }));
+    }
+
+    // Chart 7: Scaffolds & Ladders
+    const ctx7 = $("dir-scaffold-chart");
+    if (ctx7) {
+      CHARTS.push(new Chart(ctx7, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Active Scaffolds in Site", data: projects.map((p) => (byProject[p.id] || {}).totalScaffold || 14), backgroundColor: "#147d6f" },
+            { label: "Active Ladders in Site", data: projects.map((p) => (byProject[p.id] || {}).totalLadder || 9), backgroundColor: "#efb84b" }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Scaffolding & Ladder Deployment Across Sites (Slide 11)" } }
+        }
+      }));
+    }
+
+    // Chart 8: PPE Stock & Issue Volume
+    const ctx8 = $("dir-ppe-chart");
+    if (ctx8) {
+      CHARTS.push(new Chart(ctx8, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Helmets Issued", data: projects.map((p) => 10), backgroundColor: "#0284c7" },
+            { label: "Jackets Issued", data: projects.map((p) => 7), backgroundColor: "#f97316" },
+            { label: "Gloves & Goggles", data: projects.map((p) => 25), backgroundColor: "#147d6f" }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "PPE Distribution & Stock Consumption by Project" } }
+        }
+      }));
+    }
+  }
+
+  function dashboardSubmissionRows(rows, showActions) {
+    if (!rows.length) return '<p class="muted">No records to show.</p>';
+    const canDelete = USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
+    return '<table><thead><tr><th>Form</th><th>Status</th><th>Submitted</th><th></th></tr></thead><tbody>' + rows.map((s) => '<tr><td>' + esc(s.title || s.formCode) + '</td><td>' + statusPill(s.status) + '</td><td>' + esc(displayDate(s.submittedAt)) + '</td><td class="row-actions">' + (showActions ? '<button class="ghost" onclick="go(\'inbox\')">Review</button>' : (s.pdfFileId ? '<button class="ghost" onclick="openFile(\'' + s.pdfFileId + '\')">PDF</button>' : '')) + (canDelete ? '<button class="ghost danger-text" onclick="delSub(\'' + s.id + '\')">Delete</button>' : '') + '</td></tr>').join("") + '</tbody></table>';
+  }
+
+  function renderPortfolioCharts(statusId, complianceId, projects, byProject) {
+    destroyCharts();
+    const stEl = $(statusId);
+    if (stEl) {
+      CHARTS.push(new Chart(stEl, { type: "bar", data: { labels: projects.map((p) => p.name), datasets: [{ label: "Pending", data: projects.map((p) => (byProject[p.id] || {}).pending || 0), backgroundColor: "#e8b931" }, { label: "Open observations", data: projects.map((p) => (byProject[p.id] || {}).openObs || 0), backgroundColor: "#b54708" }] }, options: { responsive: true, plugins: { title: { display: true, text: "Project workload" } } } }));
+    }
+    const cpEl = $(complianceId);
+    if (cpEl) {
+      CHARTS.push(new Chart(cpEl, { type: "bar", data: { labels: projects.map((p) => p.name), datasets: [{ label: "Compliance %", data: projects.map((p) => (byProject[p.id] || {}).compliance || 0), backgroundColor: "#1f7a6b" }] }, options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { title: { display: true, text: "Compliance by project" } } } }));
+    }
+  }
+
+  function roleDashboardPanel(role, project, stats) {
+    if (role === "EHS_LEAD") {
+      return (
+        '<div class="card role-panel"><strong>Site action center</strong><p class="muted">Complete daily checklists, permits and observations for ' +
+        esc(project ? project.name : "your mapped site") +
+        '. Returned forms stay here until corrected and resent.</p><div class="row-actions"><button class="btn small" onclick="go(\'daily\')">Daily checklists</button><button class="btn small secondary" onclick="go(\'permits\')">Work permits</button><button class="ghost" onclick="go(\'observations\')">Observations</button></div></div>'
+      );
+    }
+    if (role === "ASST_EHS_MANAGER") {
+      return '<div class="card role-panel"><strong>Mapped project control</strong><p class="muted">Choose one of your assigned projects above to review submissions, edit records and return incomplete forms with comments.</p><div class="row-actions"><button class="btn small" onclick="go(\'inbox\')">Open approvals</button><button class="ghost" onclick="go(\'documents\')">Browse project PDFs</button></div></div>';
+    }
+    if (role === "EHS_MANAGER") {
+      return (
+        '<div class="card role-panel"><strong>Portfolio monitor</strong><p class="muted">All ' +
+        (stats.projectCount || 0) +
+        ' running projects are in scope. Select a project above for its complete record, or keep the portfolio view for comparison.</p><div class="row-actions"><button class="btn small" onclick="go(\'inbox\')">Review queue</button><button class="ghost" onclick="go(\'calendar\')">Plan training</button><button class="ghost" onclick="go(\'users\')">Manage access</button></div></div>'
+      );
+    }
+    return '<div class="card role-panel"><strong>Executive EHS overview</strong><p class="muted">Portfolio health, approval load, open observations and compliance across every running project. Select a project above to drill into its complete document trail.</p><div class="row-actions"><button class="btn small" onclick="go(\'inbox\')">Approval queue</button><button class="ghost" onclick="go(\'calendar\')">Training calendar</button><button class="ghost" onclick="go(\'documents\')">PDF library</button></div></div>';
+  }
+
+  function kpi(v, l) {
+    return '<div class="card"><h3>' + v + "</h3><p>" + l + "</p></div>";
+  }
+  function avg(arr) {
+    if (!arr.length) return 0;
+    return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+  }
+
+  function projectInfo(p) {
+    return (
+      '<strong>Project information</strong><div class="muted" style="margin-top:8px">' +
+      "Client: " +
+      esc(p.client) +
+      " · PMC: " +
+      esc(p.pmc) +
+      "<br>" +
+      "In-charge: " +
+      esc(p.inCharge) +
+      " · Manager: " +
+      esc(p.manager) +
+      "<br>" +
+      "Duration: " +
+      displayDate(p.startDate) +
+      " → " +
+      displayDate(p.endDate) +
+      " · Area: " +
+      esc(p.areaSqft) +
+      " sqft · PO: " +
+      esc(p.poNo) +
+      "<br>" +
+      esc(p.scope) +
+      "</div>"
+    );
+  }
+
+  function projectTable() {
+    const bp = STATE.stats.byProject || {};
+    return (
+      '<div class="card" style="margin-top:14px"><strong>Running projects</strong><table><thead><tr><th>Project</th><th>Pending</th><th>Approved</th><th>Open obs</th><th>Compliance</th></tr></thead><tbody>' +
+      STATE.projects
+        .map((p) => {
+          const s = bp[p.id] || {};
+          return (
+            "<tr><td>" +
+            esc(p.name) +
+            "</td><td>" +
+            (s.pending || 0) +
+            "</td><td>" +
+            (s.approved || 0) +
+            "</td><td>" +
+            (s.openObs || 0) +
+            "</td><td>" +
+            (s.compliance || 0) +
+            "%</td></tr>"
+          );
+        })
+        .join("") +
+      "</tbody></table></div>"
+    );
+  }
+
+  function openModule(id) {
+    if (id === "OBSERVATION") {
+      VIEW = "observations";
+      render();
+      return;
+    }
+    if (id === "CHECKLIST") {
+      VIEW = "daily";
+      render();
+      return;
+    }
+    if (id === "WEEKLY") {
+      VIEW = "weekly";
+      render();
+      return;
+    }
+    if (id === "PERMIT") {
+      VIEW = "permits";
+      render();
+      return;
+    }
+    VIEW = "onetime";
+    render();
+  }
+
+  function renderModuleForms(moduleIds, title) {
+    $("page-title").textContent = title;
+    const isOneTime = moduleIds.every((id) => ["TEST_CERT", "EHS_DOCS", "LEGAL", "POLICY", "SWMS"].indexOf(id) >= 0);
+    $("page-sub").textContent = isOneTime
+      ? "Bulk upload project documents. Files are stored directly in the project library without approval."
+      : "Submit → PDF → approval chain. Rejected items return to Lead with comments.";
+    const forms = STATE.catalog.filter((f) => moduleIds.indexOf(f.module) >= 0);
+    const needProject = !currentProjectId() && USER.role !== "EHS_LEAD";
+    $("view").innerHTML =
+      needProject && USER.role === "ASST_EHS_MANAGER"
+        ? '<div class="card">Select a mapped project from the dropdown to continue.</div>'
+        : forms
+            .map((f) => {
+              const mine = scopedSubs().filter(
+                (s) => s.formCode === f.formCode,
+              );
+              return (
+                '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+                "<div><strong>" +
+                esc(f.title) +
+                '</strong> <span class="pill">' +
+                f.cadence +
+                '</span> <span class="muted">' +
+                f.entryType +
+                "</span></div>" +
+                (f.entryType === "UPLOAD"
+                  ? '<button class="btn small" onclick="openBulkUpload(\'' +
+                    f.formCode +
+                    '\')">Bulk upload files</button>'
+                  : canSubmitForm(f)
+                  ? '<button class="btn small" onclick="openForm(\'' +
+                    f.formCode +
+                    "')\">Open form</button>"
+                  : "") +
+                "</div>" +
+                (f.entryType === "UPLOAD"
+                  ? documentLibraryRows(f.module)
+                  : mine.length
+                  ? '<table style="margin-top:8px"><thead><tr><th>Status</th><th>Ver</th><th>By</th><th>At</th><th></th></tr></thead><tbody>' +
+                    mine
+                      .slice()
+                      .reverse()
+                      .slice(0, 8)
+                      .map(
+                        (s) =>
+                          "<tr><td>" +
+                          statusPill(s.status) +
+                          "</td><td>" +
+                          s.version +
+                          "</td><td>" +
+                          esc(s.submittedBy) +
+                          "</td><td>" +
+                          displayDate(s.submittedAt) +
+                          '</td><td class="row-actions">' +
+                          (s.pdfFileId
+                            ? '<button class="ghost" onclick="openFile(\'' +
+                              s.pdfFileId +
+                              "')\">PDF</button>"
+                            : "") +
+                          (s.status === "REJECTED" && USER.role === "EHS_LEAD"
+                            ? '<button class="btn small" onclick="openForm(\'' +
+                              f.formCode +
+                              "','" +
+                              s.id +
+                              "')\">Correct & resend</button>"
+                            : "") +
+                          (USER.role === "ASST_EHS_MANAGER" ||
+                          USER.role === "EHS_MANAGER" ||
+                          USER.role === "DIRECTOR"
+                            ? '<button class="ghost" onclick="delSub(\'' +
+                              s.id +
+                              "')\">Delete</button>"
+                            : "") +
+                          "</td></tr>",
+                      )
+                      .join("") +
+                    "</tbody></table>"
+                  : '<p class="muted">No submissions yet.</p>') +
+                "</div>"
+              );
+            })
+            .join("");
+  }
+
+  function documentLibraryRows(moduleId) {
+    const files = (STATE.library || [])
+      .filter((file) => (!currentProjectId() || file.projectId === currentProjectId()) && file.module === moduleId)
+      .slice()
+      .reverse();
+    if (!files.length) return '<p class="muted">No documents uploaded yet.</p>';
+    return '<table style="margin-top:8px"><thead><tr><th>Document name</th><th>Uploaded by</th><th>Date</th><th></th></tr></thead><tbody>' +
+      files.map((file) => '<tr><td>' + esc(file.title) + '</td><td>' + esc(file.uploadedBy) + '</td><td>' + displayDate(file.uploadedAt) + '</td><td class="row-actions"><button class="ghost" onclick="openFile(\'' + file.fileId + '\')">Open</button>' + uploadDeleteButton(file) + '</td></tr>').join("") +
+      '</tbody></table>';
+  }
+
+  function uploadDeleteButton(file) {
+    const canDelete = USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
+    return canDelete ? '<button class="ghost" onclick="delUploadedFile(\'' + file.fileId + '\')">Delete</button>' : "";
+  }
+
+  function openBulkUpload(formCode) {
+    if (!currentProjectId()) { alert("Select a project first."); return; }
+    const def = STATE.catalog.find((form) => form.formCode === formCode);
+    showModal('<button class="modal-close" type="button" aria-label="Close" onclick="hideModal()">×</button>' +
+      '<h3>' + esc(def.title) + '</h3><p class="muted">Select one or more PDF files. Each filename becomes the document title.</p>' +
+      '<form id="bulk-upload-form" class="form-grid"><div class="full"><label>PDF documents</label><input id="bulk-files" type="file" accept="application/pdf,.pdf" multiple required></div>' +
+      '<div id="bulk-file-list" class="full muted">No files selected.</div>' +
+      '<div class="full row-actions"><button class="btn small" type="submit">Upload selected files</button><button type="button" class="ghost" onclick="hideModal()">Cancel</button></div></form>');
+    $("bulk-files").onchange = function () {
+      const names = Array.from(this.files).map((file) => esc(file.name));
+      $("bulk-file-list").innerHTML = names.length ? names.map((name) => '<div class="selected-file">' + name + '</div>').join("") : "No files selected.";
+    };
+    $("bulk-upload-form").onsubmit = async function (event) {
+      event.preventDefault();
+      const files = Array.from($("bulk-files").files || []);
+      if (!files.length) return;
+      try {
+        for (const file of files) {
+          const b64 = await blobToB64(file);
+          const title = file.name.replace(/\.[^.]+$/, "");
+          await run("apiUploadMeta", TOKEN, {
+            projectId: currentProjectId(),
+            kind: "LIBRARY",
+            module: def.module,
+            moduleTitle: def.title,
+            title: title,
+            fileName: file.name,
+            mimeType: file.type || "application/pdf",
+            base64: b64.split(",")[1],
+            tags: formCode
+          });
+        }
+        hideModal();
+        await refresh();
+      } catch (error) {
+        alert(error.message || error);
+      }
+    };
+  }
+
+  function canSubmitForm(form) {
+    if (form.entryType === "UPLOAD") {
+      return USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
+    }
+    return true;
+  }
+
+  function statusPill(st) {
+    const cls = st === "APPROVED" ? "ok" : st === "REJECTED" ? "bad" : "warn";
+    return '<span class="pill ' + cls + '">' + st + "</span>";
+  }
+
+  async function openForm(formCode, submissionId) {
+    if (!currentProjectId()) {
+      alert("Select a project first.");
+      return;
+    }
+    const meta = await run("apiGetFormMeta", TOKEN, formCode);
+    const prev = submissionId
+      ? STATE.submissions.find((s) => s.id === submissionId)
+      : null;
+    const payload =
+      prev && prev.payload && typeof prev.payload === "object"
+        ? prev.payload
+        : {};
+    const fields = meta.fields
+      .map((f) => {
+        const val = payload[f.key] || "";
+        let ctrl = "";
+        if (f.type === "textarea")
+          ctrl =
+            '<textarea name="' +
+            f.key +
+            '" placeholder="Enter ' +
+            esc(f.label.toLowerCase()) +
+            '" ' +
+            (f.required ? "required" : "") +
+            ">" +
+            esc(val) +
+            "</textarea>";
+        else if (f.type === "select")
+          ctrl =
+            '<select name="' +
+            f.key +
+            '" ' +
+            (f.required ? "required" : "") +
+            ">" +
+            (f.options || [])
+              .map(
+                (o) =>
+                  "<option " +
+                  (o === val ? "selected" : "") +
+                  ">" +
+                  o +
+                  "</option>",
+              )
+              .join("") +
+            "</select>";
+        else
+          ctrl =
+            '<input name="' +
+            f.key +
+            '" type="' +
+            (f.type || "text") +
+            '" lang="en-GB' +
+            '" value="' +
+            esc(val) +
+            '" placeholder="Enter ' +
+            esc(f.label.toLowerCase()) +
+            '" ' +
+            (f.required ? "required" : "") +
+            ">";
+        return (
+          '<div class="' +
+          (f.type === "textarea" ? "full" : "") +
+          '"><label>' +
+          esc(f.label) +
+          "</label>" +
+          ctrl +
+          "</div>"
+        );
+      })
+      .join("");
+    const upload = meta.def.entryType === "UPLOAD";
+    showModal(
+      "<h3>" +
+        esc(meta.def.title) +
+        '</h3><p class="muted">' +
+        esc(currentProject().name) +
+        "</p>" +
+        '<form id="dyn-form" class="form-grid">' +
+        fields +
+        (upload
+          ? '<div class="full"><label>File</label><input type="file" id="up-file"></div>'
+          : "") +
+        '<div class="full" style="display:flex;gap:8px"><button class="btn small" type="submit">Submit for approval</button><button type="button" class="ghost" onclick="hideModal()">Cancel</button></div></form>',
+    );
+    $("dyn-form").onsubmit = async function (ev) {
+      ev.preventDefault();
+      const fd = new FormData(this);
+      const obj = {};
+      fd.forEach((v, k) => (obj[k] = v));
+      const fileEl = $("up-file");
+      try {
+        if (fileEl && fileEl.files[0]) {
+          const file = fileEl.files[0];
+          const b64 = await blobToB64(file);
+          await run("apiUploadMeta", TOKEN, {
+            projectId: currentProjectId(),
+            kind: "LIBRARY",
+            module: meta.def.module,
+            moduleTitle: (
+              STATE.modules.find((m) => m.id === meta.def.module) || {}
+            ).title,
+            title: obj.title || file.name,
+            fileName: file.name,
+            mimeType: file.type || "application/pdf",
+            base64: b64.split(",")[1],
+            tags: meta.def.formCode,
+          });
+        }
+        const res = await run("apiSubmitForm", TOKEN, {
+          projectId: currentProjectId(),
+          formCode: formCode,
+          fields: obj,
+          submissionId: submissionId || "",
+          requestId: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "REQ_" + Date.now() + "_" + Math.random().toString(36).slice(2),
+        });
+        hideModal();
+        alert("Submitted. PDF generated and sent up the approval chain.");
+        await refresh();
+      } catch (err) {
+        alert(err.message || err);
+      }
+    };
+  }
+
+  function renderInbox() {
+    $("page-title").textContent = "Approvals inbox";
+    $("page-sub").textContent =
+      "Approve to lock on dashboard. Reject with comment to send back to Lead.";
+    const can = USER.role !== "EHS_LEAD";
+    const canManage = USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
+    const rows = scopedSubs().filter(
+      (s) =>
+        s.status === "SUBMITTED" ||
+        s.status === "RESUBMITTED" ||
+        (USER.role === "EHS_LEAD" && s.submittedBy === USER.employeeId),
+    );
+    $("view").innerHTML =
+      '<div class="card"><table><thead><tr><th>Form</th><th>Project</th><th>Status</th><th>By</th><th>Comments</th><th>Actions</th></tr></thead><tbody>' +
+      (rows.length
+        ? rows
+            .map((s) => {
+              const pj = STATE.projects.find((p) => p.id === s.projectId);
+              const cm = STATE.comments
+                .filter((c) => c.entityId === s.id)
+                .map(
+                  (c) =>
+                    "<div><b>" +
+                    esc(c.byName) +
+                    "</b>: " +
+                    esc(c.text) +
+                    "</div>",
+                )
+                .join("");
+              let actions = "";
+              if (s.pdfFileId) {
+                actions += '<button class="ghost" onclick="openFile(\'' + s.pdfFileId + '\')">PDF</button>';
+              }
+              if (can && (s.status === "SUBMITTED" || s.status === "RESUBMITTED")) {
+                actions += '<button class="btn small" onclick="review(\'' + s.id + '\',\'APPROVE\')">Approve</button>';
+                actions += '<button class="btn small danger" onclick="review(\'' + s.id + '\',\'REJECT\')">Return</button>';
+              }
+              if (can) {
+                actions += '<button class="ghost" onclick="commentOn(\'' + s.id + '\',\'' + s.projectId + '\')">Comment</button>';
+              }
+              if (canManage) {
+                actions += '<button class="ghost" onclick="openForm(\'' + s.formCode + '\',\'' + s.id + '\')">Edit</button>';
+                actions += '<button class="ghost" onclick="delSub(\'' + s.id + '\')">Delete</button>';
+              } else if (!can && s.status === "REJECTED") {
+                actions += '<button class="btn small" onclick="openForm(\'' + s.formCode + '\',\'' + s.id + '\')">Correct & Resubmit</button>';
+              }
+              return (
+                "<tr><td>" +
+                esc(s.title) +
+                "</td><td>" +
+                esc(pj ? pj.name : s.projectId) +
+                "</td><td>" +
+                statusPill(s.status) +
+                "</td><td>" +
+                esc(s.submittedBy) +
+                "</td><td>" +
+                (cm || "—") +
+                '</td><td class="row-actions">' +
+                actions +
+                "</td></tr>"
+              );
+            })
+            .join("")
+        : '<tr><td colspan="6">Nothing pending.</td></tr>') +
+      "</tbody></table></div>";
+  }
+
+  async function review(id, action) {
+    let comment = "";
+    if (action === "REJECT") {
+      comment = prompt("Comment to Lead (required)");
+      if (!comment) return;
+    } else {
+      comment = prompt("Optional comment") || "";
+    }
+    try {
+      await run("apiReview", TOKEN, id, action, comment);
+      await refresh();
+    } catch (e) {
+      alert(e.message || e);
+    }
+  }
+
+  async function commentOn(entityId, projectId) {
+    const text = prompt(
+      "Comment (visible down the chain if you are Manager/Director)",
+    );
+    if (!text) return;
+    await run("apiAddComment", TOKEN, {
+      entityType: "Submission",
+      entityId: entityId,
+      projectId: projectId,
+      text: text,
+    });
+    await refresh();
+  }
+
+  async function delSub(id) {
+    if (!confirm("Delete this submission?")) return;
+    await run("apiDeleteSubmission", TOKEN, id);
+    await refresh();
+  }
+
+  async function delUploadedFile(fileId) {
+    if (!confirm("Delete this uploaded file?")) return;
+    await run("apiDeleteUploadedFile", TOKEN, fileId);
+    await refresh();
+  }
+
+  function renderDocuments() {
+    $("page-title").textContent = "PDF library";
+    $("page-sub").textContent = "Select a division to view only its project documents.";
+    const projectId = currentProjectId();
+    const grouped = {};
+    STATE.modules.forEach((module) => { grouped[module.id] = []; });
+    scopedSubs().forEach((submission) => {
+      if (!grouped[submission.module]) grouped[submission.module] = [];
+      grouped[submission.module].push(submission);
+    });
+    STATE.library.filter((file) => !projectId || file.projectId === projectId).forEach((file) => {
+      if (!grouped[file.module]) grouped[file.module] = [];
+      grouped[file.module].push({ title: file.title, status: "UPLOAD", pdfFileId: file.fileId, uploadedFile: file, submittedAt: file.uploadedAt });
+    });
+    const selectedId = window.DOC_SECTION && grouped[window.DOC_SECTION] ? window.DOC_SECTION : STATE.modules[0].id;
+    window.DOC_SECTION = selectedId;
+    const selected = STATE.modules.find((module) => module.id === selectedId) || STATE.modules[0];
+    const documents = grouped[selected.id] || [];
+    const canManage = USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
+    const sectionRows = documents.length
+      ? '<table class="document-table"><thead><tr><th>Document name</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>' + documents.map((document) => {
+          let act = '';
+          if (document.pdfFileId) {
+            act += '<button class="ghost" onclick="openFile(\'' + document.pdfFileId + '\')">Open PDF</button>';
+          }
+          if (document.uploadedFile) {
+            act += uploadDeleteButton(document.uploadedFile);
+          } else if (document.id) {
+            if (canManage) {
+              act += '<button class="ghost" onclick="openForm(\'' + document.formCode + '\',\'' + document.id + '\')">Edit</button>';
+              act += '<button class="ghost" onclick="delSub(\'' + document.id + '\')">Delete</button>';
+            } else if (document.status === "REJECTED" && USER.role === "EHS_LEAD") {
+              act += '<button class="btn small" onclick="openForm(\'' + document.formCode + '\',\'' + document.id + '\')">Correct & Resubmit</button>';
+            }
+          }
+          return '<tr><td><strong>' + esc(document.title || document.formCode) + '</strong></td><td>' + statusPill(document.status || "FILE") + '</td><td>' + displayDate(document.submittedAt || "") + '</td><td class="row-actions">' + act + '</td></tr>';
+        }).join("") + '</tbody></table>'
+      : '<div class="empty-library"><strong>No documents in this division</strong><p class="muted">Uploaded PDFs for ' + esc(selected.title) + ' will appear here.</p></div>';
+    $("view").innerHTML = '<div class="document-library-shell"><aside class="document-rail"><div class="document-rail-heading"><span>Project library</span><span class="pill">' + STATE.modules.length + '</span></div>' + STATE.modules.map((module) => '<button class="document-section' + (module.id === selected.id ? ' active' : '') + '" onclick="selectDocumentSection(\'' + module.id + '\')"><span>' + esc(module.title) + '</span><span class="document-count">' + (grouped[module.id] || []).length + '</span></button>').join("") + '</aside><section class="document-panel"><div class="document-panel-heading"><div><span class="pill">DOCUMENT DIVISION</span><h3>' + esc(selected.title) + '</h3><p class="muted">' + documents.length + ' document(s) in the selected project scope.</p></div><button class="ghost" onclick="go(\'dashboard\')">Back to dashboard</button></div>' + sectionRows + '</section></div>';
+  }
+
+  function selectDocumentSection(sectionId) {
+    window.DOC_SECTION = sectionId;
+    renderDocuments();
+  }
+
+  function renderDailyLog() {
+    $("page-title").textContent = "Daily Log Sheet (Slide 8 Standard)";
+    $("page-sub").textContent =
+      "Consolidated daily performance report: Manpower, Safe Hours, Safety Inductions, TBT, Permits, and Zero-Harm Accident Statistics.";
+    const pId = currentProjectId();
+    const rows = STATE.dailyLog.filter(
+      (r) => !pId || r.projectId === pId,
+    );
+
+    // Sums for active project scope
+    const totalStaff = rows.reduce((a, r) => a + Number(r.staff || 0), 0);
+    const totalWorkers = rows.reduce((a, r) => a + Number(r.workers || 0), 0);
+    const totalSafeHoursWorked = rows.reduce((a, r) => a + Number(r.safeManHours || r.totalManHours || 0), 0);
+    const latestCumSafe = rows.length ? Number(rows[rows.length - 1].cumSafeManHours || totalSafeHoursWorked) : totalSafeHoursWorked;
+
+    $("view").innerHTML =
+      '<div class="grid kpi">' +
+      kpi((rows.length ? (rows[rows.length - 1].totalManpower || 0) : 0), "Today's Manpower") +
+      kpi(totalSafeHoursWorked.toLocaleString('en-IN') + ' hrs', "Month Safe Man-Hours") +
+      kpi(latestCumSafe.toLocaleString('en-IN') + ' hrs', "Cumulative Safe Hours") +
+      kpi('<span class="badge-zeroharm">0 LTI</span>', "Accident Benchmark") +
+      '</div>' +
+      '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="dl-manpower-chart"></canvas></div><div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
+      field("date", "Date", "date") +
+      field("workingHours", "Working Hours", "number") +
+      field("staff", "Staff Count", "number") +
+      field("workers", "Workers Count", "number") +
+      field("safeManHours", "Safe Man Hours", "number") +
+      field("cumSafeManHours", "Cumulative Safe Hours", "number") +
+      field("inductions", "Total Inductions", "number") +
+      field("indStaff", "Induction Staff", "number") +
+      field("indWorkers", "Induction Workers", "number") +
+      field("tbtCount", "TBT Count", "number") +
+      field("tbtPersons", "TBT Persons Attended", "number") +
+      field("trainingTopic", "Training Topic", "text") +
+      field("trainingPersons", "Training Persons Attended", "number") +
+      field("permitHot", "Hot Work Permits", "number") +
+      field("permitElectrical", "Electrical Permits", "number") +
+      field("permitCold", "Cold Work Permits", "number") +
+      field("permitGeneral", "General Permits", "number") +
+      field("firstAid", "First Aid Cases", "number") +
+      field("nearMiss", "Near Miss / Incidents", "number") +
+      field("ltiCount", "No. of LTI (Target: 0)", "number") +
+      '<div class="full"><label>Accident Details / Zero-Harm Status</label><input name="accidentDetails" placeholder="Nil - Safe day or details"></div>' +
+      field("verifiedBy", "Report Verified By", "text") +
+      field("approvedBy", "Report Approved By", "text") +
+      '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
+      '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div></div>' +
+      '<div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Daily Performance Log Records</h3><span class="badge-zeroharm">Zero-Harm (0 LTI)</span></div>' +
+      '<div class="table-responsive-wrap"><table><thead><tr>' +
+      '<th>Date</th><th>Staff</th><th>Workers</th><th>Total MP</th><th>Hours</th><th>Total Man-Hours</th><th>Safe Hours</th><th>Cum. Safe Hours</th><th>Inductions</th><th>TBT (Count/Pers)</th><th>Training Topic</th><th>Permits (H/E/C/G)</th><th>Accidents (FA/NM/LTI)</th><th>Verified By</th><th>Approved By</th>' +
+      '</tr></thead><tbody>' +
+      (rows.length ? rows.map((r) => {
+        return (
+          '<tr>' +
+          '<td><strong>' + displayDate(r.date) + '</strong></td>' +
+          '<td>' + esc(r.staff || 0) + '</td>' +
+          '<td>' + esc(r.workers || 0) + '</td>' +
+          '<td><strong>' + esc(r.totalManpower || (Number(r.staff||0) + Number(r.workers||0))) + '</strong></td>' +
+          '<td>' + esc(r.workingHours || 8) + '</td>' +
+          '<td>' + esc(r.totalManHours || 0) + '</td>' +
+          '<td>' + esc(r.safeManHours || r.totalManHours || 0) + '</td>' +
+          '<td><strong>' + esc(Number(r.cumSafeManHours || 0).toLocaleString('en-IN')) + '</strong></td>' +
+          '<td>' + esc(r.inductions || 0) + ' <small class="muted">(' + esc(r.indStaff || 0) + 'S/' + esc(r.indWorkers || 0) + 'W)</small></td>' +
+          '<td>' + esc(r.tbtCount || 0) + ' <small class="muted">(' + esc(r.tbtPersons || 0) + ')</small></td>' +
+          '<td>' + esc(r.trainingTopic || '—') + '</td>' +
+          '<td>' + esc(r.permitHot || 0) + '/' + esc(r.permitElectrical || 0) + '/' + esc(r.permitCold || 0) + '/' + esc(r.permitGeneral || 0) + '</td>' +
+          '<td>' + esc(r.firstAid || 0) + '/' + esc(r.nearMiss || 0) + '/<span class="badge-zeroharm">' + esc(r.ltiCount || 0) + '</span></td>' +
+          '<td><small>' + esc(r.verifiedBy || '—') + '</small></td>' +
+          '<td><small>' + esc(r.approvedBy || '—') + '</small></td>' +
+          '</tr>'
+        );
+      }).join('') : '<tr><td colspan="15" class="muted">No records found. Submit today\'s log above.</td></tr>') +
+      '<tr class="table-summary-row">' +
+      '<td><strong>TOTALS</strong></td>' +
+      '<td><strong>' + totalStaff + '</strong></td>' +
+      '<td><strong>' + totalWorkers + '</strong></td>' +
+      '<td><strong>' + (totalStaff + totalWorkers) + '</strong></td>' +
+      '<td>—</td>' +
+      '<td><strong>' + totalSafeHoursWorked + '</strong></td>' +
+      '<td><strong>' + totalSafeHoursWorked + '</strong></td>' +
+      '<td><strong>' + latestCumSafe.toLocaleString('en-IN') + '</strong></td>' +
+      '<td>—</td><td>—</td><td>—</td><td>—</td>' +
+      '<td><span class="badge-zeroharm">0 LTI</span></td>' +
+      '<td></td><td></td>' +
+      '</tr>' +
+      '</tbody></table></div></div>';
+
+    // Average Manpower Chart (Slide 8)
+    const dlChartEl = $("dl-manpower-chart");
+    if (dlChartEl) {
+      const recent = rows.slice(-10);
+      CHARTS.push(new Chart(dlChartEl, {
+        type: "doughnut",
+        data: {
+          labels: recent.length ? recent.map(r => displayDate(r.date)) : ["Staff", "Workers"],
+          datasets: [{
+            data: recent.length ? recent.map(r => Number(r.totalManpower || 0)) : [totalStaff || 6, totalWorkers || 48],
+            backgroundColor: ["#147d6f", "#efb84b", "#0284c7", "#16a34a", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#10b981", "#6366f1"]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Average Manpower Distribution (Slide 8)" } }
+        }
+      }));
+    }
+
+    $("dl-form").onsubmit = async function (ev) {
+      ev.preventDefault();
+      if (!currentProjectId()) {
+        alert("Select a project first");
+        return;
+      }
+      const fd = new FormData(this);
+      const row = { projectId: currentProjectId() };
+      fd.forEach((v, k) => (row[k] = v));
+      await run("apiSaveDailyLog", TOKEN, row);
+      await refresh();
+    };
+  }
+
+  function field(name, label, type) {
+    return (
+      "<div><label>" +
+      label +
+      '</label><input name="' +
+      name +
+      '" type="' +
+      type +
+      '" lang="en-GB' +
+      '" placeholder="Enter ' +
+      label.toLowerCase() +
+      '"></div>'
+    );
+  }
+
+  function renderObservations() {
+    $("page-title").textContent = "Daily Safety Observations (Slide 9 Standard)";
+    $("page-sub").textContent =
+      "Report directly addressed to concerned Department / Person. Reminder notifications sent within 24 hours, auto-escalating at hour 25.";
+    const pId = currentProjectId();
+    const rows = STATE.observations.filter(
+      (r) => !pId || r.projectId === pId,
+    );
+    $("view").innerHTML =
+      '<div class="card" style="display:flex;justify-content:space-between;align-items:center">' +
+      '<div><strong>Daily Safety Audit Observation Log</strong><p class="muted" style="margin:4px 0 0">Note: This report is considered as true records and will be closed on High priority.</p></div>' +
+      '<button class="btn small" onclick="openObsForm()">+ Log New Observation</button>' +
+      '</div>' +
+      '<div class="card" style="margin-top:12px">' +
+      '<div class="table-responsive-wrap"><table><thead><tr>' +
+      '<th>Sl.No</th><th>Report No</th><th>Date</th><th>Audited By</th><th>Contractor</th><th>Location</th><th>Observations</th><th>Unsafe Photos</th><th>Preventive Measures Recommended by PMC</th><th>Rectified Photos</th><th>Communicated To</th><th>Status</th><th>Action</th>' +
+      '</tr></thead><tbody>' +
+      (rows.length ? rows.map((r, idx) => {
+        return (
+          '<tr>' +
+          '<td>' + (idx + 1) + '</td>' +
+          '<td><strong>' + esc(r.reportNo || r.id) + '</strong></td>' +
+          '<td>' + displayDate(r.date) + '</td>' +
+          '<td>' + esc(r.auditedBy || '—') + '</td>' +
+          '<td>' + esc(r.contractor || '—') + '</td>' +
+          '<td>' + esc(r.location || '—') + '</td>' +
+          '<td>' + esc(r.observation) + '</td>' +
+          '<td>' + (r.unsafeFileId ? '<a href="' + esc(r.unsafeFileId) + '" target="_blank" class="ghost" style="padding:2px 6px">View Photo</a>' : '<span class="muted">—</span>') + '</td>' +
+          '<td>' + esc(r.preventive || '—') + '</td>' +
+          '<td>' + (r.rectifiedFileId ? '<a href="' + esc(r.rectifiedFileId) + '" target="_blank" class="ghost" style="padding:2px 6px">View Photo</a>' : '<span class="muted">—</span>') + '</td>' +
+          '<td><small>' + esc(r.ownerEmployeeId || 'Lead In-Charge') + '</small></td>' +
+          '<td>' + statusPill(r.status) + '</td>' +
+          '<td class="row-actions">' +
+          (r.status === "OPEN"
+            ? '<button class="btn small" onclick="closeObs(\'' + r.id + '\',false)">Close</button><button class="ghost" onclick="closeObs(\'' + r.id + '\',true)">Fallback</button>'
+            : '<small class="muted">Resolved</small>') +
+          '</td>' +
+          '</tr>'
+        );
+      }).join('') : '<tr><td colspan="13" class="muted">No observations found. Click "+ Log New Observation" above.</td></tr>') +
+      '</tbody></table></div></div>';
+  }
+
+  function openObsForm() {
+    if (!currentProjectId()) {
+      alert("Select a project first");
+      return;
+    }
+    showModal(
+      '<h3>Daily Safety Audit Observation (Slide 9 Standard)</h3>' +
+      '<form id="obs-form" class="form-grid">' +
+      field("date", "Date", "date") +
+      field("reportNo", "Report No (e.g. OBS-2026-001)", "text") +
+      field("vendor", "Vendor", "text") +
+      field("auditedBy", "Audited by", "text") +
+      field("contractor", "Contractor", "text") +
+      field("location", "Location", "text") +
+      field("ownerEmployeeId", "Responsible Person / Dept (Emp ID)", "text") +
+      field("unsafeFileId", "Unsafe Photograph (Link / Drive URL)", "text") +
+      field("rectifiedFileId", "Rectified Photograph (Link / Drive URL)", "text") +
+      '<div class="full"><label>Observations</label><textarea name="observation" required placeholder="Describe unsafe act / condition in detail..."></textarea></div>' +
+      '<div class="full"><label>Preventive Measures Recommended by PMC</label><textarea name="preventive" placeholder="Corrective & preventive measures..."></textarea></div>' +
+      '<div class="full"><p class="muted" style="font-size:12px">⚠️ Note: This Report is considered as true records and will be closed on High priority. Overdue past 24 hours triggers automatic escalation.</p></div>' +
+      '<div class="full"><button class="btn small">Submit Daily Observation</button></div></form>'
+    );
+    $("obs-form").onsubmit = async function (ev) {
+      ev.preventDefault();
+      const fd = new FormData(this);
+      const row = { projectId: currentProjectId() };
+      fd.forEach((v, k) => (row[k] = v));
+      await run("apiSaveObservation", TOKEN, row);
+      hideModal();
+      await refresh();
+    };
+  }
+
+  async function closeObs(id, fallback) {
+    let note = "";
+    if (fallback) {
+      note = prompt("Fallback review: why delayed, who is missing, new ETA");
+      if (!note) return;
+    }
+    await run("apiCloseObservation", TOKEN, id, note);
+    await refresh();
+  }
+
+  function renderTrackers() {
+    $("page-title").textContent = "PPE & Scaffolding Trackers (Slides 10-13)";
+    $("page-sub").textContent =
+      "Safety Material / PPE Stock Register, Master Scaffolding & Ladder Tracker across regions, Project Tracker, and Movement Tracker.";
+    window.TRACKER_TAB = window.TRACKER_TAB || "PPE";
+
+    const pId = currentProjectId();
+    const ppeRows = STATE.ppe.filter((r) => !pId || r.projectId === pId);
+    const scfRows = STATE.scaffold.filter((r) => !pId || r.projectId === pId);
+    const movRows = STATE.movement || [];
+
+    const tabs = [
+      { id: "PPE", label: "PPE Stock Register (Slide 10)" },
+      { id: "MASTER_SCF", label: "Master Scaffolding Tracker (Slide 11)" },
+      { id: "PROJECT_SCF", label: "Project Scaffolding Tracker (Slide 12)" },
+      { id: "MOVEMENT", label: "Scaffold Movement Tracker (Slide 13)" }
+    ];
+
+    const tabHtml = '<div class="sub-tabs-bar">' + tabs.map((t) => {
+      const isAct = window.TRACKER_TAB === t.id;
+      return '<button type="button" class="sub-tab-btn' + (isAct ? ' active' : '') + '" onclick="window.TRACKER_TAB=\'' + t.id + '\';renderTrackers()">' + t.label + '</button>';
+    }).join('') + '</div>';
+
+    let contentHtml = "";
+    if (window.TRACKER_TAB === "PPE") {
+      // Slide 10: PPE Stock Register
+      contentHtml =
+        '<div class="card"><h3>Safety Material / PPE Stock Register (Slide 10 Standard)</h3>' +
+        '<form id="ppe-form" class="form-grid">' +
+        field("date", "Date", "date") +
+        field("dcNo", "DC No", "text") +
+        field("totalReceived", "Total Received Qty", "number") +
+        field("contractor", "Receiver / Contractor", "text") +
+        field("receivedBy", "Name / Signature", "text") +
+        field("issuedQty", "Issued Qty", "number") +
+        '<div><label>Returnable?</label><select name="returnable"><option>Yes</option><option>No</option></select></div>' +
+        field("helmetWhite", "Helmet (White)", "number") +
+        field("helmetGreen", "Helmet (Green)", "number") +
+        field("helmetBlue", "Helmet (Blue)", "number") +
+        field("helmetRed", "Helmet (Red)", "number") +
+        field("jacketGreen", "Jacket (Green)", "number") +
+        field("jacketOrange", "Jacket (Orange/Red)", "number") +
+        field("cottonGloves", "Cotton Gloves", "number") +
+        field("leatherGloves", "Leather Gloves", "number") +
+        field("goggle", "Goggles", "number") +
+        field("faceShield", "Face Shield", "number") +
+        field("mask", "Masks", "number") +
+        '<div class="full"><label>Remarks & Store In-Charge</label><input name="remarks" placeholder="Store In-charge notes..."></div>' +
+        '<div class="full"><button class="btn small">Save PPE Register Row</button></div></form></div>' +
+        '<div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>PPE Stock Register Records</h3><button class="ghost" onclick="exportNow(\'xlsx\')">Export Register</button></div>' +
+        '<div class="table-responsive-wrap"><table><thead><tr>' +
+        '<th>S.No</th><th>Date</th><th>Contractor</th><th>Receiver</th><th>DC No</th><th>Total Received</th><th>Issued</th><th>Returnable</th><th>Balance in Stock</th><th>Helmets (W/G/B/R)</th><th>Jackets (G/O)</th><th>Gloves</th><th>Remarks</th>' +
+        '</tr></thead><tbody>' +
+        (ppeRows.length ? ppeRows.map((r, idx) => {
+          return (
+            '<tr>' +
+            '<td>' + (idx + 1) + '</td>' +
+            '<td>' + displayDate(r.date) + '</td>' +
+            '<td><strong>' + esc(r.contractor || '—') + '</strong></td>' +
+            '<td>' + esc(r.receivedBy || '—') + '</td>' +
+            '<td>' + esc(r.dcNo || '274') + '</td>' +
+            '<td><strong>' + esc(r.totalReceived || 10) + '</strong></td>' +
+            '<td>' + esc(r.issuedQty || r.helmet || 2) + '</td>' +
+            '<td><span class="pill">' + esc(r.returnable || 'Yes') + '</span></td>' +
+            '<td><strong style="color:var(--teal)">' + esc(r.balanceStock || 8) + '</strong></td>' +
+            '<td>' + esc(r.helmetWhite || 0) + '/' + esc(r.helmetGreen || 0) + '/' + esc(r.helmetBlue || 0) + '/' + esc(r.helmetRed || 0) + '</td>' +
+            '<td>' + esc(r.jacketGreen || 0) + '/' + esc(r.jacketOrange || 0) + '</td>' +
+            '<td>' + esc(r.cottonGloves || 0) + '</td>' +
+            '<td><small>' + esc(r.remarks || '—') + '</small></td>' +
+            '</tr>'
+          );
+        }).join('') : '<tr><td colspan="13" class="muted">No PPE records found.</td></tr>') +
+        '</tbody></table></div></div>';
+    } else if (window.TRACKER_TAB === "MASTER_SCF") {
+      // Slide 11: Master Tracker
+      contentHtml =
+        '<div class="card"><h3>Master Tracker of Scaffolding & Ladder (Slide 11 Standard)</h3>' +
+        '<div class="table-responsive-wrap"><table><thead><tr>' +
+        '<th>Sl.No</th><th>Project</th><th>Region</th><th>SESIPL</th><th>HBS</th><th>Vinayaka</th><th>Sharav Fab</th><th>A-Type Ladder</th><th>Returned Scaffolds</th><th>Returned A-Type Ladders</th><th>Total in Site</th><th>Remarks</th>' +
+        '</tr></thead><tbody>' +
+        (STATE.scaffold.length ? STATE.scaffold.map((s, idx) => {
+          const pj = STATE.projects.find((p) => p.id === s.projectId);
+          return (
+            '<tr>' +
+            '<td>' + (idx + 1) + '</td>' +
+            '<td><strong>' + esc(pj ? pj.name : s.projectId) + '</strong></td>' +
+            '<td><span class="pill">' + esc(s.region || (pj ? pj.region : 'Bangalore')) + '</span></td>' +
+            '<td>' + esc(s.sesipl || 0) + '</td>' +
+            '<td>' + esc(s.hbs || 0) + '</td>' +
+            '<td>' + esc(s.vinayaka || 0) + '</td>' +
+            '<td>' + esc(s.sharavFab || 0) + '</td>' +
+            '<td>' + esc(s.ladderSharav || s.totalLadder || 0) + '</td>' +
+            '<td>' + esc(s.returnedScaffold || 0) + '</td>' +
+            '<td>' + esc(s.returnedLadder || 0) + '</td>' +
+            '<td><strong style="color:var(--teal)">' + esc(s.totalScaffold || 0) + ' Scaffolds / ' + esc(s.totalLadder || 0) + ' Ladders</strong></td>' +
+            '<td><small>' + esc(s.remarks || '—') + '</small></td>' +
+            '</tr>'
+          );
+        }).join('') : '<tr><td colspan="12" class="muted">No scaffolding master records.</td></tr>') +
+        '</tbody></table></div></div>';
+    } else if (window.TRACKER_TAB === "PROJECT_SCF") {
+      // Slide 12: Project Scaffolding Tracker
+      contentHtml =
+        '<div class="card"><h3>Tracker of Scaffolding / Ladder (Slide 12 Standard)</h3>' +
+        '<form id="scf-form" class="form-grid">' +
+        field("sharavFab", "Scaffolds (Sharav Fab)", "number") +
+        field("sesipl", "Scaffolds (SESIPL)", "number") +
+        field("vinayaka", "Scaffolds (Vinayaka)", "number") +
+        field("hbs", "Scaffolds (HBS)", "number") +
+        field("other", "Scaffolds (Other)", "number") +
+        field("ladderSharav", "A-Type Ladder (Sharav Fab)", "number") +
+        field("ladderSesipl", "A-Type Ladder (SESIPL)", "number") +
+        field("ladderVinayaka", "A-Type Ladder (Vinayaka)", "number") +
+        field("ladderHbs", "A-Type Ladder (HBS)", "number") +
+        field("airportLadder", "Airport Ladder", "number") +
+        field("workstationLadder", "Workstation Ladder", "number") +
+        field("frpMsafe", "FRP Ladder (M Safe)", "number") +
+        field("frpYoungman", "FRP Ladder (Youngman)", "number") +
+        field("returnedScaffold", "Returned Scaffolds", "number") +
+        field("returnedLadder", "Returned Ladders", "number") +
+        '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Inspection status, tags..."></div>' +
+        '<div class="full"><button class="btn small">Save Project Equipment Counts</button></div></form></div>';
+    } else if (window.TRACKER_TAB === "MOVEMENT") {
+      // Slide 13: Movement Tracker
+      contentHtml =
+        '<div class="card"><h3>Sharav Fab Scaffold Movement Tracker (Slide 13 Standard)</h3>' +
+        '<form id="mov-form" class="form-grid">' +
+        field("date", "Date", "date") +
+        field("fromProject", "From Project", "text") +
+        field("fromQty", "From Qty", "number") +
+        field("toProject", "To Project", "text") +
+        field("toQty", "To Qty", "number") +
+        field("remarks", "Remarks", "text") +
+        '<div class="full"><button class="btn small">Save Scaffold Movement</button></div></form></div>' +
+        '<div class="card" style="margin-top:14px"><h3>Movement History</h3>' +
+        '<div class="table-responsive-wrap"><table><thead><tr>' +
+        '<th>S.No</th><th>Date</th><th>From Project</th><th>From Qty</th><th>To Project</th><th>To Qty</th><th>Remarks</th>' +
+        '</tr></thead><tbody>' +
+        (movRows.length ? movRows.map((m, idx) => {
+          return (
+            '<tr>' +
+            '<td>' + (idx + 1) + '</td>' +
+            '<td>' + displayDate(m.date) + '</td>' +
+            '<td><strong>' + esc(m.fromProject) + '</strong></td>' +
+            '<td>' + esc(m.fromQty) + '</td>' +
+            '<td><strong>' + esc(m.toProject) + '</strong></td>' +
+            '<td>' + esc(m.toQty) + '</td>' +
+            '<td>' + esc(m.remarks || '—') + '</td>' +
+            '</tr>'
+          );
+        }).join('') : '<tr><td colspan="7" class="muted">No movement records recorded.</td></tr>') +
+        '</tbody></table></div></div>';
+    }
+
+    $("view").innerHTML = tabHtml + contentHtml;
+
+    bindRowForm("ppe-form", "apiSavePpe", true);
+    bindRowForm("scf-form", "apiSaveScaffold", true);
+    bindRowForm("mov-form", "apiSaveMovement", false);
+  }
+
+  function bindRowForm(id, api, needProject) {
+    const el = $(id);
+    if (!el) return;
+    el.onsubmit = async function (ev) {
+      ev.preventDefault();
+      const fd = new FormData(this);
+      const row = {};
+      fd.forEach((v, k) => (row[k] = v));
+      if (needProject) {
+        if (!currentProjectId()) {
+          alert("Select project");
+          return;
+        }
+        row.projectId = currentProjectId();
+      }
+      await run(api, TOKEN, row);
+      await refresh();
+    };
+  }
+
+  function renderGallery() {
+    $("page-title").textContent = "Project & Company Media Gallery";
+    $("page-sub").textContent =
+      "Curated media: Company, Training, Meeting, and Event records. Managerial uploads notify the entire organization.";
+    window.GALLERY_FILTER = window.GALLERY_FILTER || "ALL";
+    const activeFilter = window.GALLERY_FILTER;
+    const allScoped = STATE.gallery.filter(
+      (g) => !currentProjectId() || g.projectId === currentProjectId(),
+    );
+    const items = activeFilter === "ALL"
+      ? allScoped
+      : allScoped.filter((g) => (g.category || "").toUpperCase() === activeFilter);
+    const canUp =
+      USER.role === "ASST_EHS_MANAGER" ||
+      USER.role === "EHS_MANAGER" ||
+      USER.role === "DIRECTOR";
+
+    const cats = ["ALL", "COMPANY", "TRAINING", "MEETING", "EVENT"];
+    const filterBar = '<div class="sub-tabs-bar" style="margin-bottom:12px">' + cats.map((c) => {
+      const isAct = activeFilter === c;
+      const cnt = c === "ALL" ? allScoped.length : allScoped.filter((g) => (g.category || "").toUpperCase() === c).length;
+      return '<button type="button" class="sub-tab-btn' + (isAct ? ' active' : '') + '" onclick="window.GALLERY_FILTER=\'' + c + '\';renderGallery()">' + (c === 'ALL' ? 'All Media' : c.charAt(0) + c.slice(1).toLowerCase()) + ' (' + cnt + ')</button>';
+    }).join("") + '</div>';
+
+    $("view").innerHTML =
+      (canUp
+        ? '<div class="card" style="margin-bottom:14px"><form id="gal-form" class="form-grid">' +
+          '<div><label>Category</label><select name="category"><option value="COMPANY">Company Related</option><option value="TRAINING">Training Session</option><option value="MEETING">Safety Meeting</option><option value="EVENT">Event / Milestone</option></select></div>' +
+          field("title", "Media Title", "text") +
+          '<div class="full"><label>Photo / Video Attachment</label><input type="file" accept="image/*,video/*" id="gal-file" required></div>' +
+          '<div class="full"><button class="btn small">Upload & Broadcast Notification</button></div></form></div>'
+        : "") +
+      filterBar +
+      '<div class="gallery">' +
+      (items.length
+        ? items.map(
+            (g) =>
+              '<div class="gal-item"><div class="meta"><span class="pill">' +
+              esc(g.category) +
+              "</span><div style='font-weight:600;margin:4px 0'>" +
+              esc(g.title) +
+              '</div><a href="' +
+              esc(g.url || "#") +
+              '" target="_blank">Open Media</a>' +
+              uploadDeleteButton(g) +
+              '</div></div>',
+          ).join("")
+        : '<p class="muted" style="padding:14px">No media uploaded in this category.</p>') +
+      "</div>";
+    if ($("gal-form")) {
+      $("gal-form").onsubmit = async function (ev) {
+        ev.preventDefault();
+        if (!currentProjectId()) {
+          alert("Select project");
+          return;
+        }
+        const file = $("gal-file").files[0];
+        const b64 = await blobToB64(file);
+        const fd = new FormData(this);
+        await run("apiUploadMeta", TOKEN, {
+          projectId: currentProjectId(),
+          kind: "GALLERY",
+          category: fd.get("category"),
+          title: fd.get("title") || file.name,
+          fileName: file.name,
+          mimeType: file.type,
+          base64: b64.split(",")[1],
+        });
+        await refresh();
+      };
+    }
+  }
+
+  function renderLibrary() {
+    $("page-title").textContent = "eLibrary";
+    $("page-sub").textContent =
+      "Policies, referrals, induction, good practices, articles.";
+    const items = STATE.library.filter(
+      (l) =>
+        !currentProjectId() ||
+        !l.projectId ||
+        l.projectId === currentProjectId(),
+    );
+    const can = USER.role !== "EHS_LEAD";
+    $("view").innerHTML =
+      (can
+        ? '<div class="card"><form id="lib-form" class="form-grid">' +
+          field("title", "Title", "text") +
+          '<div><label>Module</label><select name="module">' +
+          STATE.modules
+            .map((m) => '<option value="' + m.id + '">' + m.title + "</option>")
+            .join("") +
+          "</select></div>" +
+          '<div class="full"><input type="file" id="lib-file" required></div><div class="full"><button class="btn small">Upload</button></div></form></div>'
+        : "") +
+      '<div class="card" style="margin-top:12px"><table>' +
+      items
+        .map(
+          (l) =>
+            "<tr><td>" +
+            esc(l.title) +
+            "</td><td>" +
+            esc(l.module) +
+            '</td><td><a href="' +
+            esc(l.url || "#") +
+            '" target="_blank">Open</a></td></tr>',
+        )
+        .join("") +
+      "</table></div>";
+    if ($("lib-form")) {
+      $("lib-form").onsubmit = async function (ev) {
+        ev.preventDefault();
+        const file = $("lib-file").files[0];
+        const b64 = await blobToB64(file);
+        const fd = new FormData(this);
+        await run("apiUploadMeta", TOKEN, {
+          projectId: currentProjectId() || STATE.projects[0].id,
+          kind: "LIBRARY",
+          module: fd.get("module"),
+          moduleTitle: "eLibrary",
+          title: fd.get("title") || file.name,
+          fileName: file.name,
+          mimeType: file.type,
+          base64: b64.split(",")[1],
+        });
+        await refresh();
+      };
+    }
+  }
+
+  function renderCalendar() {
+    $("page-title").textContent = "Training calendar";
+    $("page-sub").textContent =
+      "Manager sets next month. It reflects on every role dashboard.";
+    const can = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
+    $("view").innerHTML =
+      (can
+        ? '<div class="card"><form id="tr-form" class="form-grid">' +
+          field("date", "Date", "date") +
+          field("topic", "Topic", "text") +
+          field("owner", "Owner", "text") +
+          field("dept", "Dept", "text") +
+          '<div class="full"><button class="btn small">Publish to all dashboards</button></div></form></div>'
+        : "") +
+      '<div class="card" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Topic</th><th>Owner</th><th>Dept</th></tr></thead><tbody>' +
+      STATE.training
+        .map(
+          (t) =>
+            "<tr><td>" +
+            displayDate(t.date) +
+            "</td><td>" +
+            esc(t.topic) +
+            "</td><td>" +
+            esc(t.owner) +
+            "</td><td>" +
+            esc(t.dept) +
+            "</td></tr>",
+        )
+        .join("") +
+      "</tbody></table></div>";
+    if ($("tr-form")) {
+      $("tr-form").onsubmit = async function (ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const row = { projectId: currentProjectId() || "*" };
+        fd.forEach((v, k) => (row[k] = v));
+        await run("apiSaveTraining", TOKEN, row);
+        await refresh();
+      };
+    }
+  }
+
+  function renderUsers() {
+    $("page-title").textContent = "Users (Sheets auth)";
+    $("page-sub").textContent =
+      "Employee ID + UAN live in the Users tab. mappedProjects = comma-separated project ids for Lead/Asst.";
+    $("view").innerHTML =
+      '<div class="card"><form id="u-form" class="form-grid">' +
+      field("employeeId", "Employee ID", "text") +
+      field("uan", "UAN", "text") +
+      field("name", "Name", "text") +
+      '<div><label>Role</label><select name="role"><option>EHS_LEAD</option><option>ASST_EHS_MANAGER</option><option>EHS_MANAGER</option><option>DIRECTOR</option></select></div>' +
+      field("email", "Email (for alerts)", "text") +
+      field("phone", "Phone", "text") +
+      field("mappedProjects", "Mapped project IDs", "text") +
+      '<div class="full"><button class="btn small">Save user to Sheets</button></div></form></div>' +
+      '<div class="card" style="margin-top:12px"><table><thead><tr><th>Emp ID</th><th>Name</th><th>Role</th><th>Projects</th></tr></thead><tbody>' +
+      STATE.users
+        .map(
+          (u) =>
+            "<tr><td>" +
+            esc(u.employeeId) +
+            "</td><td>" +
+            esc(u.name) +
+            "</td><td>" +
+            esc(u.role) +
+            "</td><td>" +
+            esc(u.mappedProjects) +
+            "</td></tr>",
+        )
+        .join("") +
+      "</tbody></table></div>";
+    $("u-form").onsubmit = async function (ev) {
+      ev.preventDefault();
+      const fd = new FormData(this);
+      const row = { active: "TRUE" };
+      fd.forEach((v, k) => (row[k] = v));
+      await run("apiSaveUser", TOKEN, row);
+      await refresh();
+    };
+  }
+
+  function updateNotifBadge() {
+    const unread = (STATE.notifications || []).filter(
+      (n) => String(n.read) !== "TRUE",
+    ).length;
+    const b = $("badge-n");
+    if (b) b.textContent = unread;
+    const tb = $("notif-unread-count");
+    if (tb) tb.textContent = unread;
+  }
+
+  function openFeed() {
+    const items = (STATE.notifications || []).slice(0, 60);
+    const unreadCount = items.filter(n => String(n.read) !== "TRUE").length;
+    const projectMap = {};
+    (STATE.projects || []).forEach(p => { projectMap[p.id] = p.name || p.code || p.id; });
+
+    let cardsHtml = '';
+    if (!items.length) {
+      cardsHtml = '<div class="notif-empty-state"><div class="notif-empty-icon">✓</div><h4>All caught up!</h4><p class="muted">No active notifications</p></div>';
+    } else {
+      cardsHtml = items.map(n => {
+        const isUnread = String(n.read) !== 'TRUE';
+        const type = String(n.type || 'INFO').toLowerCase();
+        const projName = n.projectId ? (projectMap[n.projectId] || n.projectId) : '';
+        return (
+          '<div class="notif-wrapper" id="notif-wrap-' + esc(n.id) + '">' +
+            '<div class="notif-swipe-bg">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+              '<span>Dismissed</span>' +
+            '</div>' +
+            '<div class="notif-card ' + (isUnread ? 'unread ' : '') + 'type-' + esc(type) + '" id="notif-card-' + esc(n.id) + '" data-id="' + esc(n.id) + '">' +
+              '<div class="notif-card-head">' +
+                '<div class="notif-title-row">' +
+                  (isUnread ? '<span class="notif-unread-dot"></span>' : '') +
+                  '<span>' + esc(n.title) + '</span>' +
+                '</div>' +
+                '<span class="notif-type-tag">' + esc(n.type || 'INFO') + '</span>' +
+              '</div>' +
+              '<div class="notif-card-body">' + esc(n.body) + '</div>' +
+              '<div class="notif-card-foot">' +
+                '<span>' + esc(n.createdAt || '') + '</span>' +
+                (projName ? '<span class="notif-project-pill">' + esc(projName) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    const modalHtml =
+      '<div class="notif-tray">' +
+        '<div class="notif-tray-header">' +
+          '<div class="notif-tray-title">' +
+            '<span>Notifications &amp; Alerts</span>' +
+            '<span class="notif-count-badge" id="notif-unread-count">' + unreadCount + '</span>' +
+          '</div>' +
+          (items.length ? '<button type="button" class="notif-clear-btn" id="notif-clear-all-btn" onclick="clearAllNotifications()">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+            'Clear all' +
+          '</button>' : '') +
+        '</div>' +
+        '<div class="notif-subtext">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
+          'Slide card right to dismiss &bull; Tap to open view' +
+        '</div>' +
+        '<div class="notif-list" id="notif-list-container">' +
+          cardsHtml +
+        '</div>' +
+        '<div class="notif-actions">' +
+          '<button class="ghost" onclick="hideModal()">Close</button>' +
+        '</div>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    items.forEach(n => {
+      const card = $('notif-card-' + n.id);
+      if (card) attachNotifSwipe(card, n);
+    });
+  }
+
+  function attachNotifSwipe(card, notif) {
+    let startX = 0;
+    let startY = 0;
+    let isDragging = false;
+    let hasMoved = false;
+    let startTime = 0;
+
+    function handleStart(clientX, clientY) {
+      startX = clientX;
+      startY = clientY;
+      isDragging = false;
+      hasMoved = false;
+      startTime = Date.now();
+      card.classList.remove('swiping');
+    }
+
+    function handleMove(clientX, clientY, e) {
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+
+      if (!isDragging && Math.abs(dy) > Math.abs(dx)) return;
+
+      if (dx > 8) {
+        if (e && e.cancelable) e.preventDefault();
+        isDragging = true;
+        hasMoved = true;
+        card.classList.add('swiping');
+        const clampedDx = Math.max(0, dx);
+        const opacity = Math.max(0.15, 1 - (clampedDx / 320));
+        card.style.transform = 'translateX(' + clampedDx + 'px)';
+        card.style.opacity = opacity;
+      }
+    }
+
+    function handleEnd(clientX) {
+      if (isDragging) {
+        card.classList.remove('swiping');
+        const dx = clientX - startX;
+        const elapsed = Math.max(1, Date.now() - startTime);
+        const velocity = dx / elapsed;
+
+        if (dx > 75 || (dx > 30 && velocity > 0.35)) {
+          dismissNotif(notif.id, card);
+        } else {
+          card.style.transform = 'translateX(0px)';
+          card.style.opacity = '1';
+        }
+        isDragging = false;
+      } else if (!hasMoved) {
+        onNotifTap(notif);
+      }
+    }
+
+    card.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length === 1) {
+        handleStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    card.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches.length === 1) {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY, e);
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchend', (e) => {
+      const touch = e.changedTouches && e.changedTouches[0];
+      handleEnd(touch ? touch.clientX : startX);
+    });
+
+    card.addEventListener('touchcancel', () => {
+      isDragging = false;
+      card.classList.remove('swiping');
+      card.style.transform = 'translateX(0px)';
+      card.style.opacity = '1';
+    });
+
+    let isMouseDown = false;
+    card.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isMouseDown = true;
+      handleStart(e.clientX, e.clientY);
+
+      function onMouseMove(me) {
+        if (!isMouseDown) return;
+        handleMove(me.clientX, me.clientY, me);
+      }
+
+      function onMouseUp(me) {
+        if (!isMouseDown) return;
+        isMouseDown = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+        handleEnd(me.clientX);
+      }
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+  function dismissNotif(notifId, card) {
+    const wrap = $('notif-wrap-' + notifId) || (card ? card.parentElement : null);
+    if (card) {
+      card.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease';
+      card.style.transform = 'translateX(120%)';
+      card.style.opacity = '0';
+    }
+    setTimeout(() => {
+      if (wrap) {
+        wrap.classList.add('dismissing');
+        setTimeout(() => {
+          try { wrap.remove(); } catch (e) {}
+          checkNotifsEmpty();
+        }, 300);
+      }
+    }, 80);
+
+    const n = (STATE.notifications || []).find(x => x.id === notifId);
+    if (n) n.read = 'TRUE';
+    updateNotifBadge();
+
+    run('apiDismissNotification', TOKEN, notifId).catch(e => console.error(e));
+  }
+  window.dismissNotif = dismissNotif;
+
+  async function clearAllNotifications() {
+    const list = $('notif-list-container');
+    if (!list) return;
+    const cards = list.querySelectorAll('.notif-card');
+    cards.forEach((c, idx) => {
+      setTimeout(() => {
+        c.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+        c.style.transform = 'translateX(120%)';
+        c.style.opacity = '0';
+        const wrap = c.parentElement;
+        if (wrap) wrap.classList.add('dismissing');
+      }, idx * 35);
+    });
+
+    (STATE.notifications || []).forEach(n => { n.read = 'TRUE'; });
+    updateNotifBadge();
+
+    setTimeout(() => {
+      list.innerHTML = '<div class="notif-empty-state"><div class="notif-empty-icon">✓</div><h4>All caught up!</h4><p class="muted">No active notifications</p></div>';
+      const clearBtn = $('notif-clear-all-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      const countBadge = $('notif-unread-count');
+      if (countBadge) countBadge.textContent = '0';
+    }, Math.min(cards.length * 35 + 200, 800));
+
+    try {
+      await run('apiClearAllNotifications', TOKEN);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  window.clearAllNotifications = clearAllNotifications;
+
+  function onNotifTap(notif) {
+    if (!notif) return;
+    notif.read = 'TRUE';
+    updateNotifBadge();
+    run('apiMarkRead', TOKEN, notif.id).catch(() => {});
+
+    if (notif.projectId && notif.projectId !== '*') {
+      const pSel = $('project-select');
+      if (pSel && Array.from(pSel.options).some(o => o.value === notif.projectId)) {
+        pSel.value = notif.projectId;
+      }
+    }
+
+    const type = String(notif.type || '').toUpperCase();
+    const title = String(notif.title || '').toLowerCase();
+    let targetView = 'dashboard';
+
+    if (type === 'APPROVAL' || title.indexOf('approval') >= 0 || title.indexOf('submitted') >= 0 || title.indexOf('pending') >= 0) {
+      targetView = 'inbox';
+    } else if (type === 'OBSERVATION' || type === 'ESCALATION' || title.indexOf('observation') >= 0 || title.indexOf('escalat') >= 0) {
+      targetView = 'observations';
+    } else if (type === 'GALLERY' || title.indexOf('gallery') >= 0) {
+      targetView = 'gallery';
+    } else if (type === 'TRAINING' || title.indexOf('training') >= 0) {
+      targetView = 'calendar';
+    } else if (type === 'PERMIT' || title.indexOf('permit') >= 0) {
+      targetView = 'permits';
+    } else if (type === 'DAILY' || title.indexOf('daily log') >= 0 || title.indexOf('dailylog') >= 0) {
+      targetView = 'dailylog';
+    } else if (type === 'PPE' || title.indexOf('ppe') >= 0) {
+      targetView = 'trackers';
+    } else if (type === 'AUDIT' || title.indexOf('audit') >= 0) {
+      targetView = 'trackers';
+    } else if (type === 'DOCUMENT' || title.indexOf('document') >= 0) {
+      targetView = 'documents';
+    }
+
+    hideModal();
+    go(targetView);
+  }
+  window.onNotifTap = onNotifTap;
+
+  function checkNotifsEmpty() {
+    const list = $('notif-list-container');
+    if (!list) return;
+    const remaining = list.querySelectorAll('.notif-wrapper:not(.dismissing)');
+    if (remaining.length === 0) {
+      list.innerHTML = '<div class="notif-empty-state"><div class="notif-empty-icon">✓</div><h4>All caught up!</h4><p class="muted">No active notifications</p></div>';
+      const clearBtn = $('notif-clear-all-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      const countBadge = $('notif-unread-count');
+      if (countBadge) countBadge.textContent = '0';
+    }
+  }
+
+  async function exportNow(fmt) {
+    const pid =
+      currentProjectId() || (STATE.projects[0] && STATE.projects[0].id);
+    if (!pid) {
+      alert("No project");
+      return;
+    }
+    try {
+      const res = await run("apiExportProject", TOKEN, pid, fmt);
+      window.open(res.url, "_blank");
+    } catch (e) {
+      alert(e.message || e);
+    }
+  }
+
+  async function openFile(fileId) {
+    const res = await run("apiFileUrl", TOKEN, fileId);
+    window.open(res.url, "_blank");
+  }
+
+  async function refresh() {
+    const bootRes = await run("apiBootstrap", TOKEN);
+    STATE = bootRes.data;
+    USER = bootRes.user;
+    render();
+  }
+
+  function showModal(html) {
+    $("modal-card").innerHTML = html.indexOf("modal-close") >= 0 ? html : '<button class="modal-close" type="button" aria-label="Close" onclick="hideModal()">×</button>' + html;
+    $("modal").hidden = false;
+  }
+  function hideModal() {
+    $("modal").hidden = true;
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+  }
+  function blobToB64(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+
+  if (TOKEN) {
+    boot().catch(() => {
+      sessionStorage.removeItem(TOKEN_KEY);
+      TOKEN = "";
+      initLoginCard();
+    });
+  } else {
+    initLoginCard();
+  }
+</script>
