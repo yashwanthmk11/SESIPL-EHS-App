@@ -8,7 +8,7 @@
   let CHARTS = [];
   let MUTATION_IN_FLIGHT = false;
   const MUTATING_CALLS = new Set([
-    "apiSubmitForm", "apiReview", "apiAddComment", "apiDeleteSubmission",
+    "apiSubmitForm", "apiReview", "apiAddComment", "apiDeleteComment", "apiDeleteSubmission",
     "apiDeleteUploadedFile",
     "apiSaveDailyLog", "apiSavePpe", "apiSaveScaffold", "apiSaveMovement",
     "apiSaveObservation", "apiCloseObservation", "apiSaveTraining", "apiUploadMeta",
@@ -262,6 +262,10 @@
     }
     STATE = bootRes.data;
     USER = bootRes.user || USER;
+    if (STATE && STATE.notifications) {
+      const dismissed = getDismissedNotifIds();
+      STATE.notifications = STATE.notifications.filter(n => !dismissed.has(n.id) && String(n.dismissed || '').toUpperCase() !== 'TRUE');
+    }
     $("login-screen").hidden = true;
     $("app-screen").hidden = false;
     $("who-name").textContent = USER.name;
@@ -1356,6 +1360,10 @@
                           "</td><td>" +
                           displayDate(s.submittedAt) +
                           '</td><td class="row-actions">' +
+                          (() => {
+                            const subCm = (STATE.comments || []).filter(c => c.entityId === s.id);
+                            return '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Submission\',\'' + s.id + '\',\'' + esc(f.title) + ' (v' + s.version + ')\',{projectId:\'' + s.projectId + '\',status:\'' + s.status + '\'})" title="View discussion thread">💬' + (subCm.length ? ' ' + subCm.length : '') + '</button>';
+                          })() +
                           (s.pdfFileId
                             ? '<button class="ghost" onclick="openFile(\'' +
                               s.pdfFileId +
@@ -1582,7 +1590,7 @@
   function renderInbox() {
     $("page-title").textContent = "Approvals inbox";
     $("page-sub").textContent =
-      "Approve to lock on dashboard. Reject with comment to send back to Lead.";
+      "Approve to lock on dashboard. Return with comments to send back to Lead.";
     const can = USER.role !== "EHS_LEAD";
     const canManage = USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
     const rows = scopedSubs().filter(
@@ -1592,33 +1600,35 @@
         (USER.role === "EHS_LEAD" && s.submittedBy === USER.employeeId),
     );
     $("view").innerHTML =
-      '<div class="card"><table><thead><tr><th>Form</th><th>Project</th><th>Status</th><th>By</th><th>Comments</th><th>Actions</th></tr></thead><tbody>' +
+      '<div class="card"><table><thead><tr><th>Form</th><th>Project</th><th>Status</th><th>By</th><th>Discussion &amp; Notes</th><th>Actions</th></tr></thead><tbody>' +
       (rows.length
         ? rows
             .map((s) => {
               const pj = STATE.projects.find((p) => p.id === s.projectId);
-              const cm = STATE.comments
-                .filter((c) => c.entityId === s.id)
-                .map(
-                  (c) =>
-                    "<div><b>" +
-                    esc(c.byName) +
-                    "</b>: " +
-                    esc(c.text) +
-                    "</div>",
-                )
-                .join("");
+              const cm = (STATE.comments || []).filter((c) => c.entityId === s.id);
+              const lastC = cm.length ? cm[cm.length - 1] : null;
+
+              const commentPill = cm.length
+                ? '<button type="button" class="comment-count-btn has-comments" onclick="openComments(\'Submission\',\'' + s.id + '\',\'' + esc(s.title) + '\',{projectId:\'' + s.projectId + '\',status:\'' + s.status + '\'})">' +
+                    '<span class="comment-icon">💬</span> ' + cm.length + (cm.length === 1 ? ' comment' : ' comments') +
+                  '</button>' +
+                  '<div class="comment-preview-snippet" title="' + esc(lastC.byName + ': ' + lastC.text) + '">' +
+                    '<b>' + esc(lastC.byName) + ':</b> ' + esc(lastC.text) +
+                  '</div>'
+                : '<button type="button" class="comment-count-btn" onclick="openComments(\'Submission\',\'' + s.id + '\',\'' + esc(s.title) + '\',{projectId:\'' + s.projectId + '\',status:\'' + s.status + '\'})">' +
+                    '<span class="comment-icon">💬</span> Add note' +
+                  '</button>';
+
               let actions = "";
               if (s.pdfFileId) {
                 actions += '<button class="ghost" onclick="openFile(\'' + s.pdfFileId + '\')">PDF</button>';
               }
               if (can && (s.status === "SUBMITTED" || s.status === "RESUBMITTED")) {
-                actions += '<button class="btn small" onclick="review(\'' + s.id + '\',\'APPROVE\')">Approve</button>';
-                actions += '<button class="btn small danger" onclick="review(\'' + s.id + '\',\'REJECT\')">Return</button>';
+                actions += '<button class="btn small" onclick="openReviewModal(\'' + s.id + '\',\'' + esc(s.title) + '\',\'' + esc(pj ? pj.name : s.projectId) + '\',\'' + esc(s.submittedBy) + '\',\'APPROVE\')">Approve</button>';
+                actions += '<button class="btn small danger" onclick="openReviewModal(\'' + s.id + '\',\'' + esc(s.title) + '\',\'' + esc(pj ? pj.name : s.projectId) + '\',\'' + esc(s.submittedBy) + '\',\'REJECT\')">Return</button>';
               }
-              if (can) {
-                actions += '<button class="ghost" onclick="commentOn(\'' + s.id + '\',\'' + s.projectId + '\')">Comment</button>';
-              }
+              actions += '<button class="ghost" onclick="openComments(\'Submission\',\'' + s.id + '\',\'' + esc(s.title) + '\',{projectId:\'' + s.projectId + '\',status:\'' + s.status + '\'})">Discuss</button>';
+
               if (canManage) {
                 actions += '<button class="ghost" onclick="openForm(\'' + s.formCode + '\',\'' + s.id + '\')">Edit</button>';
                 actions += '<button class="ghost" onclick="delSub(\'' + s.id + '\')">Delete</button>';
@@ -1635,7 +1645,7 @@
                 "</td><td>" +
                 esc(s.submittedBy) +
                 "</td><td>" +
-                (cm || "—") +
+                commentPill +
                 '</td><td class="row-actions">' +
                 actions +
                 "</td></tr>"
@@ -1646,34 +1656,15 @@
       "</tbody></table></div>";
   }
 
-  async function review(id, action) {
-    let comment = "";
-    if (action === "REJECT") {
-      comment = prompt("Comment to Lead (required)");
-      if (!comment) return;
-    } else {
-      comment = prompt("Optional comment") || "";
-    }
-    try {
-      await run("apiReview", TOKEN, id, action, comment);
-      await refresh();
-    } catch (e) {
-      alert(e.message || e);
-    }
+  function review(id, action) {
+    const sub = (STATE.submissions || []).find(s => s.id === id);
+    const pj = sub ? (STATE.projects || []).find(p => p.id === sub.projectId) : null;
+    openReviewModal(id, sub ? sub.title : "Submission", pj ? pj.name : (sub ? sub.projectId : ""), sub ? sub.submittedBy : "", action);
   }
 
-  async function commentOn(entityId, projectId) {
-    const text = prompt(
-      "Comment (visible down the chain if you are Manager/Director)",
-    );
-    if (!text) return;
-    await run("apiAddComment", TOKEN, {
-      entityType: "Submission",
-      entityId: entityId,
-      projectId: projectId,
-      text: text,
-    });
-    await refresh();
+  function commentOn(entityId, projectId) {
+    const sub = (STATE.submissions || []).find(s => s.id === entityId);
+    openComments("Submission", entityId, sub ? sub.title : "Submission Discussion", { projectId: projectId });
   }
 
   async function delSub(id) {
@@ -1904,6 +1895,10 @@
           '<td><small>' + esc(r.ownerEmployeeId || 'Lead In-Charge') + '</small></td>' +
           '<td>' + statusPill(r.status) + '</td>' +
           '<td class="row-actions">' +
+          (() => {
+            const obsCm = (STATE.comments || []).filter(c => c.entityId === r.id);
+            return '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Observation\',\'' + r.id + '\',\'Observation ' + esc(r.reportNo || r.id) + '\',{projectId:\'' + r.projectId + '\',status:\'' + r.status + '\'})" title="Observation comments & PMC discussion">💬' + (obsCm.length ? ' ' + obsCm.length : '') + '</button>';
+          })() +
           (r.status === "OPEN"
             ? '<button class="btn small" onclick="closeObs(\'' + r.id + '\',false)">Close</button><button class="ghost" onclick="closeObs(\'' + r.id + '\',true)">Fallback</button>'
             : '<small class="muted">Resolved</small>') +
@@ -2350,10 +2345,49 @@
     };
   }
 
+  /* =========================================================
+     NOTIFICATION PERSISTENCE & DISMISSAL ENGINE
+     ========================================================= */
+  function getDismissedNotifIds() {
+    if (!USER || !USER.employeeId) return new Set();
+    try {
+      const raw = localStorage.getItem("sesipl_dismissed_notifs_" + USER.employeeId);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr);
+      }
+    } catch (e) {}
+    return new Set();
+  }
+
+  function markNotifDismissedLocal(notifId) {
+    if (!USER || !USER.employeeId || !notifId) return;
+    try {
+      const set = getDismissedNotifIds();
+      set.add(notifId);
+      localStorage.setItem("sesipl_dismissed_notifs_" + USER.employeeId, JSON.stringify(Array.from(set).slice(-500)));
+    } catch (e) {}
+  }
+
+  function markAllNotifsDismissedLocal(ids) {
+    if (!USER || !USER.employeeId || !ids || !ids.length) return;
+    try {
+      const set = getDismissedNotifIds();
+      ids.forEach(id => set.add(id));
+      localStorage.setItem("sesipl_dismissed_notifs_" + USER.employeeId, JSON.stringify(Array.from(set).slice(-500)));
+    } catch (e) {}
+  }
+
+  function getActiveNotifications() {
+    const dismissed = getDismissedNotifIds();
+    return (STATE && STATE.notifications ? STATE.notifications : []).filter(
+      (n) => !dismissed.has(n.id) && String(n.dismissed || "").toUpperCase() !== "TRUE"
+    );
+  }
+
   function updateNotifBadge() {
-    const unread = (STATE.notifications || []).filter(
-      (n) => String(n.read) !== "TRUE",
-    ).length;
+    const active = getActiveNotifications();
+    const unread = active.filter((n) => String(n.read) !== "TRUE").length;
     const b = $("badge-n");
     if (b) b.textContent = unread;
     const tb = $("notif-unread-count");
@@ -2361,7 +2395,7 @@
   }
 
   function openFeed() {
-    const items = (STATE.notifications || []).slice(0, 60);
+    const items = getActiveNotifications().slice(0, 60);
     const unreadCount = items.filter(n => String(n.read) !== "TRUE").length;
     const projectMap = {};
     (STATE.projects || []).forEach(p => { projectMap[p.id] = p.name || p.code || p.id; });
@@ -2533,6 +2567,16 @@
   }
 
   function dismissNotif(notifId, card) {
+    // 1. Persist dismissed ID locally so it never appears again
+    markNotifDismissedLocal(notifId);
+
+    // 2. Remove from active state immediately
+    if (STATE && STATE.notifications) {
+      STATE.notifications = STATE.notifications.filter(x => x.id !== notifId);
+    }
+    updateNotifBadge();
+
+    // 3. Smooth animated dismissal
     const wrap = $('notif-wrap-' + notifId) || (card ? card.parentElement : null);
     if (card) {
       card.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease';
@@ -2549,17 +2593,28 @@
       }
     }, 80);
 
-    const n = (STATE.notifications || []).find(x => x.id === notifId);
-    if (n) n.read = 'TRUE';
-    updateNotifBadge();
-
-    run('apiDismissNotification', TOKEN, notifId).catch(e => console.error(e));
+    // 4. Record dismissal in Google Sheets
+    run('apiDismissNotification', TOKEN, notifId).catch(e => console.warn('apiDismissNotification sync: ', e));
   }
   window.dismissNotif = dismissNotif;
 
   async function clearAllNotifications() {
     const list = $('notif-list-container');
     if (!list) return;
+
+    const active = getActiveNotifications();
+    const ids = active.map(n => n.id);
+
+    // 1. Persist all IDs in localStorage immediately
+    markAllNotifsDismissedLocal(ids);
+
+    // 2. Remove all from active state immediately
+    if (STATE && STATE.notifications) {
+      STATE.notifications = STATE.notifications.filter(n => !ids.includes(n.id));
+    }
+    updateNotifBadge();
+
+    // 3. Staggered card swipe-out animation
     const cards = list.querySelectorAll('.notif-card');
     cards.forEach((c, idx) => {
       setTimeout(() => {
@@ -2568,24 +2623,23 @@
         c.style.opacity = '0';
         const wrap = c.parentElement;
         if (wrap) wrap.classList.add('dismissing');
-      }, idx * 35);
+      }, idx * 25);
     });
 
-    (STATE.notifications || []).forEach(n => { n.read = 'TRUE'; });
-    updateNotifBadge();
-
+    // 4. Render clean empty state
     setTimeout(() => {
       list.innerHTML = '<div class="notif-empty-state"><div class="notif-empty-icon">✓</div><h4>All caught up!</h4><p class="muted">No active notifications</p></div>';
       const clearBtn = $('notif-clear-all-btn');
       if (clearBtn) clearBtn.style.display = 'none';
       const countBadge = $('notif-unread-count');
       if (countBadge) countBadge.textContent = '0';
-    }, Math.min(cards.length * 35 + 200, 800));
+    }, Math.min(cards.length * 25 + 150, 600));
 
+    // 5. Tell server in background
     try {
       await run('apiClearAllNotifications', TOKEN);
     } catch (e) {
-      console.error(e);
+      console.warn('apiClearAllNotifications sync: ', e);
     }
   }
   window.clearAllNotifications = clearAllNotifications;
@@ -2645,6 +2699,403 @@
     }
   }
 
+  /* =========================================================
+     ENTERPRISE REAL-WORLD COMMENT SYSTEM
+     ========================================================= */
+  function timeAgo(iso) {
+    if (!iso) return "";
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (diffSec < 45) return "Just now";
+      if (diffSec < 3600) return Math.floor(diffSec / 60) + "m ago";
+      if (diffSec < 86400) return Math.floor(diffSec / 3600) + "h ago";
+      if (diffSec < 172800) return "Yesterday at " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + " " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return String(iso);
+    }
+  }
+
+  function getRoleTheme(role) {
+    const r = String(role || "").toUpperCase();
+    if (r === "DIRECTOR") {
+      return { bg: "#eef2ff", color: "#4338ca", border: "#c7d2fe", label: "DIRECTOR" };
+    }
+    if (r === "EHS_MANAGER") {
+      return { bg: "#f0fdfa", color: "#0f766e", border: "#99f6e4", label: "EHS MANAGER" };
+    }
+    if (r === "ASST_EHS_MANAGER") {
+      return { bg: "#f0f9ff", color: "#0369a1", border: "#bae6fd", label: "ASST MANAGER" };
+    }
+    if (r === "EHS_LEAD") {
+      return { bg: "#fffbeb", color: "#b45309", border: "#fde68a", label: "EHS LEAD" };
+    }
+    return { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: role || "TEAM" };
+  }
+
+  function getInitials(name) {
+    const parts = String(name || "").trim().split(/\s+/);
+    if (!parts.length || !parts[0]) return "??";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function formatCommentText(raw) {
+    let s = esc(raw);
+    s = s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    s = s.replace(/(@[A-Za-z0-9_]+)/g, '<span class="comment-mention">$1</span>');
+    return s;
+  }
+
+  function renderCommentCard(c, entityType, entityId) {
+    const isSelf = c.byEmployeeId === USER.employeeId;
+    const theme = getRoleTheme(c.role);
+    const initials = getInitials(c.byName);
+    const timeStr = timeAgo(c.createdAt);
+    const canDelete = isSelf || USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER";
+
+    return (
+      '<div class="comment-item ' + (isSelf ? 'self' : '') + '" id="comment-card-' + esc(c.id) + '">' +
+        '<div class="comment-avatar" style="background:' + theme.bg + ';color:' + theme.color + ';border-color:' + theme.border + '">' +
+          esc(initials) +
+        '</div>' +
+        '<div class="comment-bubble">' +
+          '<div class="comment-author-bar">' +
+            '<div class="comment-author-left">' +
+              '<span>' + esc(c.byName || c.byEmployeeId) + '</span>' +
+              '<span class="comment-role-tag" style="background:' + theme.bg + ';color:' + theme.color + '">' + esc(theme.label) + '</span>' +
+              (isSelf ? '<span class="comment-you-tag">(You)</span>' : '') +
+            '</div>' +
+            '<div class="comment-author-right">' +
+              (String(c.broadcast) === 'TRUE' ? '<span class="comment-broadcast-tag">📢 Notice</span>' : '') +
+              '<span class="comment-time" title="' + esc(c.createdAt || '') + '">' + esc(timeStr) + '</span>' +
+              (canDelete ? '<button type="button" class="comment-del-btn" title="Delete comment" onclick="deleteComment(\'' + esc(c.id) + '\',\'' + esc(entityType) + '\',\'' + esc(entityId) + '\')">🗑️</button>' : '') +
+            '</div>' +
+          '</div>' +
+          '<div class="comment-text">' + formatCommentText(c.text) + '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function openComments(entityType, entityId, title, meta) {
+    meta = meta || {};
+    const projectId = meta.projectId || currentProjectId() || (STATE.projects && STATE.projects[0] ? STATE.projects[0].id : "");
+    const comments = (STATE.comments || []).filter(
+      (c) => c.entityId === entityId || (c.entityType === entityType && c.entityId === entityId)
+    );
+
+    const canBroadcast = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER";
+    const projObj = (STATE.projects || []).find(p => p.id === projectId);
+    const projName = projObj ? (projObj.name || projObj.code) : projectId;
+    const statusTag = meta.status ? statusPill(meta.status) : '';
+
+    let timelineHtml = '';
+    if (!comments.length) {
+      timelineHtml = 
+        '<div class="comments-empty" id="comments-empty-placeholder">' +
+          '<div class="comments-empty-icon">💬</div>' +
+          '<div class="comments-empty-title">No comments yet</div>' +
+          '<p class="muted">Start the safety discussion or add review notes for the team.</p>' +
+        '</div>';
+    } else {
+      timelineHtml = comments.map(c => renderCommentCard(c, entityType, entityId)).join('');
+    }
+
+    const cannedChips = [
+      '⚠️ Action required on site',
+      '📸 Please attach rectified photo',
+      '✅ Verified compliant per standard',
+      '⚡ Work stopped until safety fix',
+      '📋 Checklist verified by PMC team'
+    ];
+
+    const cannedHtml = cannedChips.map(chip => 
+      '<button type="button" class="comment-canned-chip" onclick="insertCannedComment(' + JSON.stringify(chip) + ')">' + esc(chip) + '</button>'
+    ).join('');
+
+    const html = 
+      '<div class="comments-modal">' +
+        '<div class="comments-head">' +
+          '<div class="comments-title-wrap">' +
+            '<div class="comments-title-row">' +
+              '<h3>' + esc(title || 'Discussion') + '</h3>' +
+              '<span class="comments-count-pill" id="comment-thread-count">' + comments.length + '</span>' +
+              statusTag +
+            '</div>' +
+            '<div class="comments-meta-sub">' +
+              (projName ? '<span>🏢 ' + esc(projName) + '</span>' : '') +
+              '<span>&bull; Real-time Safety Discussion</span>' +
+            '</div>' +
+          '</div>' +
+          '<button type="button" class="modal-close" onclick="hideModal()" aria-label="Close">×</button>' +
+        '</div>' +
+
+        '<div class="comments-timeline" id="comments-timeline-container">' +
+          timelineHtml +
+        '</div>' +
+
+        '<div class="comment-canned-bar">' +
+          cannedHtml +
+        '</div>' +
+
+        '<div class="comments-composer">' +
+          '<textarea id="new-comment-textarea" class="comments-textarea" placeholder="Type your comment, instructions, or site feedback... (Ctrl+Enter to post)" onkeydown="handleCommentKeydown(event, \'' + esc(entityType) + '\',\'' + esc(entityId) + '\',\'' + esc(projectId) + '\')"></textarea>' +
+          '<div class="comments-foot">' +
+            (canBroadcast ? '<label class="comments-broadcast-label"><input type="checkbox" id="comment-broadcast-check"> <span>Broadcast notice to project team</span></label>' : '<span></span>') +
+            '<div class="comments-foot-right">' +
+              '<span class="comments-kbd-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>' +
+              '<button type="button" class="comments-post-btn" id="post-comment-btn" onclick="submitComment(\'' + esc(entityType) + '\',\'' + esc(entityId) + '\',\'' + esc(projectId) + '\')">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>' +
+                '<span>Post Comment</span>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    showModal(html);
+
+    setTimeout(() => {
+      const container = $('comments-timeline-container');
+      if (container) container.scrollTop = container.scrollHeight;
+      const ta = $('new-comment-textarea');
+      if (ta) ta.focus();
+    }, 100);
+  }
+  window.openComments = openComments;
+
+  window.insertCannedComment = function(text) {
+    const ta = $('new-comment-textarea');
+    if (!ta) return;
+    if (ta.value.trim()) {
+      ta.value = ta.value.trim() + " \n" + text;
+    } else {
+      ta.value = text;
+    }
+    ta.focus();
+  };
+
+  window.handleCommentKeydown = function(e, entityType, entityId, projectId) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      submitComment(entityType, entityId, projectId);
+    }
+  };
+
+  window.submitComment = async function(entityType, entityId, projectId) {
+    const ta = $('new-comment-textarea');
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text) {
+      ta.focus();
+      return;
+    }
+
+    const bCheck = $('comment-broadcast-check');
+    const isBroadcast = bCheck && bCheck.checked;
+
+    const btn = $('post-comment-btn');
+    if (btn) btn.disabled = true;
+    ta.value = '';
+
+    const tempId = 'tmp_' + Date.now();
+    const optComment = {
+      id: tempId,
+      entityType: entityType,
+      entityId: entityId,
+      projectId: projectId,
+      byEmployeeId: USER.employeeId,
+      byName: USER.name,
+      role: USER.role,
+      text: text,
+      createdAt: new Date().toISOString(),
+      broadcast: isBroadcast ? 'TRUE' : 'FALSE'
+    };
+
+    if (!STATE.comments) STATE.comments = [];
+    STATE.comments.push(optComment);
+
+    const timeline = $('comments-timeline-container');
+    const emptyPlaceholder = $('comments-empty-placeholder');
+    if (emptyPlaceholder) emptyPlaceholder.remove();
+
+    if (timeline) {
+      const cardHtml = renderCommentCard(optComment, entityType, entityId);
+      const div = document.createElement('div');
+      div.innerHTML = cardHtml;
+      if (div.firstElementChild) {
+        timeline.appendChild(div.firstElementChild);
+        timeline.scrollTop = timeline.scrollHeight;
+      }
+    }
+
+    const countBadge = $('comment-thread-count');
+    if (countBadge) {
+      countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1;
+    }
+
+    try {
+      const res = await run("apiAddComment", TOKEN, {
+        entityType: entityType,
+        entityId: entityId,
+        projectId: projectId,
+        text: text,
+        broadcast: isBroadcast
+      });
+      if (res && res.comment && res.comment.id) {
+        optComment.id = res.comment.id;
+        const domCard = $('comment-card-' + tempId);
+        if (domCard) domCard.id = 'comment-card-' + res.comment.id;
+      }
+    } catch (err) {
+      alert("Failed to save comment: " + (err && err.message ? err.message : err));
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  window.deleteComment = async function(commentId, entityType, entityId) {
+    if (!confirm("Delete this comment?")) return;
+    const domCard = $('comment-card-' + commentId);
+    if (domCard) {
+      domCard.style.opacity = '0.3';
+      domCard.style.pointerEvents = 'none';
+    }
+    try {
+      await run("apiDeleteComment", TOKEN, commentId);
+      if (domCard) domCard.remove();
+      STATE.comments = (STATE.comments || []).filter(c => c.id !== commentId);
+      const countBadge = $('comment-thread-count');
+      if (countBadge) {
+        const c = Math.max(0, parseInt(countBadge.textContent || '1', 10) - 1);
+        countBadge.textContent = c;
+      }
+      const timeline = $('comments-timeline-container');
+      if (timeline && !timeline.children.length) {
+        timeline.innerHTML = 
+          '<div class="comments-empty" id="comments-empty-placeholder">' +
+            '<div class="comments-empty-icon">💬</div>' +
+            '<div class="comments-empty-title">No comments yet</div>' +
+            '<p class="muted">Start the safety discussion or add review notes for the team.</p>' +
+          '</div>';
+      }
+    } catch (e) {
+      alert("Failed to delete comment: " + (e && e.message ? e.message : e));
+      if (domCard) {
+        domCard.style.opacity = '1';
+        domCard.style.pointerEvents = 'auto';
+      }
+    }
+  };
+
+  /* =========================================================
+     DEDICATED REVIEW & SIGNOFF MODAL
+     ========================================================= */
+  function openReviewModal(id, formTitle, projectName, submitter, defaultAction) {
+    let currentAction = defaultAction || "APPROVE";
+
+    function getModalHtml(act, commentText) {
+      const isApprove = act === "APPROVE";
+      const rejectionPresets = [
+        "⚠️ Missing required safety hazard identification / risk assessment",
+        "✍️ Missing authorized signatures / permit issuer approval",
+        "📸 Site verification photograph not attached or unclear",
+        "⏳ Expired equipment calibration / operator license",
+        "📋 Incomplete safety checklist observations or rectifications"
+      ];
+      const presetHtml = rejectionPresets.map(p => 
+        '<button type="button" class="review-reason-pill" onclick="selectReviewPreset(' + JSON.stringify(p) + ')">' + esc(p) + '</button>'
+      ).join('');
+
+      return (
+        '<div class="review-modal">' +
+          '<div class="review-modal-head">' +
+            '<h3>Review &amp; Sign Off Submission</h3>' +
+            '<span class="muted" style="font-size:12px">SESIPL EHS Compliance Chain</span>' +
+          '</div>' +
+          '<div class="review-info-box">' +
+            '<div><b>Form:</b> ' + esc(formTitle) + '</div>' +
+            '<div><b>Project:</b> ' + esc(projectName) + '</div>' +
+            '<div><b>Submitted By:</b> ' + esc(submitter) + '</div>' +
+            '<div><b>Reviewer:</b> ' + esc(USER.name) + ' (' + esc(USER.role) + ')</div>' +
+          '</div>' +
+          '<div class="review-action-selector">' +
+            '<button type="button" class="review-action-btn approve ' + (isApprove ? 'active' : '') + '" onclick="setReviewAction(\'APPROVE\')">' +
+              '<strong>✓ Approve &amp; Sign</strong>' +
+              '<span>Lock records &amp; update stats</span>' +
+            '</button>' +
+            '<button type="button" class="review-action-btn reject ' + (!isApprove ? 'active' : '') + '" onclick="setReviewAction(\'REJECT\')">' +
+              '<strong>↩ Return for Revision</strong>' +
+              '<span>Send back to Lead with notes</span>' +
+            '</button>' +
+          '</div>' +
+          (!isApprove ? 
+            '<div class="review-reasons-wrap">' +
+              '<div class="review-reasons-title">Quick Rejection Reason Presets:</div>' +
+              '<div class="review-reasons-grid">' + presetHtml + '</div>' +
+            '</div>' : '') +
+          '<div class="review-comment-box">' +
+            '<label for="review-comment-input">' + (isApprove ? 'Optional Review Remarks / Compliance Notes:' : 'Return Remarks to Lead (Required):') + '</label>' +
+            '<textarea id="review-comment-input" class="comments-textarea" placeholder="' + (isApprove ? 'Enter any commendations or approval notes...' : 'Explain the defects or missing items that must be corrected before approval...') + '">' + esc(commentText || '') + '</textarea>' +
+          '</div>' +
+          '<div class="review-actions-bar">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="button" id="review-submit-btn" class="btn small ' + (isApprove ? '' : 'danger') + '" onclick="submitReviewSignoff(\'' + esc(id) + '\')">' +
+              (isApprove ? 'Confirm Approval' : 'Confirm Return') +
+            '</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    window.setReviewAction = function(act) {
+      currentAction = act;
+      const ta = $('review-comment-input');
+      const text = ta ? ta.value : '';
+      showModal(getModalHtml(currentAction, text));
+    };
+
+    window.selectReviewPreset = function(preset) {
+      const ta = $('review-comment-input');
+      if (ta) {
+        ta.value = preset;
+        ta.focus();
+      }
+    };
+
+    window.submitReviewSignoff = async function(subId) {
+      const ta = $('review-comment-input');
+      const comment = ta ? ta.value.trim() : '';
+      if (currentAction === "REJECT" && !comment) {
+        alert("A review comment is required when returning a submission.");
+        if (ta) ta.focus();
+        return;
+      }
+      const btn = $('review-submit-btn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Submitting...";
+      }
+      try {
+        await run("apiReview", TOKEN, subId, currentAction, comment);
+        hideModal();
+        await refresh();
+      } catch (e) {
+        alert((e && e.message) ? e.message : e);
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = currentAction === "APPROVE" ? "Confirm Approval" : "Confirm Return";
+        }
+      }
+    };
+
+    showModal(getModalHtml(currentAction, ""));
+  }
+  window.openReviewModal = openReviewModal;
+
   async function exportNow(fmt) {
     const pid =
       currentProjectId() || (STATE.projects[0] && STATE.projects[0].id);
@@ -2674,6 +3125,10 @@
       }
       STATE = bootRes.data;
       USER = bootRes.user;
+      if (STATE && STATE.notifications) {
+        const dismissed = getDismissedNotifIds();
+        STATE.notifications = STATE.notifications.filter(n => !dismissed.has(n.id) && String(n.dismissed || '').toUpperCase() !== 'TRUE');
+      }
       render();
     } catch (e) {
       await doLogout();

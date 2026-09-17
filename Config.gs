@@ -63,7 +63,7 @@ const HEADERS = {
   AuditScores: ['id', 'auditId', 'section', 'sn', 'particulars', 'score', 'remarks'],
   Library: ['id', 'projectId', 'module', 'title', 'fileId', 'uploadedBy', 'uploadedAt', 'tags'],
   Gallery: ['id', 'projectId', 'category', 'title', 'fileId', 'mimeType', 'uploadedBy', 'uploadedAt'],
-  Notifications: ['id', 'toEmployeeId', 'projectId', 'title', 'body', 'type', 'read', 'createdAt', 'createdBy'],
+  Notifications: ['id', 'toEmployeeId', 'projectId', 'title', 'body', 'type', 'read', 'createdAt', 'createdBy', 'dismissed'],
   TrainingCalendar: ['id', 'projectId', 'date', 'topic', 'owner', 'dept', 'status', 'notes', 'createdBy'],
   Escalations: ['id', 'entityType', 'entityId', 'level', 'toEmployeeId', 'sentAt', 'reason'],
   AuditLog: ['id', 'at', 'employeeId', 'action', 'entityType', 'entityId', 'detail']

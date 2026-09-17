@@ -1535,4 +1535,465 @@
     padding-top: 10px;
     border-top: 1px solid #f1f5f9;
   }
+
+  /* =========================================================
+     ENTERPRISE COMMENT SYSTEM & DISCUSSION THREAD
+     ========================================================= */
+  .comments-modal {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+  }
+  .comments-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+  }
+  .comments-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .comments-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .comments-title-row h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .comments-count-pill {
+    background: #0f766e;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+  }
+  .comments-meta-sub {
+    font-size: 12px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .comments-timeline {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 4px 12px 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 400px;
+  }
+  .comments-empty {
+    text-align: center;
+    padding: 40px 16px;
+    color: #64748b;
+  }
+  .comments-empty-icon {
+    font-size: 34px;
+    margin-bottom: 8px;
+    opacity: 0.8;
+  }
+  .comments-empty-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #334155;
+    margin-bottom: 4px;
+  }
+  .comment-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    animation: commentFadeIn 0.22s ease forwards;
+  }
+  @keyframes commentFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .comment-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    border: 1.5px solid transparent;
+  }
+  .comment-bubble {
+    flex: 1 1 auto;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    position: relative;
+  }
+  .comment-item.self .comment-bubble {
+    background: #f0fdfa;
+    border-color: #ccfbf1;
+  }
+  .comment-author-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .comment-author-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .comment-role-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .comment-you-tag {
+    font-size: 10.5px;
+    color: #0f766e;
+    font-weight: 700;
+  }
+  .comment-author-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .comment-time {
+    font-size: 11px;
+    color: #64748b;
+  }
+  .comment-broadcast-tag {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .comment-del-btn {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    color: #94a3b8;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+    font-size: 12px;
+    transition: color 0.15s ease;
+  }
+  .comment-del-btn:hover {
+    color: #ef4444;
+    background: #fee2e2;
+  }
+  .comment-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #334155;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .comment-text a {
+    color: #0f766e;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+  .comment-mention {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  /* Quick Canned Responses Bar */
+  .comment-canned-bar {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 8px 2px;
+    border-top: 1px solid #f1f5f9;
+    scrollbar-width: thin;
+  }
+  .comment-canned-chip {
+    flex-shrink: 0;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    border-radius: 14px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+  .comment-canned-chip:hover {
+    background: #f0fdfa;
+    border-color: #5eead4;
+    color: #0f766e;
+    transform: translateY(-1px);
+  }
+
+  /* Composer */
+  .comments-composer {
+    margin-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .comments-textarea {
+    width: 100%;
+    min-height: 70px;
+    max-height: 150px;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .comments-textarea:focus {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+  }
+  .comments-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .comments-broadcast-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #475569;
+    cursor: pointer;
+  }
+  .comments-foot-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+  }
+  .comments-kbd-hint {
+    font-size: 11px;
+    color: #94a3b8;
+  }
+  .comments-kbd-hint kbd {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-family: monospace;
+  }
+  .comments-post-btn {
+    background: #0f766e;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  .comments-post-btn:hover {
+    background: #115e59;
+  }
+  .comments-post-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Comment Pill & Preview in Tables */
+  .comment-count-btn {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
+  .comment-count-btn.has-comments {
+    background: #f0fdfa;
+    border-color: #99f6e4;
+    color: #0f766e;
+  }
+  .comment-count-btn:hover {
+    border-color: #0f766e;
+    background: #ccfbf1;
+    color: #0f766e;
+  }
+  .comment-count-btn.mini {
+    padding: 2px 7px;
+    font-size: 11.5px;
+  }
+  .comment-preview-snippet {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 3px;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* =========================================================
+     DEDICATED REVIEW & SIGNOFF MODAL
+     ========================================================= */
+  .review-modal {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .review-modal-head {
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .review-modal-head h3 {
+    margin: 0 0 4px 0;
+    font-size: 17px;
+    color: #0f172a;
+  }
+  .review-info-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    color: #475569;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .review-action-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .review-action-btn {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: #ffffff;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+  }
+  .review-action-btn.approve.active {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #047857;
+  }
+  .review-action-btn.reject.active {
+    border-color: #ef4444;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+  .review-action-btn strong {
+    font-size: 13.5px;
+  }
+  .review-action-btn span {
+    font-size: 11px;
+    opacity: 0.85;
+  }
+  .review-reasons-wrap {
+    margin-bottom: 12px;
+  }
+  .review-reasons-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 6px;
+  }
+  .review-reasons-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .review-reason-pill {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #9f1239;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+  }
+  .review-reason-pill:hover {
+    background: #ffe4e6;
+    border-color: #fb7185;
+  }
+  .review-comment-box {
+    margin-bottom: 14px;
+  }
+  .review-comment-box label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 5px;
+  }
+  .review-actions-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+  }
 </style>

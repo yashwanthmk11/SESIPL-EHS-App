@@ -43,9 +43,10 @@ function buildBootstrap_(user) {
   const notifications = rowsToObjects_(SHEETS.NOTIFICATIONS)
     .filter(
       (n) =>
-        n.toEmployeeId === user.employeeId ||
-        n.toEmployeeId === "*" ||
-        n.toEmployeeId === "ROLE:" + user.role,
+        (n.toEmployeeId === user.employeeId ||
+          n.toEmployeeId === "*" ||
+          n.toEmployeeId === "ROLE:" + user.role) &&
+        String(n.dismissed || "").toUpperCase() !== "TRUE",
     )
     .slice(-80)
     .reverse();
@@ -450,44 +451,115 @@ function apiReview(token, submissionId, action, comment) {
 
 function apiAddComment(token, payload) {
   const user = requireUser_(token);
-  if (
-    user.role !== ROLES.MANAGER &&
-    user.role !== ROLES.DIRECTOR &&
-    user.role !== ROLES.ASST
-  ) {
-    throw new Error("Comment access is for Asst / Manager / Director.");
+  if (!payload || !payload.projectId) {
+    throw new Error("Project ID is required.");
   }
   assertProjectAccess_(user, payload.projectId);
+  const text = String(payload.text || "").trim();
+  if (!text) {
+    throw new Error("Comment cannot be empty.");
+  }
+
   const broadcast =
-    user.role === ROLES.MANAGER || user.role === ROLES.DIRECTOR
+    (payload.broadcast === true || payload.broadcast === "TRUE") &&
+    (user.role === ROLES.MANAGER || user.role === ROLES.DIRECTOR)
       ? "TRUE"
       : "FALSE";
-  appendRow_(SHEETS.COMMENTS, {
+
+  const commentRow = {
     id: uid_("CMT"),
-    entityType: payload.entityType || "Project",
+    entityType: payload.entityType || "Submission",
     entityId: payload.entityId || payload.projectId,
     projectId: payload.projectId,
     byEmployeeId: user.employeeId,
     byName: user.name,
     role: user.role,
-    text: payload.text,
+    text: text,
     createdAt: nowIso_(),
     broadcast: broadcast,
-  });
-  if (broadcast === "TRUE") {
-    scopedUsersForProject_(payload.projectId).forEach((u) => {
-      if (u.employeeId !== user.employeeId) {
+  };
+
+  appendRow_(SHEETS.COMMENTS, commentRow);
+
+  // Smart context-aware notification routing
+  try {
+    if (broadcast === "TRUE") {
+      scopedUsersForProject_(payload.projectId).forEach((u) => {
+        if (u.employeeId !== user.employeeId) {
+          pushNotify_(
+            u.employeeId,
+            payload.projectId,
+            user,
+            "Notice from " + user.name + " (" + user.role + ")",
+            text,
+            "COMMENT",
+          );
+        }
+      });
+    } else if (commentRow.entityType === "Submission") {
+      const sub = findOne_(SHEETS.SUBMISSIONS, "id", commentRow.entityId);
+      if (sub) {
+        if (user.employeeId !== sub.submittedBy) {
+          pushNotify_(
+            sub.submittedBy,
+            sub.projectId,
+            user,
+            "New review note on " + (sub.formCode || sub.title || "submission"),
+            user.name + " (" + user.role + "): " + text,
+            "COMMENT",
+          );
+        } else {
+          scopedUsersForProject_(sub.projectId).forEach((u) => {
+            if (canApprove_(u.role) && u.employeeId !== user.employeeId) {
+              pushNotify_(
+                u.employeeId,
+                sub.projectId,
+                user,
+                "Lead reply on " + (sub.formCode || sub.title || "submission"),
+                user.name + ": " + text,
+                "COMMENT",
+              );
+            }
+          });
+        }
+      }
+    } else if (commentRow.entityType === "Observation") {
+      const obs = findOne_(SHEETS.OBSERVATIONS, "id", commentRow.entityId);
+      if (obs && obs.ownerEmployeeId && obs.ownerEmployeeId !== user.employeeId) {
         pushNotify_(
-          u.employeeId,
-          payload.projectId,
+          obs.ownerEmployeeId,
+          obs.projectId,
           user,
-          "Comment from " + user.role,
-          payload.text,
+          "Observation discussion: " + (obs.reportNo || obs.id),
+          user.name + ": " + text,
           "COMMENT",
         );
       }
-    });
+    }
+  } catch (err) {
+    Logger.log("apiAddComment notify warning: " + err);
   }
+
+  return { ok: true, comment: commentRow };
+}
+
+function apiDeleteComment(token, commentId) {
+  const user = requireUser_(token);
+  const c = findOne_(SHEETS.COMMENTS, "id", commentId);
+  if (!c) return { ok: true };
+  assertProjectAccess_(user, c.projectId);
+  if (
+    c.byEmployeeId !== user.employeeId &&
+    user.role !== ROLES.DIRECTOR &&
+    user.role !== ROLES.MANAGER
+  ) {
+    throw new Error("You can only delete your own comments.");
+  }
+  const sh = sheet_(SHEETS.COMMENTS);
+  sh.deleteRow(c._row);
+  try {
+    writeAudit_(user.employeeId, "DELETE_COMMENT", "Comment", commentId, c.text);
+  } catch (e) {}
   return { ok: true };
 }
 
@@ -919,7 +991,7 @@ function apiDismissNotification(token, notificationId) {
   const user = requireUser_(token);
   const n = findOne_(SHEETS.NOTIFICATIONS, "id", notificationId);
   if (!n) return { ok: true };
-  updateRowById_(SHEETS.NOTIFICATIONS, notificationId, { read: "TRUE" });
+  updateRowById_(SHEETS.NOTIFICATIONS, notificationId, { read: "TRUE", dismissed: "TRUE" });
   return { ok: true };
 }
 
@@ -931,11 +1003,17 @@ function apiClearAllNotifications(token) {
   const headers = values[0];
   const toCol = headers.findIndex(h => normalizeKey_(h) === 'toemployeeid');
   const readCol = headers.findIndex(h => normalizeKey_(h) === 'read');
-  if (toCol < 0 || readCol < 0) return { ok: true };
+  let disCol = headers.findIndex(h => normalizeKey_(h) === 'dismissed');
+  if (disCol < 0) {
+    const nextCol = headers.length + 1;
+    sh.getRange(1, nextCol).setValue('DISMISSED');
+    disCol = headers.length;
+  }
   for (let i = 1; i < values.length; i++) {
     const to = String(values[i][toCol] || '').trim();
     if (to === user.employeeId || to === '*' || to === 'ROLE:' + user.role) {
-      sh.getRange(i + 1, readCol + 1).setValue('TRUE');
+      if (readCol >= 0) sh.getRange(i + 1, readCol + 1).setValue('TRUE');
+      if (disCol >= 0) sh.getRange(i + 1, disCol + 1).setValue('TRUE');
     }
   }
   return { ok: true };
