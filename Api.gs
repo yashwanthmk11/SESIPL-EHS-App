@@ -1101,6 +1101,133 @@ function apiCreateProject(token, payload) {
   return { ok: true, project: newProj };
 }
 
+function apiUpdateProject(token, payload) {
+  const user = requireUser_(token);
+  if (!canManageProjects_(user.role)) {
+    throw new Error(
+      "Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can edit projects.",
+    );
+  }
+
+  const projId = String(payload.id || "").trim();
+  if (!projId) {
+    throw new Error("Project ID is required.");
+  }
+
+  const proj = findOne_(SHEETS.PROJECTS, "id", projId);
+  if (!proj) {
+    throw new Error("Project not found: " + projId);
+  }
+
+  const name = String(payload.name || "").trim();
+  if (!name) {
+    throw new Error("Project Name is required.");
+  }
+
+  const patch = {
+    name: name,
+    client: String(payload.client || "").trim(),
+    pmc: String(payload.pmc || "").trim(),
+    inCharge: String(payload.inCharge || "").trim(),
+    manager: String(payload.manager || "").trim(),
+    scope: String(payload.scope || "").trim(),
+    startDate: payload.startDate || proj.startDate || "",
+    endDate: payload.endDate || "",
+    areaSqft: String(payload.areaSqft || "").trim(),
+    poNo: String(payload.poNo || "").trim(),
+    status: String(payload.status || "RUNNING").toUpperCase(),
+    region: String(payload.region || "Bangalore").trim(),
+    projectDuration: String(payload.projectDuration || "").trim(),
+  };
+
+  // If code is changed, verify uniqueness
+  const newCode = String(payload.code || "").trim().toUpperCase();
+  if (newCode && newCode !== String(proj.code || "").toUpperCase()) {
+    const conflict = findOne_(SHEETS.PROJECTS, "code", newCode);
+    if (conflict && String(conflict.id) !== projId) {
+      throw new Error("Project Code '" + newCode + "' is already in use by another project.");
+    }
+    patch.code = newCode;
+  }
+
+  updateRowById_(SHEETS.PROJECTS, projId, patch);
+
+  // If a lead was assigned, map them in PROJECT_USERS if not present
+  if (payload.leadEmployeeId) {
+    try {
+      const mappings = rowsToObjects_(SHEETS.PROJECT_USERS);
+      const exists = mappings.some(
+        (m) => String(m.projectId) === projId && String(m.employeeId) === String(payload.leadEmployeeId),
+      );
+      if (!exists) {
+        appendRow_(SHEETS.PROJECT_USERS, {
+          employeeId: payload.leadEmployeeId,
+          projectId: projId,
+          role: ROLES.LEAD,
+        });
+      }
+    } catch (me) {
+      Logger.log("Update project lead mapping notice: " + me);
+    }
+  }
+
+  writeAudit_(
+    user.employeeId,
+    "UPDATE_PROJECT",
+    "Projects",
+    projId,
+    "Updated " + (patch.code || proj.code) + " - " + patch.name,
+  );
+
+  return { ok: true, project: Object.assign({}, proj, patch) };
+}
+
+function apiDeleteProject(token, projectId) {
+  const user = requireUser_(token);
+  if (!canManageProjects_(user.role)) {
+    throw new Error(
+      "Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can delete projects.",
+    );
+  }
+
+  const projId = String(projectId || "").trim();
+  if (!projId) {
+    throw new Error("Project ID is required.");
+  }
+
+  const proj = findOne_(SHEETS.PROJECTS, "id", projId);
+  if (!proj) {
+    throw new Error("Project not found: " + projId);
+  }
+
+  // Delete project from SHEETS.PROJECTS
+  const shPrj = sheet_(SHEETS.PROJECTS);
+  shPrj.deleteRow(proj._row);
+
+  // Clean up SHEETS.PROJECT_USERS mappings
+  try {
+    const shUsers = sheet_(SHEETS.PROJECT_USERS);
+    const userMaps = rowsToObjects_(SHEETS.PROJECT_USERS);
+    for (let i = userMaps.length - 1; i >= 0; i--) {
+      if (String(userMaps[i].projectId) === projId) {
+        shUsers.deleteRow(userMaps[i]._row);
+      }
+    }
+  } catch (err) {
+    Logger.log("apiDeleteProject user mappings cleanup notice: " + err);
+  }
+
+  writeAudit_(
+    user.employeeId,
+    "DELETE_PROJECT",
+    "Projects",
+    projId,
+    "Deleted " + (proj.code || "") + " - " + (proj.name || ""),
+  );
+
+  return { ok: true, deletedId: projId };
+}
+
 function apiMarkRead(token, notificationId) {
   const user = requireUser_(token);
   const n = findOne_(SHEETS.NOTIFICATIONS, "id", notificationId);

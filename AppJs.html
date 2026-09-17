@@ -12,7 +12,7 @@
     "apiDeleteUploadedFile",
     "apiSaveDailyLog", "apiSavePpe", "apiSaveScaffold", "apiSaveMovement",
     "apiSaveObservation", "apiCloseObservation", "apiSaveTraining", "apiUploadMeta",
-    "apiSaveUser", "apiCreateProject"
+    "apiSaveUser", "apiCreateProject", "apiUpdateProject", "apiDeleteProject"
   ]);
 
   const ROLE_LABEL = {
@@ -2717,6 +2717,12 @@
         '.proj-meta-table { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin: 14px 0; }' +
         '.proj-meta-item-lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-bottom: 2px; }' +
         '.proj-meta-item-val { font-size: 13px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+        '.proj-mgmt-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0; }' +
+        '.proj-mgmt-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; border: 1px solid transparent; cursor: pointer; transition: all 0.15s ease; }' +
+        '.proj-mgmt-btn.edit { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }' +
+        '.proj-mgmt-btn.edit:hover { background: #0f766e; color: #ffffff; border-color: #0f766e; }' +
+        '.proj-mgmt-btn.delete { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }' +
+        '.proj-mgmt-btn.delete:hover { background: #b91c1c; color: #ffffff; border-color: #b91c1c; }' +
         '.proj-card-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid #f1f5f9; gap: 8px; flex-wrap: wrap; margin-top: auto; }' +
       '</style>';
 
@@ -2846,6 +2852,11 @@
                       '<div class="proj-meta-item-val" title="' + esc(p.poNo || 'Pending / Internal') + '">' + esc(p.poNo || 'Pending / Internal') + '</div>' +
                     '</div>' +
                   '</div>' +
+                  (canAdd ? 
+                    '<div class="proj-mgmt-row">' +
+                      '<button type="button" class="proj-mgmt-btn edit" onclick="openEditProjectModal(\'' + esc(p.id) + '\')">✏️ Edit Site</button>' +
+                      '<button type="button" class="proj-mgmt-btn delete" onclick="confirmDeleteProject(\'' + esc(p.id) + '\')">🗑️ Delete Site</button>' +
+                    '</div>' : '') +
                 '</div>' +
                 '<div class="proj-card-foot">' +
                   '<button type="button" class="btn small" style="flex:1.2;font-size:12.5px" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'dashboard\')">Site Dashboard &rarr;</button>' +
@@ -2971,6 +2982,190 @@
     };
   }
   window.openAddProjectModal = openAddProjectModal;
+
+  function fieldVal(name, label, type, val) {
+    return (
+      "<div><label>" +
+      label +
+      '</label><input name="' +
+      name +
+      '" type="' +
+      type +
+      '" value="' +
+      esc(val == null ? "" : val) +
+      '" lang="en-GB"></div>'
+    );
+  }
+
+  function openEditProjectModal(projectId) {
+    if (!canManageProjects()) {
+      alert("Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can edit projects.");
+      return;
+    }
+
+    const p = (STATE.projects || []).find((x) => x.id === projectId);
+    if (!p) {
+      alert("Project not found: " + projectId);
+      return;
+    }
+
+    const leads = (STATE.users || []).filter((u) => u.role === "EHS_LEAD" && u.active !== "FALSE");
+    const leadOptions = '<option value="">-- Keep Current / None --</option>' + leads.map((l) => 
+      '<option value="' + esc(l.employeeId) + '">' + esc(l.name) + ' (' + esc(l.employeeId) + ')</option>'
+    ).join("");
+
+    const regionList = ["Bangalore", "Chennai", "Hyderabad", "Mumbai", "Delhi-NCR", "Pune", "Kolkata", "Other"];
+    const curRegion = (p.region || "").toLowerCase();
+    const regionOptions = regionList.map((r) => 
+      '<option value="' + esc(r) + '"' + (curRegion === r.toLowerCase() ? ' selected' : '') + '>' + esc(r) + '</option>'
+    ).join("");
+
+    const statusVal = String(p.status || "RUNNING").toUpperCase();
+    const cleanDate = (d) => String(d || "").split(" ")[0].split("T")[0];
+
+    const modalHtml = 
+      '<div style="max-width:640px;margin:0 auto;text-align:left">' +
+        '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
+          '<h3 style="margin:0 0 4px;font-size:18px;display:flex;align-items:center;gap:8px">✏️ Edit Corporate Project Site</h3>' +
+          '<p class="muted" style="margin:0;font-size:12.5px">Update project parameters, consultants, management in-charges, and active status.</p>' +
+        '</div>' +
+        '<form id="edit-proj-form" class="form-grid">' +
+          '<input type="hidden" name="id" value="' + esc(p.id) + '">' +
+          fieldVal("code", "Project Code (e.g. BLR-02, MUM-03)", "text", p.code || "") +
+          fieldVal("name", "Project Full Name", "text", p.name || "") +
+          fieldVal("client", "Client Organization Name", "text", p.client || "") +
+          fieldVal("pmc", "PMC Consultant", "text", p.pmc || "") +
+          '<div>' +
+            '<label>Operating Region</label>' +
+            '<select name="region" required style="width:100%">' + regionOptions + '</select>' +
+          '</div>' +
+          '<div>' +
+            '<label>Project Status</label>' +
+            '<select name="status" required style="width:100%">' +
+              '<option value="RUNNING"' + (statusVal === "RUNNING" ? ' selected' : '') + '>RUNNING (Active Construction Site)</option>' +
+              '<option value="UPCOMING"' + (statusVal === "UPCOMING" ? ' selected' : '') + '>UPCOMING (Pre-Mobilization)</option>' +
+              '<option value="COMPLETED"' + (statusVal === "COMPLETED" ? ' selected' : '') + '>COMPLETED</option>' +
+            '</select>' +
+          '</div>' +
+          fieldVal("inCharge", "Site In-Charge / Safety Lead", "text", p.inCharge || "") +
+          fieldVal("manager", "Project Manager", "text", p.manager || "") +
+          fieldVal("startDate", "Project Start Date", "date", cleanDate(p.startDate)) +
+          fieldVal("endDate", "Target Completion Date", "date", cleanDate(p.endDate)) +
+          fieldVal("areaSqft", "Total Built-Up Area (Sq.Ft)", "number", p.areaSqft || "") +
+          fieldVal("poNo", "PO / Work Order Number", "text", p.poNo || "") +
+          fieldVal("projectDuration", "Project Duration (e.g. 12 Months)", "text", p.projectDuration || "") +
+          '<div>' +
+            '<label>Assign / Update EHS Lead</label>' +
+            '<select name="leadEmployeeId" style="width:100%">' + leadOptions + '</select>' +
+          '</div>' +
+          '<div class="full">' +
+            '<label>Scope of Work / Description</label>' +
+            '<textarea name="scope" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Scope of work...">' + esc(p.scope || "") + '</textarea>' +
+          '</div>' +
+          '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:14px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" id="edit-proj-submit-btn" class="btn small">💾 Save Changes</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    $("edit-proj-form").onsubmit = async function(ev) {
+      ev.preventDefault();
+      const btn = $("edit-proj-submit-btn");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Saving changes...";
+      }
+      try {
+        const fd = new FormData(this);
+        const payload = {};
+        fd.forEach((v, k) => { payload[k] = v; });
+
+        if (!payload.name) {
+          alert("Project Name is mandatory.");
+          if (btn) { btn.disabled = false; btn.textContent = "💾 Save Changes"; }
+          return;
+        }
+
+        await run("apiUpdateProject", TOKEN, payload);
+        hideModal();
+        await refresh();
+        go("projects");
+        alert("Project " + (payload.code || p.code) + " updated successfully!");
+      } catch (err) {
+        alert("Failed to update project: " + (err && err.message ? err.message : err));
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "💾 Save Changes";
+        }
+      }
+    };
+  }
+  window.openEditProjectModal = openEditProjectModal;
+
+  function confirmDeleteProject(projectId) {
+    if (!canManageProjects()) {
+      alert("Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can delete projects.");
+      return;
+    }
+
+    const p = (STATE.projects || []).find((x) => x.id === projectId);
+    if (!p) {
+      alert("Project not found: " + projectId);
+      return;
+    }
+
+    const modalHtml = 
+      '<div style="max-width:480px;margin:0 auto;text-align:left">' +
+        '<div style="border-bottom:1px solid #fee2e2;padding-bottom:12px;margin-bottom:16px">' +
+          '<h3 style="margin:0 0 4px;font-size:18px;color:#b91c1c;display:flex;align-items:center;gap:8px">🗑️ Delete Project Site?</h3>' +
+          '<p class="muted" style="margin:0;font-size:12.5px">This action permanently removes the project from the active enterprise register.</p>' +
+        '</div>' +
+        '<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:14px;margin-bottom:16px">' +
+          '<div style="font-weight:800;font-size:15px;color:#9f1239;margin-bottom:4px">' + esc(p.code || "PRJ") + ' - ' + esc(p.name) + '</div>' +
+          '<div style="font-size:12px;color:#475569">Client: <b>' + esc(p.client || 'Corporate Client') + '</b> | Region: <b>' + esc(p.region || 'Bangalore') + '</b></div>' +
+          '<div style="font-size:12px;color:#e11d48;margin-top:8px;font-weight:600">⚠️ Warning: All user site mappings for this project will be removed.</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px">' +
+          '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+          '<button type="button" id="confirm-del-proj-btn" class="btn small" style="background:#dc2626;border-color:#dc2626;color:#ffffff" onclick="executeDeleteProject(\'' + esc(p.id) + '\')">Yes, Delete Project</button>' +
+        '</div>' +
+      '</div>';
+
+    showModal(modalHtml);
+  }
+  window.confirmDeleteProject = confirmDeleteProject;
+
+  async function executeDeleteProject(projectId) {
+    const btn = $("confirm-del-proj-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Deleting project...";
+    }
+    try {
+      await run("apiDeleteProject", TOKEN, projectId);
+
+      // If current project was this one, reset topbar selector
+      const sel = $("project-select");
+      if (sel && sel.value === projectId) {
+        sel.value = "";
+      }
+
+      hideModal();
+      await refresh();
+      go("projects");
+      alert("Project has been deleted successfully.");
+    } catch (err) {
+      alert("Failed to delete project: " + (err && err.message ? err.message : err));
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Yes, Delete Project";
+      }
+    }
+  }
+  window.executeDeleteProject = executeDeleteProject;
 
   /* =========================================================
      NOTIFICATION PERSISTENCE & DISMISSAL ENGINE

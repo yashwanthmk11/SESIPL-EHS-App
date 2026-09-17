@@ -2623,4 +2623,46 @@
     flex-wrap: wrap;
     margin-top: auto;
   }
+  .proj-mgmt-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+  }
+  .proj-mgmt-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .proj-mgmt-btn.edit {
+    background: #f0fdfa;
+    color: #0f766e;
+    border-color: #99f6e4;
+  }
+  .proj-mgmt-btn.edit:hover {
+    background: #0f766e;
+    color: #ffffff;
+    border-color: #0f766e;
+  }
+  .proj-mgmt-btn.delete {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .proj-mgmt-btn.delete:hover {
+    background: #b91c1c;
+    color: #ffffff;
+    border-color: #b91c1c;
+  }
 </style>
