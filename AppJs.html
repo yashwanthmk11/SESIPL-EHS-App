@@ -32,7 +32,7 @@
       setLoading(true, "Saving securely...");
     }
     return new Promise((resolve, reject) => {
-      google.script.run
+      const runner = google.script.run
         .withSuccessHandler((value) => {
           if (isMutation) finishMutation();
           if (value === null || value === undefined) {
@@ -45,8 +45,17 @@
           if (isMutation) finishMutation();
           const msg = (error && error.message) ? error.message : (typeof error === "string" ? error : "Operation failed on server.");
           reject(new Error(msg));
-        })
-        [fn](...args);
+        });
+
+      if (!runner || typeof runner[fn] !== "function") {
+        if (isMutation) finishMutation();
+        reject(new Error(
+          "Server function '" + fn + "' not found on google.script.run. Please ensure Api.gs has been updated and saved in your Google Apps Script editor, and deploy a new version (Deploy > Manage deployments > Edit > New version > Deploy)."
+        ));
+        return;
+      }
+
+      runner[fn](...args);
     });
   }
 
