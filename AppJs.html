@@ -2152,531 +2152,26 @@
   }
 
   /* =========================================================
-     REALISTIC MOBILE GALLERY FOLDERS, 3D STACK & MEMORIES
+     PROJECT & COMPANY MEDIA GALLERY
      ========================================================= */
-  window.GALLERY_VIEW_MODE = window.GALLERY_VIEW_MODE || "FOLDERS";
-  window.GALLERY_ACTIVE_FOLDER = window.GALLERY_ACTIVE_FOLDER || null;
-  window.GALLERY_GROUP_BY = window.GALLERY_GROUP_BY || "CATEGORY";
-  window.GALLERY_DENSITY = window.GALLERY_DENSITY || "comfortable";
-  window.GALLERY_SEARCH = window.GALLERY_SEARCH || "";
-
-  function getGalleryFavs() {
-    try {
-      return JSON.parse(localStorage.getItem("sesipl_gallery_favs") || "[]");
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function toggleGalleryFav(id) {
-    let favs = getGalleryFavs();
-    const idx = favs.indexOf(id);
-    let isFav = false;
-    if (idx >= 0) {
-      favs.splice(idx, 1);
-    } else {
-      favs.push(id);
-      isFav = true;
-    }
-    try {
-      localStorage.setItem("sesipl_gallery_favs", JSON.stringify(favs));
-    } catch (e) {}
-    return isFav;
-  }
-
-  function isGalleryFav(id) {
-    return getGalleryFavs().indexOf(id) >= 0;
-  }
-
-  function resolveMediaThumb(g) {
-    if (!g) return "";
-    if (g.thumbUrl) return g.thumbUrl;
-    if (g.fileId && !String(g.fileId).startsWith("http")) {
-      return "https://drive.google.com/thumbnail?id=" + g.fileId + "&sz=w800";
-    }
-    if (g.url && String(g.url).startsWith("http")) return g.url;
-    if (g.fileId && String(g.fileId).startsWith("http")) return g.fileId;
-    return "";
-  }
-
-  function formatRelativeDate(dStr) {
-    if (!dStr) return "Recent";
-    try {
-      const dt = new Date(dStr);
-      if (isNaN(dt.getTime())) return displayDate(dStr);
-      const now = new Date();
-      const diffMs = now - dt;
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays <= 0) return "Today";
-      if (diffDays === 1) return "Yesterday";
-      if (diffDays < 7) return diffDays + " days ago";
-      return displayDate(dStr);
-    } catch (e) {
-      return displayDate(dStr);
-    }
-  }
-
-  function groupMediaByTimelineDate(items) {
-    const groups = {};
-    const order = [];
-    items.forEach((g) => {
-      let dKey = "Recent Media";
-      if (g.uploadedAt) {
-        const raw = String(g.uploadedAt).split(" ")[0] || String(g.uploadedAt).split("T")[0];
-        const rel = formatRelativeDate(g.uploadedAt);
-        dKey = rel === "Today" || rel === "Yesterday" ? (rel + " • " + displayDate(raw)) : displayDate(raw);
-      }
-      if (!groups[dKey]) {
-        groups[dKey] = [];
-        order.push(dKey);
-      }
-      groups[dKey].push(g);
-    });
-    return order.map((key) => ({ dateLabel: key, items: groups[key] }));
-  }
-
-  /* Story Highlights Reel (Memories) */
-  let STORY_TIMER = null;
-  let STORY_PROGRESS_INTERVAL = null;
-  let STORY_CURRENT_INDEX = 0;
-  let STORY_ITEMS = [];
-
-  function openGalleryStory(index) {
-    const scoped = (STATE.gallery || []);
-    if (!scoped.length) return;
-    STORY_ITEMS = scoped.slice(0, 6);
-    STORY_CURRENT_INDEX = index >= 0 && index < STORY_ITEMS.length ? index : 0;
-    renderStoryModal();
-  }
-  window.openGalleryStory = openGalleryStory;
-
-  function closeGalleryStory() {
-    if (STORY_TIMER) clearTimeout(STORY_TIMER);
-    if (STORY_PROGRESS_INTERVAL) clearInterval(STORY_PROGRESS_INTERVAL);
-    const m = $("gal-story-modal-root");
-    if (m) m.remove();
-  }
-  window.closeGalleryStory = closeGalleryStory;
-
-  function navStory(delta) {
-    if (STORY_TIMER) clearTimeout(STORY_TIMER);
-    if (STORY_PROGRESS_INTERVAL) clearInterval(STORY_PROGRESS_INTERVAL);
-    const next = STORY_CURRENT_INDEX + delta;
-    if (next < 0) {
-      closeGalleryStory();
-      return;
-    }
-    if (next >= STORY_ITEMS.length) {
-      closeGalleryStory();
-      return;
-    }
-    STORY_CURRENT_INDEX = next;
-    renderStoryModal();
-  }
-  window.navStory = navStory;
-
-  function renderStoryModal() {
-    const item = STORY_ITEMS[STORY_CURRENT_INDEX];
-    if (!item) return;
-
-    let root = $("gal-story-modal-root");
-    if (!root) {
-      root = document.createElement("div");
-      root.id = "gal-story-modal-root";
-      root.className = "gal-story-modal";
-      document.body.appendChild(root);
-    }
-
-    const proj = (STATE.projects || []).find((p) => p.id === item.projectId);
-    const projName = proj ? (proj.name || proj.code) : item.projectId;
-    const cat = String(item.category || "EVENT").toUpperCase();
-    const thumb = resolveMediaThumb(item);
-
-    const barsHtml = STORY_ITEMS.map((_, i) => {
-      const fill = i < STORY_CURRENT_INDEX ? '100%' : (i === STORY_CURRENT_INDEX ? '0%' : '0%');
-      return '<div class="gal-story-bar-segment"><div class="gal-story-bar-fill" id="story-bar-' + i + '" style="width:' + fill + '"></div></div>';
-    }).join("");
-
-    root.innerHTML = 
-      '<div class="gal-story-device">' +
-        '<div class="gal-story-bars">' + barsHtml + '</div>' +
-        '<div class="gal-story-header">' +
-          '<div class="gal-story-header-left">' +
-            '<div class="gal-story-avatar">🦺</div>' +
-            '<div>' +
-              '<div style="font-size:13px;font-weight:700">' + esc(cat) + ' Highlight</div>' +
-              '<div style="font-size:11px;opacity:0.8">' + esc(projName || 'SESIPL Site') + ' • ' + formatRelativeDate(item.uploadedAt) + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<button type="button" class="gal-story-close" onclick="closeGalleryStory()" aria-label="Close">✕</button>' +
-        '</div>' +
-        '<div class="gal-story-media-wrap">' +
-          '<div class="gal-story-click-prev" onclick="navStory(-1)"></div>' +
-          '<img src="' + esc(thumb) + '" class="gal-story-media-img" alt="' + esc(item.title) + '" onerror="handleGalleryImgError(this,\'' + esc(cat) + '\')">' +
-          '<div class="gal-story-click-next" onclick="navStory(1)"></div>' +
-        '</div>' +
-        '<div class="gal-story-caption-bar">' +
-          '<span class="pill" style="margin-bottom:6px;font-size:10px">' + esc(cat) + '</span>' +
-          '<h3 style="margin:0 0 4px;font-size:16px;line-height:1.3">' + esc(item.title) + '</h3>' +
-          '<p style="margin:0;font-size:12px;opacity:0.85">👤 By ' + esc(item.uploadedBy || 'Safety Team') + ' • ' + displayDate(item.uploadedAt) + '</p>' +
-        '</div>' +
-      '</div>';
-
-    // Animate progress bar for 5 seconds
-    const curBar = $("story-bar-" + STORY_CURRENT_INDEX);
-    let start = Date.now();
-    const duration = 5000;
-    if (curBar) {
-      if (STORY_PROGRESS_INTERVAL) clearInterval(STORY_PROGRESS_INTERVAL);
-      STORY_PROGRESS_INTERVAL = setInterval(() => {
-        const elapsed = Date.now() - start;
-        const pct = Math.min(100, (elapsed / duration) * 100);
-        curBar.style.width = pct + "%";
-        if (pct >= 100) {
-          clearInterval(STORY_PROGRESS_INTERVAL);
-        }
-      }, 50);
-    }
-
-    if (STORY_TIMER) clearTimeout(STORY_TIMER);
-    STORY_TIMER = setTimeout(() => {
-      navStory(1);
-    }, duration);
-  }
-
-  /* Folder Aggregator */
-  function getGalleryFolderDefinitions(allScoped) {
-    const groupBy = window.GALLERY_GROUP_BY || "CATEGORY";
-    let folders = [];
-
-    if (groupBy === "CATEGORY") {
-      const catDefs = [
-        { id: "CAT_COMPANY", key: "COMPANY", title: "Site Safety & Inspections", icon: "🦺", badge: "Inspection" },
-        { id: "CAT_TRAINING", key: "TRAINING", title: "Training & Emergency Drills", icon: "🎓", badge: "Training" },
-        { id: "CAT_MEETING", key: "MEETING", title: "Morning Toolbox Talks (TBT)", icon: "🗣️", badge: "Meetings" },
-        { id: "CAT_EVENT", key: "EVENT", title: "Milestones & Celebrations", icon: "🏆", badge: "Milestones" }
-      ];
-
-      folders = catDefs.map((def) => {
-        const items = allScoped.filter((g) => String(g.category || "").toUpperCase() === def.key);
-        const collage = items.slice(0, 4).map(resolveMediaThumb);
-        const latest = items.length ? items[0] : null;
-        return {
-          id: def.id,
-          title: def.title,
-          icon: def.icon,
-          badge: def.badge,
-          catKey: def.key,
-          items: items,
-          count: items.length,
-          collage: collage,
-          updated: latest ? formatRelativeDate(latest.uploadedAt) : "Empty"
-        };
-      });
-    } else {
-      // Group by Project
-      const projs = (STATE.projects || []);
-      folders = projs.map((p) => {
-        const items = allScoped.filter((g) => g.projectId === p.id);
-        const collage = items.slice(0, 4).map(resolveMediaThumb);
-        const latest = items.length ? items[0] : null;
-        return {
-          id: "PRJ_" + p.id,
-          title: p.name || p.code || p.id,
-          icon: "🏗️",
-          badge: p.code || "Project",
-          projectId: p.id,
-          items: items,
-          count: items.length,
-          collage: collage,
-          updated: latest ? formatRelativeDate(latest.uploadedAt) : "No media"
-        };
-      });
-
-      // Also general company media
-      const general = allScoped.filter((g) => !g.projectId);
-      if (general.length) {
-        folders.unshift({
-          id: "PRJ_GENERAL",
-          title: "Corporate HQ & General Media",
-          icon: "🏢",
-          badge: "Corporate",
-          projectId: "",
-          items: general,
-          count: general.length,
-          collage: general.slice(0, 4).map(resolveMediaThumb),
-          updated: formatRelativeDate(general[0].uploadedAt)
-        });
-      }
-    }
-    return folders;
-  }
-
-  /* Main Gallery Render Function */
   function renderGallery() {
     $("page-title").textContent = "Project & Company Media Gallery";
     $("page-sub").textContent =
-      "Realistic mobile photo albums, 3D stacked folders, safety memories highlights, and high-resolution site captures.";
+      "Curated visual media: Training sessions, site safety inspections, toolbox talks, and milestones.";
+    window.GALLERY_FILTER = window.GALLERY_FILTER || "ALL";
+    window.GALLERY_SEARCH = window.GALLERY_SEARCH || "";
 
+    const activeFilter = window.GALLERY_FILTER;
+    const searchQuery = String(window.GALLERY_SEARCH || "").trim().toLowerCase();
     const pid = currentProjectId();
+
     const allScoped = (STATE.gallery || []).filter(
       (g) => !pid || g.projectId === pid,
     );
 
-    const canUp =
-      USER.role === "ASST_EHS_MANAGER" ||
-      USER.role === "EHS_MANAGER" ||
-      USER.role === "DIRECTOR";
-
-    const favs = getGalleryFavs();
-    const favCount = allScoped.filter((g) => favs.includes(g.id)).length;
-    const videoCount = allScoped.filter((g) => (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4"))).length;
-
-    // Mobile View Switcher Segmented Control
-    const navTabs = [
-      { key: "FOLDERS", label: "📁 Albums / Folders", cnt: "" },
-      { key: "TIMELINE", label: "🖼️ All Photos", cnt: allScoped.length },
-      { key: "FAVORITES", label: "⭐ Favorites", cnt: favCount },
-      { key: "VIDEOS", label: "🎥 Videos", cnt: videoCount }
-    ];
-
-    const mobileNavHtml = 
-      '<div class="gal-mobile-header">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
-          '<div class="gal-view-nav">' +
-            navTabs.map((t) => {
-              const isAct = window.GALLERY_VIEW_MODE === t.key && !window.GALLERY_ACTIVE_FOLDER;
-              return (
-                '<button type="button" class="gal-view-btn' + (isAct ? ' active' : '') + '" onclick="window.GALLERY_VIEW_MODE=\'' + t.key + '\';window.GALLERY_ACTIVE_FOLDER=null;renderGallery()">' +
-                  esc(t.label) + (t.cnt !== "" ? ' <span class="nav-cnt">' + t.cnt + '</span>' : '') +
-                '</button>'
-              );
-            }).join("") +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:8px">' +
-            (canUp ? '<button type="button" class="btn small" onclick="openUploadMediaModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>+ Upload Media</button>' : '') +
-          '</div>' +
-        '</div>' +
-      '</div>';
-
-    // Memories Reel
-    const memoriesItems = allScoped.slice(0, 6);
-    let memoriesHtml = '';
-    if (memoriesItems.length && !window.GALLERY_ACTIVE_FOLDER && window.GALLERY_VIEW_MODE === "FOLDERS") {
-      memoriesHtml = 
-        '<div class="gal-memories-section">' +
-          '<div class="gal-memories-title">' +
-            '<span>✨ Safety Memories &amp; Highlights</span>' +
-            '<span style="font-size:11px;font-weight:600;color:#94a3b8;margin-left:auto">Tap to view story</span>' +
-          '</div>' +
-          '<div class="gal-memories-reel">' +
-            memoriesItems.map((m, idx) => {
-              const thumb = resolveMediaThumb(m);
-              const cat = String(m.category || "EVENT").toUpperCase();
-              const iconMap = { TRAINING: "🎓", COMPANY: "🦺", MEETING: "🗣️", EVENT: "🏆" };
-              return (
-                '<div class="gal-memory-item" onclick="openGalleryStory(' + idx + ')" title="' + esc(m.title) + '">' +
-                  '<div class="gal-memory-inner">' +
-                    '<img src="' + esc(thumb) + '" class="gal-memory-img" alt="' + esc(m.title) + '" loading="lazy" onerror="handleGalleryImgError(this,\'' + esc(cat) + '\')">' +
-                    '<div class="gal-memory-overlay">' +
-                      '<div class="gal-memory-tag">' + (iconMap[cat] || "📸") + '</div>' +
-                      '<div class="gal-memory-label">' + esc(m.title) + '</div>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>'
-              );
-            }).join("") +
-          '</div>' +
-        '</div>';
-    }
-
-    // Check if user drilled down into a specific folder
-    if (window.GALLERY_ACTIVE_FOLDER) {
-      $("view").innerHTML = mobileNavHtml + renderFolderDrillDownHtml(allScoped, canUp);
-      return;
-    }
-
-    // Handle view modes
-    if (window.GALLERY_VIEW_MODE === "FOLDERS") {
-      $("view").innerHTML = mobileNavHtml + memoriesHtml + renderFoldersViewHtml(allScoped, canUp);
-    } else if (window.GALLERY_VIEW_MODE === "TIMELINE") {
-      $("view").innerHTML = mobileNavHtml + renderTimelineViewHtml(allScoped, canUp, "All Safety Photos (Timeline)");
-    } else if (window.GALLERY_VIEW_MODE === "FAVORITES") {
-      const favItems = allScoped.filter((g) => favs.includes(g.id));
-      $("view").innerHTML = mobileNavHtml + renderTimelineViewHtml(favItems, canUp, "⭐ Starred Favorite Photos", "No favorite photos yet. Open any photo and tap the ⭐ Star icon to keep your top safety references here!");
-    } else if (window.GALLERY_VIEW_MODE === "VIDEOS") {
-      const videoItems = allScoped.filter((g) => (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4")));
-      $("view").innerHTML = mobileNavHtml + renderTimelineViewHtml(videoItems, canUp, "🎥 Safety Video Briefings & Drills", "No video briefings uploaded yet. Upload MP4 safety recordings to access them here.");
-    }
-  }
-  window.renderGallery = renderGallery;
-
-  /* Render 3D Stacked Folders Grid */
-  function renderFoldersViewHtml(allScoped, canUp) {
-    const folders = getGalleryFolderDefinitions(allScoped);
-    const groupBy = window.GALLERY_GROUP_BY || "CATEGORY";
-
-    const toolbar = 
-      '<div class="gal-toolbar" style="margin-top:10px">' +
-        '<div class="gal-toolbar-left">' +
-          '<div class="sub-tabs-bar" style="margin:0">' +
-            '<button type="button" class="sub-tab-btn' + (groupBy === 'CATEGORY' ? ' active' : '') + '" onclick="window.GALLERY_GROUP_BY=\'CATEGORY\';renderGallery()">🗂️ By Safety Category</button>' +
-            '<button type="button" class="sub-tab-btn' + (groupBy === 'PROJECT' ? ' active' : '') + '" onclick="window.GALLERY_GROUP_BY=\'PROJECT\';renderGallery()">🏗️ By Project Site</button>' +
-          '</div>' +
-          '<span class="gal-stats-pill">' + folders.length + ' Albums (' + allScoped.length + ' Total Photos)</span>' +
-        '</div>' +
-        '<div class="gal-toolbar-right">' +
-          '<span style="font-size:12px;color:#64748b;font-weight:600">💡 Tap any album to open realistic folder</span>' +
-        '</div>' +
-      '</div>';
-
-    const foldersGrid = 
-      '<div class="gal-folders-grid">' +
-        folders.map((f) => {
-          let collageHtml = '';
-          if (f.collage && f.collage.length >= 4) {
-            collageHtml = 
-              '<div class="gal-folder-collage">' +
-                f.collage.slice(0, 4).map((cUrl) => 
-                  '<div class="gal-collage-cell"><img src="' + esc(cUrl) + '" alt="" loading="lazy" onerror="this.src=\'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=400&q=60\'"></div>'
-                ).join("") +
-              '</div>';
-          } else if (f.collage && f.collage.length > 0) {
-            collageHtml = '<img src="' + esc(f.collage[0]) + '" class="gal-folder-hero-img" alt="" loading="lazy" onerror="this.src=\'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=600&q=70\'">';
-          } else {
-            collageHtml = 
-              '<div class="gal-thumb-fallback">' +
-                '<div class="gal-fallback-icon">' + f.icon + '</div>' +
-                '<div style="font-size:12px;font-weight:600">Empty Album</div>' +
-              '</div>';
-          }
-
-          return (
-            '<div class="gal-folder-card" onclick="openGalleryFolder(\'' + esc(f.id) + '\')">' +
-              '<div class="gal-folder-stack-wrap">' +
-                '<div class="gal-stack-layer-2"></div>' +
-                '<div class="gal-stack-layer-1"></div>' +
-                '<div class="gal-folder-cover">' +
-                  '<span class="gal-folder-tab-badge">' + f.icon + ' ' + esc(f.badge) + '</span>' +
-                  collageHtml +
-                '</div>' +
-              '</div>' +
-              '<div class="gal-folder-meta">' +
-                '<div class="gal-folder-title" title="' + esc(f.title) + '">' + esc(f.title) + '</div>' +
-                '<div class="gal-folder-sub">' +
-                  '<span class="gal-folder-count-pill">' + f.count + ' ' + (f.count === 1 ? 'item' : 'items') + '</span>' +
-                  '<span>' + esc(f.updated) + '</span>' +
-                '</div>' +
-              '</div>' +
-            '</div>'
-          );
-        }).join("") +
-      '</div>';
-
-    return toolbar + foldersGrid;
-  }
-
-  /* Folder Drill-Down Mode */
-  function openGalleryFolder(folderId) {
-    window.GALLERY_ACTIVE_FOLDER = folderId;
-    window.GALLERY_SEARCH = "";
-    renderGallery();
-  }
-  window.openGalleryFolder = openGalleryFolder;
-
-  function closeGalleryFolder() {
-    window.GALLERY_ACTIVE_FOLDER = null;
-    window.GALLERY_SEARCH = "";
-    renderGallery();
-  }
-  window.closeGalleryFolder = closeGalleryFolder;
-
-  function setGalleryDensity(density) {
-    window.GALLERY_DENSITY = density;
-    renderGallery();
-  }
-  window.setGalleryDensity = setGalleryDensity;
-
-  function renderFolderDrillDownHtml(allScoped, canUp) {
-    const folders = getGalleryFolderDefinitions(allScoped);
-    const f = folders.find((item) => item.id === window.GALLERY_ACTIVE_FOLDER) || {
-      id: window.GALLERY_ACTIVE_FOLDER,
-      title: "Album Folder",
-      icon: "📁",
-      items: allScoped
-    };
-
-    const searchQuery = String(window.GALLERY_SEARCH || "").trim().toLowerCase();
-    const filtered = (f.items || []).filter((g) => {
-      if (!searchQuery) return true;
-      const t = String(g.title || "").toLowerCase();
-      const u = String(g.uploadedBy || "").toLowerCase();
-      return t.includes(searchQuery) || u.includes(searchQuery);
-    });
-
-    const density = window.GALLERY_DENSITY || "comfortable";
-
-    const header = 
-      '<div class="gal-folder-header">' +
-        '<div class="gal-folder-header-left">' +
-          '<button type="button" class="gal-back-btn" onclick="closeGalleryFolder()">' +
-            '‹ Back to Albums' +
-          '</button>' +
-          '<div class="gal-folder-header-title">' +
-            '<span>' + f.icon + ' ' + esc(f.title) + '</span>' +
-            '<span class="gal-stats-pill">' + filtered.length + ' Photos</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="gal-folder-header-right">' +
-          '<div class="gal-search-wrap" style="width:220px">' +
-            '<span class="gal-search-icon">' +
-              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>' +
-            '</span>' +
-            '<input type="text" class="gal-search-input" placeholder="Search in album..." value="' + esc(window.GALLERY_SEARCH || "") + '" oninput="window.GALLERY_SEARCH=this.value;renderGallery()">' +
-          '</div>' +
-          '<div class="gal-density-toggle">' +
-            '<button type="button" class="gal-density-btn' + (density === 'compact' ? ' active' : '') + '" onclick="setGalleryDensity(\'compact\')" title="Compact 4-grid">4-Col</button>' +
-            '<button type="button" class="gal-density-btn' + (density === 'comfortable' ? ' active' : '') + '" onclick="setGalleryDensity(\'comfortable\')" title="Comfortable 3-grid">3-Col</button>' +
-            '<button type="button" class="gal-density-btn' + (density === 'large' ? ' active' : '') + '" onclick="setGalleryDensity(\'large\')" title="Large 2-grid">2-Col</button>' +
-          '</div>' +
-          (canUp ? '<button type="button" class="btn small" onclick="openUploadMediaModal(\'' + esc(f.catKey || '') + '\',\'' + esc(f.projectId || '') + '\')">+ Add to Album</button>' : '') +
-        '</div>' +
-      '</div>';
-
-    if (!filtered.length) {
-      return header + 
-        '<div class="card" style="text-align:center;padding:48px 16px;">' +
-          '<div style="font-size:38px;margin-bottom:8px">🖼️</div>' +
-          '<h4>No photos in this folder</h4>' +
-          '<p class="muted">No media matching criteria in ' + esc(f.title) + '.</p>' +
-          (canUp ? '<button type="button" class="btn small" style="margin-top:10px" onclick="openUploadMediaModal(\'' + esc(f.catKey || '') + '\',\'' + esc(f.projectId || '') + '\')">+ Add Photos</button>' : '') +
-        '</div>';
-    }
-
-    const timelineGroups = groupMediaByTimelineDate(filtered);
-
-    const timelineHtml = timelineGroups.map((grp) => {
-      return (
-        '<div class="gal-timeline-section">' +
-          '<div class="gal-timeline-header">' +
-            '<div class="gal-timeline-date">📅 ' + esc(grp.dateLabel) + '</div>' +
-            '<span class="gal-timeline-cnt">' + grp.items.length + '</span>' +
-            '<div class="gal-timeline-line"></div>' +
-          '</div>' +
-          '<div class="gal-grid density-' + density + '">' +
-            grp.items.map((g) => renderPhotoCardHtml(g)).join("") +
-          '</div>' +
-        '</div>'
-      );
-    }).join("");
-
-    return header + timelineHtml;
-  }
-
-  /* Render Chronological Timeline / Favorites / Videos View */
-  function renderTimelineViewHtml(items, canUp, pageHeading, emptyText) {
-    const searchQuery = String(window.GALLERY_SEARCH || "").trim().toLowerCase();
-    const filtered = items.filter((g) => {
+    const filtered = allScoped.filter((g) => {
+      const matchCat = activeFilter === "ALL" || (g.category || "").toUpperCase() === activeFilter;
+      if (!matchCat) return false;
       if (!searchQuery) return true;
       const t = String(g.title || "").toLowerCase();
       const u = String(g.uploadedBy || "").toLowerCase();
@@ -2684,109 +2179,116 @@
       return t.includes(searchQuery) || u.includes(searchQuery) || c.includes(searchQuery);
     });
 
-    const density = window.GALLERY_DENSITY || "comfortable";
+    const canUp =
+      USER.role === "ASST_EHS_MANAGER" ||
+      USER.role === "EHS_MANAGER" ||
+      USER.role === "DIRECTOR";
+
+    const cats = [
+      { key: "ALL", label: "All Media" },
+      { key: "COMPANY", label: "Company & Site" },
+      { key: "TRAINING", label: "Training Sessions" },
+      { key: "MEETING", label: "Safety Meetings" },
+      { key: "EVENT", label: "Events & Milestones" }
+    ];
+
+    const filterBar = '<div class="sub-tabs-bar" style="margin-bottom:12px">' + cats.map((cat) => {
+      const isAct = activeFilter === cat.key;
+      const cnt = cat.key === "ALL" ? allScoped.length : allScoped.filter((g) => (g.category || "").toUpperCase() === cat.key).length;
+      return '<button type="button" class="sub-tab-btn' + (isAct ? ' active' : '') + '" onclick="window.GALLERY_FILTER=\'' + cat.key + '\';renderGallery()">' + esc(cat.label) + ' (' + cnt + ')</button>';
+    }).join("") + '</div>';
 
     const toolbar = 
       '<div class="gal-toolbar">' +
         '<div class="gal-toolbar-left">' +
           '<div class="gal-search-wrap">' +
             '<span class="gal-search-icon">' +
-              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>' +
             '</span>' +
-            '<input type="text" class="gal-search-input" placeholder="Search photos, uploaders, topics..." value="' + esc(window.GALLERY_SEARCH || "") + '" oninput="window.GALLERY_SEARCH=this.value;renderGallery()">' +
+            '<input type="text" class="gal-search-input" id="gal-search-box" placeholder="Search photos, topics, or uploaders..." value="' + esc(window.GALLERY_SEARCH || "") + '" oninput="window.GALLERY_SEARCH=this.value;renderGallery()">' +
           '</div>' +
-          '<span class="gal-stats-pill">Showing ' + filtered.length + ' of ' + items.length + '</span>' +
+          '<span class="gal-stats-pill">Showing ' + filtered.length + ' of ' + allScoped.length + '</span>' +
         '</div>' +
         '<div class="gal-toolbar-right">' +
-          '<div class="gal-density-toggle">' +
-            '<button type="button" class="gal-density-btn' + (density === 'compact' ? ' active' : '') + '" onclick="setGalleryDensity(\'compact\')">4-Col</button>' +
-            '<button type="button" class="gal-density-btn' + (density === 'comfortable' ? ' active' : '') + '" onclick="setGalleryDensity(\'comfortable\')">3-Col</button>' +
-            '<button type="button" class="gal-density-btn' + (density === 'large' ? ' active' : '') + '" onclick="setGalleryDensity(\'large\')">2-Col</button>' +
-          '</div>' +
+          (canUp ? '<button type="button" class="btn small" onclick="openUploadMediaModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>+ Upload Media</button>' : '') +
         '</div>' +
       '</div>';
 
+    let cardsHtml = '';
     if (!filtered.length) {
-      return toolbar + 
-        '<div class="card" style="text-align:center;padding:48px 16px;">' +
+      cardsHtml = 
+        '<div class="card" style="text-align:center;padding:48px 16px;grid-column:1/-1;">' +
           '<div style="font-size:38px;margin-bottom:8px">🖼️</div>' +
-          '<h4>No photos found</h4>' +
-          '<p class="muted">' + esc(emptyText || "No media matching current criteria.") + '</p>' +
+          '<h4>No media found</h4>' +
+          '<p class="muted">No media matching your current filter or search criteria.</p>' +
           (canUp ? '<button type="button" class="btn small" style="margin-top:10px" onclick="openUploadMediaModal()">+ Upload Media</button>' : '') +
         '</div>';
+    } else {
+      cardsHtml = filtered.map((g, idx) => {
+        const cat = String(g.category || "EVENT").toUpperCase();
+        const catClass = "cat-" + cat.toLowerCase();
+        const proj = (STATE.projects || []).find(p => p.id === g.projectId);
+        const projName = proj ? (proj.name || proj.code) : g.projectId;
+        const isVideo = (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4"));
+        
+        let thumb = g.thumbUrl;
+        if (!thumb) {
+          if (g.fileId && !String(g.fileId).startsWith("http")) {
+            thumb = 'https://drive.google.com/thumbnail?id=' + g.fileId + '&sz=w800';
+          } else if (g.url && String(g.url).startsWith("http")) {
+            thumb = g.url;
+          } else if (g.fileId && String(g.fileId).startsWith("http")) {
+            thumb = g.fileId;
+          }
+        }
+
+        const canDelete = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER" || g.uploadedBy === USER.employeeId;
+
+        return (
+          '<div class="gal-card" onclick="openGalleryLightbox(\'' + esc(g.id) + '\')">' +
+            '<div class="gal-thumb-wrap">' +
+              '<span class="gal-badge-cat ' + catClass + '">' + esc(cat) + '</span>' +
+              (projName ? '<span class="gal-badge-proj" title="' + esc(projName) + '">' + esc(projName) + '</span>' : '') +
+              (isVideo ? '<div class="gal-video-play-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>' : '') +
+              '<img src="' + esc(thumb) + '" class="gal-thumb-img" alt="' + esc(g.title) + '" loading="lazy" onerror="handleGalleryImgError(this, \'' + esc(cat) + '\')">' +
+              '<div class="gal-hover-overlay">' +
+                '<span class="gal-overlay-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Click to view</span>' +
+                '<div class="gal-action-btn-group">' +
+                  (g.url ? '<a href="' + esc(g.url) + '" target="_blank" onclick="event.stopPropagation()" class="gal-action-icon-btn" title="Open original in Google Drive">↗</a>' : '') +
+                  (canDelete ? '<button type="button" class="gal-action-icon-btn danger" title="Delete media" onclick="event.stopPropagation();delUploadedFile(\'' + esc(g.fileId) + '\')">🗑️</button>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="gal-card-info">' +
+              '<div class="gal-card-title" title="' + esc(g.title) + '">' + esc(g.title) + '</div>' +
+              '<div class="gal-card-meta">' +
+                '<span>📅 ' + displayDate(g.uploadedAt) + '</span>' +
+                '<span>👤 ' + esc(g.uploadedBy || 'Team') + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
     }
 
-    const timelineGroups = groupMediaByTimelineDate(filtered);
-
-    const timelineHtml = timelineGroups.map((grp) => {
-      return (
-        '<div class="gal-timeline-section">' +
-          '<div class="gal-timeline-header">' +
-            '<div class="gal-timeline-date">📅 ' + esc(grp.dateLabel) + '</div>' +
-            '<span class="gal-timeline-cnt">' + grp.items.length + '</span>' +
-            '<div class="gal-timeline-line"></div>' +
-          '</div>' +
-          '<div class="gal-grid density-' + density + '">' +
-            grp.items.map((g) => renderPhotoCardHtml(g)).join("") +
-          '</div>' +
-        '</div>'
-      );
-    }).join("");
-
-    return toolbar + timelineHtml;
+    $("view").innerHTML =
+      filterBar +
+      toolbar +
+      '<div class="gal-grid">' + cardsHtml + '</div>';
   }
-
-  /* Single Photo Card HTML */
-  function renderPhotoCardHtml(g) {
-    const cat = String(g.category || "EVENT").toUpperCase();
-    const catClass = "cat-" + cat.toLowerCase();
-    const proj = (STATE.projects || []).find((p) => p.id === g.projectId);
-    const projName = proj ? (proj.name || proj.code) : g.projectId;
-    const isVideo = (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4"));
-    const thumb = resolveMediaThumb(g);
-    const canDelete = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER" || g.uploadedBy === USER.employeeId;
-    const isFav = isGalleryFav(g.id);
-
-    return (
-      '<div class="gal-card" onclick="openGalleryLightbox(\'' + esc(g.id) + '\')">' +
-        '<div class="gal-thumb-wrap">' +
-          '<span class="gal-badge-cat ' + catClass + '">' + esc(cat) + '</span>' +
-          (projName ? '<span class="gal-badge-proj" title="' + esc(projName) + '">' + esc(projName) + '</span>' : '') +
-          (isFav ? '<span style="position:absolute;bottom:10px;left:10px;z-index:2;background:rgba(234,179,8,0.9);color:#0f172a;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px">⭐</span>' : '') +
-          (isVideo ? '<div class="gal-video-play-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>' : '') +
-          '<img src="' + esc(thumb) + '" class="gal-thumb-img" alt="' + esc(g.title) + '" loading="lazy" onerror="handleGalleryImgError(this, \'' + esc(cat) + '\')">' +
-          '<div class="gal-hover-overlay">' +
-            '<span class="gal-overlay-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> View</span>' +
-            '<div class="gal-action-btn-group">' +
-              '<button type="button" class="gal-action-icon-btn" title="Toggle Favorite" onclick="event.stopPropagation();toggleCardFav(\'' + esc(g.id) + '\')">' + (isFav ? '⭐' : '☆') + '</button>' +
-              (g.url ? '<a href="' + esc(g.url) + '" target="_blank" onclick="event.stopPropagation()" class="gal-action-icon-btn" title="Open Drive File">↗</a>' : '') +
-              (canDelete ? '<button type="button" class="gal-action-icon-btn danger" title="Delete Media" onclick="event.stopPropagation();delUploadedFile(\'' + esc(g.fileId) + '\')">🗑️</button>' : '') +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="gal-card-info">' +
-          '<div class="gal-card-title" title="' + esc(g.title) + '">' + esc(g.title) + '</div>' +
-          '<div class="gal-card-meta">' +
-            '<span>📅 ' + formatRelativeDate(g.uploadedAt) + '</span>' +
-            '<span>👤 ' + esc(g.uploadedBy || 'Team') + '</span>' +
-          '</div>' +
-        '</div>' +
-      '</div>'
-    );
-  }
-
-  function toggleCardFav(id) {
-    toggleGalleryFav(id);
-    renderGallery();
-  }
-  window.toggleCardFav = toggleCardFav;
+  window.renderGallery = renderGallery;
 
   function handleGalleryImgError(img, cat) {
     if (!img) return;
     img.style.display = 'none';
     const wrap = img.parentElement;
     if (wrap && !wrap.querySelector('.gal-thumb-fallback')) {
-      const iconMap = { TRAINING: '🎓', COMPANY: '🦺', MEETING: '🗣️', EVENT: '🏆' };
+      const iconMap = {
+        TRAINING: '🦺',
+        COMPANY: '🏗️',
+        MEETING: '📋',
+        EVENT: '🏆'
+      };
       const icon = iconMap[cat] || '📷';
       const div = document.createElement('div');
       div.className = 'gal-thumb-fallback';
@@ -2797,37 +2299,35 @@
   window.handleGalleryImgError = handleGalleryImgError;
 
   /* =========================================================
-     IMMERSIVE MOBILE GALLERY LIGHTBOX VIEWER WITH SWIPE & EXIF
+     IMMERSIVE GALLERY LIGHTBOX VIEWER
      ========================================================= */
   let CURRENT_LIGHTBOX_ITEMS = [];
   let CURRENT_LIGHTBOX_INDEX = 0;
-  let LIGHTBOX_TOUCH_START_X = 0;
-  let LIGHTBOX_SHOW_INFO = false;
 
   function openGalleryLightbox(mediaId) {
     const pid = currentProjectId();
-    let allScoped = (STATE.gallery || []).filter(
+    const activeFilter = window.GALLERY_FILTER || "ALL";
+    const searchQuery = String(window.GALLERY_SEARCH || "").trim().toLowerCase();
+
+    const allScoped = (STATE.gallery || []).filter(
       (g) => !pid || g.projectId === pid,
     );
 
-    // Context-aware items list
-    if (window.GALLERY_ACTIVE_FOLDER) {
-      const folders = getGalleryFolderDefinitions(allScoped);
-      const curF = folders.find((f) => f.id === window.GALLERY_ACTIVE_FOLDER);
-      if (curF && curF.items.length) {
-        allScoped = curF.items;
-      }
-    } else if (window.GALLERY_VIEW_MODE === "FAVORITES") {
-      const favs = getGalleryFavs();
-      allScoped = allScoped.filter((g) => favs.includes(g.id));
-    } else if (window.GALLERY_VIEW_MODE === "VIDEOS") {
-      allScoped = allScoped.filter((g) => (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4")));
+    CURRENT_LIGHTBOX_ITEMS = allScoped.filter((g) => {
+      const matchCat = activeFilter === "ALL" || (g.category || "").toUpperCase() === activeFilter;
+      if (!matchCat) return false;
+      if (!searchQuery) return true;
+      const t = String(g.title || "").toLowerCase();
+      const u = String(g.uploadedBy || "").toLowerCase();
+      return t.includes(searchQuery) || u.includes(searchQuery);
+    });
+
+    if (!CURRENT_LIGHTBOX_ITEMS.length) {
+      CURRENT_LIGHTBOX_ITEMS = allScoped;
     }
 
-    CURRENT_LIGHTBOX_ITEMS = allScoped;
-    const idx = CURRENT_LIGHTBOX_ITEMS.findIndex((g) => g.id === mediaId);
+    const idx = CURRENT_LIGHTBOX_ITEMS.findIndex(g => g.id === mediaId);
     CURRENT_LIGHTBOX_INDEX = idx >= 0 ? idx : 0;
-    LIGHTBOX_SHOW_INFO = false;
 
     renderLightboxContent();
 
@@ -2862,23 +2362,6 @@
   }
   window.navLightbox = navLightbox;
 
-  function toggleLightboxFav(id) {
-    toggleGalleryFav(id);
-    renderLightboxContent();
-    renderGallery();
-  }
-  window.toggleLightboxFav = toggleLightboxFav;
-
-  function toggleLightboxInfo() {
-    LIGHTBOX_SHOW_INFO = !LIGHTBOX_SHOW_INFO;
-    const sheet = $("gal-lightbox-info-sheet");
-    if (sheet) {
-      if (LIGHTBOX_SHOW_INFO) sheet.classList.add("open");
-      else sheet.classList.remove("open");
-    }
-  }
-  window.toggleLightboxInfo = toggleLightboxInfo;
-
   function renderLightboxContent() {
     const g = CURRENT_LIGHTBOX_ITEMS[CURRENT_LIGHTBOX_INDEX];
     if (!g) return;
@@ -2889,33 +2372,25 @@
       existing.id = "gal-lightbox-root";
       existing.className = "gal-lightbox-backdrop";
       document.body.appendChild(existing);
-
-      // Mobile Touch Swipe support
-      existing.addEventListener("touchstart", (e) => {
-        if (e.touches && e.touches[0]) {
-          LIGHTBOX_TOUCH_START_X = e.touches[0].clientX;
-        }
-      }, { passive: true });
-
-      existing.addEventListener("touchend", (e) => {
-        if (e.changedTouches && e.changedTouches[0]) {
-          const endX = e.changedTouches[0].clientX;
-          const diff = endX - LIGHTBOX_TOUCH_START_X;
-          if (Math.abs(diff) > 55) {
-            if (diff > 0) navLightbox(-1); // swipe right -> previous
-            else navLightbox(1); // swipe left -> next
-          }
-        }
-      }, { passive: true });
     }
 
-    const proj = (STATE.projects || []).find((p) => p.id === g.projectId);
+    const proj = (STATE.projects || []).find(p => p.id === g.projectId);
     const projName = proj ? (proj.name || proj.code) : g.projectId;
     const cat = String(g.category || "EVENT").toUpperCase();
     const isVideo = (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4"));
-    const displaySrc = resolveMediaThumb(g);
+
+    let displaySrc = g.thumbUrl;
+    if (!displaySrc) {
+      if (g.fileId && !String(g.fileId).startsWith("http")) {
+        displaySrc = 'https://drive.google.com/thumbnail?id=' + g.fileId + '&sz=w1600';
+      } else if (g.url && String(g.url).startsWith("http")) {
+        displaySrc = g.url;
+      } else if (g.fileId && String(g.fileId).startsWith("http")) {
+        displaySrc = g.fileId;
+      }
+    }
+
     const canDelete = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER" || g.uploadedBy === USER.employeeId;
-    const isFav = isGalleryFav(g.id);
 
     existing.innerHTML = 
       '<div class="gal-lightbox-topbar">' +
@@ -2924,9 +2399,7 @@
           '<span class="gal-lightbox-counter">Photo ' + (CURRENT_LIGHTBOX_INDEX + 1) + ' of ' + CURRENT_LIGHTBOX_ITEMS.length + '</span>' +
         '</div>' +
         '<div class="gal-lightbox-topbar-right">' +
-          '<button type="button" class="gal-lightbox-btn' + (isFav ? ' active-star' : '') + '" onclick="toggleLightboxFav(\'' + esc(g.id) + '\')">' + (isFav ? '⭐ Starred' : '☆ Favorite') + '</button>' +
-          '<button type="button" class="gal-lightbox-btn" onclick="toggleLightboxInfo()" title="Photo Information & Metadata">ℹ️ Info</button>' +
-          (g.url ? '<a href="' + esc(g.url) + '" target="_blank" class="gal-lightbox-btn">Drive ↗</a>' : '') +
+          (g.url ? '<a href="' + esc(g.url) + '" target="_blank" class="gal-lightbox-btn"><span>Open in Drive</span> ↗</a>' : '') +
           (canDelete ? '<button type="button" class="gal-lightbox-btn" style="background:#dc2626;border-color:#ef4444" onclick="delUploadedFile(\'' + esc(g.fileId) + '\');closeGalleryLightbox()">Delete 🗑️</button>' : '') +
           '<button type="button" class="gal-lightbox-close-btn" onclick="closeGalleryLightbox()" aria-label="Close">✕</button>' +
         '</div>' +
@@ -2946,42 +2419,8 @@
           (projName ? '<div style="font-size:12px;color:#94a3b8;margin-top:2px">📍 ' + esc(projName) + '</div>' : '') +
         '</div>' +
         '<div class="gal-lightbox-caption-meta">' +
-          '<span>📅 ' + displayDate(g.uploadedAt) + '</span>' +
-          '<span>👤 ' + esc(g.uploadedBy || 'Safety Team') + '</span>' +
-        '</div>' +
-      '</div>' +
-
-      // Mobile EXIF / Info Bottom Sheet
-      '<div class="gal-info-sheet' + (LIGHTBOX_SHOW_INFO ? ' open' : '') + '" id="gal-lightbox-info-sheet">' +
-        '<div class="gal-info-sheet-header">' +
-          '<div style="font-size:15px;font-weight:700">📸 Photo Details &amp; Metadata</div>' +
-          '<button type="button" class="ghost small" style="color:#ffffff" onclick="toggleLightboxInfo()">Done</button>' +
-        '</div>' +
-        '<div class="gal-info-sheet-grid">' +
-          '<div>' +
-            '<div class="gal-info-item-label">Album / Category</div>' +
-            '<div class="gal-info-item-val">' + esc(cat) + '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="gal-info-item-label">Project Site</div>' +
-            '<div class="gal-info-item-val">' + esc(projName || 'SESIPL Corporate') + '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="gal-info-item-label">Timestamp</div>' +
-            '<div class="gal-info-item-val">' + esc(g.uploadedAt || 'N/A') + '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="gal-info-item-label">Uploaded By</div>' +
-            '<div class="gal-info-item-val">' + esc(g.uploadedBy || 'Safety Team') + '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="gal-info-item-label">File Format</div>' +
-            '<div class="gal-info-item-val">' + esc(g.mimeType || 'image/jpeg') + '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="gal-info-item-label">Secure Cloud Storage</div>' +
-            '<div class="gal-info-item-val"><a href="' + esc(g.url || '#') + '" target="_blank" style="color:#2dd4bf">Open Original Drive File ↗</a></div>' +
-          '</div>' +
+          '<span>📅 Uploaded ' + displayDate(g.uploadedAt) + '</span>' +
+          '<span>👤 By ' + esc(g.uploadedBy || 'Safety Team') + '</span>' +
         '</div>' +
       '</div>';
   }
@@ -2989,42 +2428,28 @@
   /* =========================================================
      MODERN UPLOAD MEDIA MODAL WITH LIVE PREVIEW
      ========================================================= */
-  function fileToBase64_(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const res = String(reader.result || "");
-        const idx = res.indexOf(",");
-        resolve(idx >= 0 ? res.substring(idx + 1) : res);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function openUploadMediaModal(preselectedCat, preselectedProj) {
-    if (!currentProjectId() && !preselectedProj) {
+  function openUploadMediaModal() {
+    if (!currentProjectId()) {
       alert("Please select a project from the topbar first.");
       return;
     }
-    const pid = preselectedProj || currentProjectId();
-    const proj = (STATE.projects || []).find((p) => p.id === pid);
+    const proj = currentProject();
     const canBroadcast = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER";
 
     const modalHtml = 
       '<div style="max-width:520px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
-          '<h3 style="margin:0 0 4px">Upload to Photo &amp; Media Album</h3>' +
-          '<p class="muted" style="margin:0;font-size:12.5px">Target Project: <b>' + esc(proj ? proj.name : pid) + '</b></p>' +
+          '<h3 style="margin:0 0 4px">Upload to Photo &amp; Media Gallery</h3>' +
+          '<p class="muted" style="margin:0;font-size:12.5px">Project: <b>' + esc(proj ? proj.name : currentProjectId()) + '</b></p>' +
         '</div>' +
         '<form id="gal-modal-form" class="form-grid">' +
           '<div>' +
-            '<label>Album Category</label>' +
+            '<label>Media Category</label>' +
             '<select name="category" required style="width:100%">' +
-              '<option value="COMPANY"' + (preselectedCat === 'COMPANY' ? ' selected' : '') + '>🦺 Site Safety &amp; Inspection</option>' +
-              '<option value="TRAINING"' + (preselectedCat === 'TRAINING' ? ' selected' : '') + '>🎓 Safety Training &amp; Drill</option>' +
-              '<option value="MEETING"' + (preselectedCat === 'MEETING' ? ' selected' : '') + '>🗣️ Toolbox Talk (TBT)</option>' +
-              '<option value="EVENT"' + (preselectedCat === 'EVENT' ? ' selected' : '') + '>🏆 Event &amp; Milestone Celebration</option>' +
+              '<option value="COMPANY">Company &amp; Site Facility</option>' +
+              '<option value="TRAINING">Safety Training Session</option>' +
+              '<option value="MEETING">Safety Committee / Tool Box Talk</option>' +
+              '<option value="EVENT">Event / Milestone Celebration</option>' +
             '</select>' +
           '</div>' +
           field("title", "Media Title / Caption", "text") +
@@ -3041,7 +2466,7 @@
           (canBroadcast ? '<div class="full"><label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="gal-broadcast-check" checked> <span>Broadcast WhatsApp-style notification to all active company personnel</span></label></div>' : '') +
           '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
             '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
-            '<button type="submit" id="gal-modal-submit-btn" class="btn small">Upload &amp; Save</button>' +
+            '<button type="submit" id="gal-modal-submit-btn" class="btn small">Upload &amp; Broadcast</button>' +
           '</div>' +
         '</form>' +
       '</div>';
@@ -3058,19 +2483,19 @@
       const btn = $("gal-modal-submit-btn");
       if (btn) {
         btn.disabled = true;
-        btn.textContent = "Uploading to album...";
+        btn.textContent = "Uploading securely...";
       }
       try {
-        const b64 = await fileToBase64_(file);
+        const b64 = await blobToB64(file);
         const fd = new FormData(this);
         await run("apiUploadMeta", TOKEN, {
-          projectId: pid,
+          projectId: currentProjectId(),
           kind: "GALLERY",
           category: fd.get("category"),
           title: fd.get("title") || file.name,
           fileName: file.name,
           mimeType: file.type,
-          base64: b64,
+          base64: b64.split(",")[1],
         });
         hideModal();
         await refresh();
@@ -3078,7 +2503,7 @@
         alert("Upload failed: " + (err && err.message ? err.message : err));
         if (btn) {
           btn.disabled = false;
-          btn.textContent = "Upload & Save";
+          btn.textContent = "Upload & Broadcast";
         }
       }
     };
