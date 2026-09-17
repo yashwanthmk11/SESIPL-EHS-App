@@ -29,25 +29,41 @@ function initializeSystem() {
     Logger.log('Database spreadsheet: ' + ss.getUrl());
 
     // 1. CLEAN PURGE & REBUILD FROM SCRATCH
-    // Insert a temporary scratch sheet so the spreadsheet is never empty during wipe
-    const tempSheet = ss.insertSheet('__TEMP_SCRATCH__');
+    // Ensure temporary scratch sheet exists so the spreadsheet is never empty during wipe
+    let tempSheet = ss.getSheetByName('__TEMP_SCRATCH__');
+    if (!tempSheet) {
+      tempSheet = ss.insertSheet('__TEMP_SCRATCH__');
+    }
 
-    // Delete all existing sheets (removes Sheet1, legacy sheets, duplicates, corrupted schemas)
-    ss.getSheets().forEach(s => {
-      if (s.getName() !== '__TEMP_SCRATCH__') {
+    // Delete all other sheets safely
+    const sheetsToPurge = ss.getSheets();
+    for (let i = 0; i < sheetsToPurge.length; i++) {
+      const s = sheetsToPurge[i];
+      let sName = '';
+      try {
+        sName = s.getName();
+      } catch (err) {
+        continue;
+      }
+      if (sName && sName !== '__TEMP_SCRATCH__') {
         try {
           ss.deleteSheet(s);
-          Logger.log('Purged sheet: ' + s.getName());
+          Logger.log('Purged sheet: ' + sName);
         } catch (e) {
-          Logger.log('Could not purge sheet ' + s.getName() + ': ' + e);
+          Logger.log('Could not purge sheet ' + sName + ': ' + e);
         }
       }
-    });
+    }
 
     // 2. Recreate all canonical sheets fresh from HEADERS definition
     const sheetMap = {};
     Object.keys(HEADERS).forEach(name => {
-      const sh = ss.insertSheet(name);
+      let sh = ss.getSheetByName(name);
+      if (!sh) {
+        sh = ss.insertSheet(name);
+      } else {
+        sh.clear();
+      }
       sheetMap[name] = sh;
       const cols = HEADERS[name];
       const headerLabels = cols.map(h => formatHeaderLabel_(h));
@@ -214,10 +230,13 @@ function initializeSystem() {
     });
 
     // 7. REMOVE SCRATCH SHEET (Spreadsheet is now 100% pristine and canonical)
-    try {
-      ss.deleteSheet(tempSheet);
-    } catch (e) {
-      Logger.log('Could not remove temp sheet: ' + e);
+    const finalTemp = ss.getSheetByName('__TEMP_SCRATCH__');
+    if (finalTemp && ss.getSheets().length > 1) {
+      try {
+        ss.deleteSheet(finalTemp);
+      } catch (e) {
+        Logger.log('Could not remove temp sheet: ' + e);
+      }
     }
 
     // 8. Ensure Drive Project Folders
