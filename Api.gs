@@ -1,8 +1,21 @@
+function sanitizeForClient_(obj) {
+  if (obj === null || obj === undefined) return null;
+  return JSON.parse(JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+      return 0;
+    }
+    if (value === undefined) {
+      return null;
+    }
+    return value;
+  }));
+}
+
 function apiBootstrap(token) {
   try {
     const user = requireUser_(token);
     const data = buildBootstrap_(user);
-    return { ok: true, user: user, data: data };
+    return sanitizeForClient_({ ok: true, user: user, data: data });
   } catch (e) {
     Logger.log("apiBootstrap error: " + e);
     return { ok: false, error: String(e && e.message ? e.message : e) };
@@ -114,12 +127,8 @@ function decorateSubmission_(s) {
 
 function withFileUrl_(row) {
   const out = Object.assign({}, row);
-  if (row.fileId) {
-    try {
-      out.url = DriveApp.getFileById(row.fileId).getUrl();
-    } catch (e) {
-      out.url = "";
-    }
+  if (!out.url && out.fileId) {
+    out.url = 'https://drive.google.com/file/d/' + out.fileId + '/view';
   }
   return out;
 }

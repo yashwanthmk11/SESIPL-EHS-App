@@ -71,14 +71,12 @@ function login(employeeId, uan) {
       return { ok: false, error: "Invalid Employee ID or UAN." };
     }
 
-    const token = Utilities.getUuid();
+    const token = makeToken_(user);
     const sessionUser = publicUser_(user);
     const sessionStr = JSON.stringify(sessionUser);
+    const cacheKey = "sess_" + token.slice(0, 100);
     try {
-      CacheService.getScriptCache().put("sess_" + token, sessionStr, SESSION_TTL_SEC);
-    } catch (e) {}
-    try {
-      PropertiesService.getUserProperties().setProperty("sess_" + token, sessionStr);
+      CacheService.getScriptCache().put(cacheKey, sessionStr, 14400);
     } catch (e) {}
     try {
       writeAudit_(user.employeeId, "LOGIN", "User", user.employeeId, "");
@@ -95,33 +93,73 @@ function login(employeeId, uan) {
   }
 }
 
+function makeToken_(user) {
+  const payload = {
+    u: String(user.employeeId || "").trim(),
+    r: String(user.role || "").trim(),
+    t: Date.now()
+  };
+  return Utilities.base64EncodeWebSafe(JSON.stringify(payload));
+}
+
+function parseToken_(token) {
+  if (!token) return null;
+  try {
+    const raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(token)).getDataAsString();
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.u || !payload.t) return null;
+    // Expire after 8 hours (8 * 3600 * 1000 = 28800000 ms)
+    if (Date.now() - payload.t > 28800000) return null;
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
 function logout(token) {
   if (token) {
-    try { CacheService.getScriptCache().remove("sess_" + token); } catch (e) {}
-    try { PropertiesService.getUserProperties().deleteProperty("sess_" + token); } catch (e) {}
+    try { CacheService.getScriptCache().remove("sess_" + token.slice(0, 100)); } catch (e) {}
   }
   return { ok: true };
 }
 
 function requireUser_(token) {
   if (!token) throw new Error("Session expired. Please login again.");
+
+  // 1. Fast in-memory cache check
+  const cacheKey = "sess_" + token.slice(0, 100);
   let raw = null;
   try {
-    raw = CacheService.getScriptCache().get("sess_" + token);
+    raw = CacheService.getScriptCache().get(cacheKey);
   } catch (e) {}
-  if (!raw) {
-    try {
-      raw = PropertiesService.getUserProperties().getProperty("sess_" + token);
-    } catch (e) {}
-    if (raw) {
-      try {
-        CacheService.getScriptCache().put("sess_" + token, raw, SESSION_TTL_SEC);
-      } catch (e) {}
-    }
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) {}
   }
-  if (!raw) throw new Error("Session expired. Please login again.");
-  const user = JSON.parse(raw);
-  return user;
+
+  // 2. Decode the self-validating token payload
+  const payload = parseToken_(token);
+  if (!payload) {
+    throw new Error("Session expired. Please login again.");
+  }
+
+  // 3. Resolve user from database or fallback demo seed
+  let users = rowsToObjects_(SHEETS.USERS);
+  if (!users || !users.length) {
+    users = ensureDemoUsers_();
+  }
+  const user = users.find(
+    (u) => String(u.employeeId || "").trim().toUpperCase() === payload.u.toUpperCase()
+  );
+  if (!user) {
+    throw new Error("User account not found. Please login again.");
+  }
+
+  const sessionUser = publicUser_(user);
+  try {
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(sessionUser), 14400);
+  } catch (e) {}
+
+  return sessionUser;
 }
 
 function publicUser_(user) {

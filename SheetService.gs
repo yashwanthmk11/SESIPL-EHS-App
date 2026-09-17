@@ -77,10 +77,21 @@ function formatHeaderLabel_(key) {
     .toUpperCase();
 }
 
+let _cachedSs = null;
+
 function ss_() {
+  if (_cachedSs) {
+    try {
+      _cachedSs.getId();
+      return _cachedSs;
+    } catch (e) {
+      _cachedSs = null;
+    }
+  }
   const id = String(DATABASE_SPREADSHEET_ID || '').trim() || PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
   if (!id) throw new Error('System not initialized. Run initializeSystem() from the Apps Script editor.');
-  return SpreadsheetApp.openById(id);
+  _cachedSs = SpreadsheetApp.openById(id);
+  return _cachedSs;
 }
 
 function sheet_(name) {
@@ -88,7 +99,9 @@ function sheet_(name) {
   let sh = ss.getSheetByName(name);
   if (!sh && HEADERS[name]) {
     sh = ss.insertSheet(name);
-    cleanAndAlignSheet_(sh, name, HEADERS[name]);
+    const cols = HEADERS[name];
+    const headerLabels = cols.map(h => formatHeaderLabel_(h));
+    sh.getRange(1, 1, 1, cols.length).setValues([headerLabels]);
   }
   if (!sh) throw new Error('Missing sheet: ' + name + '. Run initializeSystem() to repair the database.');
   return sh;

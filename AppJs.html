@@ -36,18 +36,15 @@
         .withSuccessHandler((value) => {
           if (isMutation) finishMutation();
           if (value === null || value === undefined) {
-            if (fn === "login") {
-              reject(new Error("Server returned an empty response. Please check Google authorization or run initializeSystem() in Apps Script editor."));
-            } else {
-              reject(new Error("Server returned an empty response. Session may have expired. Please log in again."));
-            }
+            reject(new Error("Server returned an empty response for " + fn + ". Please verify Google Apps Script authorization or reload."));
             return;
           }
           resolve(value);
         })
         .withFailureHandler((error) => {
           if (isMutation) finishMutation();
-          reject(error || new Error("Operation failed on server."));
+          const msg = (error && error.message) ? error.message : (typeof error === "string" ? error : "Operation failed on server.");
+          reject(new Error(msg));
         })
         [fn](...args);
     });
@@ -259,7 +256,7 @@
   async function boot() {
     const bootRes = await run("apiBootstrap", TOKEN);
     if (!bootRes || !bootRes.ok || !bootRes.data) {
-      const msg = (bootRes && bootRes.error) ? bootRes.error : "Session expired or invalid server response. Please log in.";
+      const msg = (bootRes && bootRes.error) ? bootRes.error : "Failed to load dashboard data. Please try again.";
       await doLogout();
       throw new Error(msg);
     }
