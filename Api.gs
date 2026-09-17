@@ -991,6 +991,116 @@ function apiSaveUser(token, row) {
   return { ok: true };
 }
 
+function apiCreateProject(token, payload) {
+  const user = requireUser_(token);
+  if (!canManageProjects_(user.role)) {
+    throw new Error(
+      "Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can add new projects.",
+    );
+  }
+
+  const code = String(payload.code || "").trim().toUpperCase();
+  const name = String(payload.name || "").trim();
+  if (!code || !name) {
+    throw new Error("Project Code and Project Name are required.");
+  }
+
+  const existing = findOne_(SHEETS.PROJECTS, "code", code);
+  if (existing) {
+    throw new Error("A project with code '" + code + "' already exists.");
+  }
+
+  const cleanCode = code.replace(/[^A-Z0-9_-]/g, "");
+  const projId = payload.id || ("PRJ-" + cleanCode);
+
+  const newProj = {
+    id: projId,
+    code: code,
+    name: name,
+    client: String(payload.client || "").trim(),
+    pmc: String(payload.pmc || "").trim(),
+    inCharge: String(payload.inCharge || user.name || "").trim(),
+    manager: String(payload.manager || "").trim(),
+    scope: String(payload.scope || "Electrical & Safety Infrastructure").trim(),
+    startDate: payload.startDate || nowIso_().split(" ")[0],
+    endDate: payload.endDate || "",
+    areaSqft: String(payload.areaSqft || "").trim(),
+    poNo: String(payload.poNo || "").trim(),
+    status: String(payload.status || "RUNNING").toUpperCase(),
+    region: String(payload.region || "Bangalore").trim(),
+    projectDuration: String(payload.projectDuration || "12 Months").trim(),
+  };
+
+  appendRow_(SHEETS.PROJECTS, newProj);
+
+  // Map the creator and optional lead so they have access
+  try {
+    appendRow_(SHEETS.PROJECT_USERS, {
+      employeeId: user.employeeId,
+      projectId: projId,
+      role: user.role,
+    });
+    if (payload.leadEmployeeId && payload.leadEmployeeId !== user.employeeId) {
+      appendRow_(SHEETS.PROJECT_USERS, {
+        employeeId: payload.leadEmployeeId,
+        projectId: projId,
+        role: ROLES.LEAD,
+      });
+    }
+  } catch (me) {
+    Logger.log("Project user mapping notice: " + me);
+  }
+
+  // Create Drive project folder structure
+  try {
+    ensureProjectFolder_(newProj);
+  } catch (fe) {
+    Logger.log("ensureProjectFolder_ notice: " + fe);
+  }
+
+  writeAudit_(
+    user.employeeId,
+    "CREATE_PROJECT",
+    "Projects",
+    projId,
+    newProj.name,
+  );
+
+  // Push notification to management team
+  try {
+    const notifyBody =
+      user.name +
+      " (" +
+      user.role +
+      ") added new project: " +
+      newProj.code +
+      " - " +
+      newProj.name +
+      " (" +
+      newProj.region +
+      ").";
+    const users = rowsToObjects_(SHEETS.USERS).filter(
+      (u) => u.active !== "FALSE",
+    );
+    users.forEach((u) => {
+      if (canManageProjects_(u.role) || u.employeeId === payload.leadEmployeeId) {
+        pushNotify_(
+          u.employeeId,
+          projId,
+          user,
+          "New Project Added: " + newProj.code,
+          notifyBody,
+          "INFO",
+        );
+      }
+    });
+  } catch (ne) {
+    Logger.log("Project notification notice: " + ne);
+  }
+
+  return { ok: true, project: newProj };
+}
+
 function apiMarkRead(token, notificationId) {
   const user = requireUser_(token);
   const n = findOne_(SHEETS.NOTIFICATIONS, "id", notificationId);

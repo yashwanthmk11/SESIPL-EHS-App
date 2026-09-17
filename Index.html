@@ -107,9 +107,12 @@
           <img src="https://sesipl.com/sites/default/files/sesipl-logo.png" alt="SESIPL logo">
         </div>
         <div class="top-actions">
-          <label class="proj-label">Project
-            <select id="project-select"></select>
-          </label>
+          <div class="topbar-proj-wrap" style="display:inline-flex;align-items:center;gap:6px">
+            <label class="proj-label">Project
+              <select id="project-select"></select>
+            </label>
+            <button type="button" class="btn small" id="topbar-add-proj-btn" style="display:none;padding:5px 10px;font-size:12px;white-space:nowrap" onclick="openAddProjectModal()">+ Add Project</button>
+          </div>
           <button class="ghost" onclick="openFeed()">Alerts <span id="badge-n" class="badge">0</span></button>
           <div class="who">
             <span id="who-name"></span>

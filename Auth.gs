@@ -205,6 +205,12 @@ function canUploadManagedFile_(role) {
   return role === ROLES.ASST || canMutateAll_(role);
 }
 
+function canManageProjects_(role) {
+  return (
+    role === ROLES.ASST || role === ROLES.MANAGER || role === ROLES.DIRECTOR
+  );
+}
+
 function scopedProjectIds_(user) {
   if (canSeeAllProjects_(user.role)) {
     let prjs = rowsToObjects_(SHEETS.PROJECTS);
