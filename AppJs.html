@@ -309,9 +309,6 @@
       }
     }
     sel.onchange = () => render();
-
-    const addBtn = $("topbar-add-proj-btn");
-    if (addBtn) addBtn.style.display = canManageProjects() ? "inline-flex" : "none";
   }
 
   function currentProjectId() {
