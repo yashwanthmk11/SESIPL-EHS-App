@@ -10,9 +10,12 @@ function apiBootstrap(token) {
 }
 
 function buildBootstrap_(user) {
-  const allProjects = rowsToObjects_(SHEETS.PROJECTS).filter(
+  let allProjects = rowsToObjects_(SHEETS.PROJECTS).filter(
     (p) => String(p.status).toUpperCase() !== "ARCHIVED",
   );
+  if (!allProjects.length) {
+    allProjects = ensureDemoProjects_();
+  }
   const ids = scopedProjectIds_(user);
   const projects = allProjects.filter((p) => ids.indexOf(p.id) >= 0);
   let selectedProjectId = "";

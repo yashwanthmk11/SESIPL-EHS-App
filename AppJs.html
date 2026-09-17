@@ -36,7 +36,11 @@
         .withSuccessHandler((value) => {
           if (isMutation) finishMutation();
           if (value === null || value === undefined) {
-            reject(new Error("Server returned an empty response. Session may have expired."));
+            if (fn === "login") {
+              reject(new Error("Server returned an empty response. Please check Google authorization or run initializeSystem() in Apps Script editor."));
+            } else {
+              reject(new Error("Server returned an empty response. Session may have expired. Please log in again."));
+            }
             return;
           }
           resolve(value);
