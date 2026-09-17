@@ -742,13 +742,29 @@ function apiCloseObservation(token, id, fallbackNote) {
 
 function apiSaveTraining(token, row) {
   const user = requireUser_(token);
-  if (user.role !== ROLES.MANAGER && user.role !== ROLES.DIRECTOR) {
-    throw new Error("Only Manager / Director can set the training calendar.");
+  if (user.role !== ROLES.MANAGER && user.role !== ROLES.DIRECTOR && user.role !== ROLES.ASST) {
+    throw new Error("Only Manager, Director, or Assistant Manager can manage the training calendar.");
   }
+
+  if (row.id) {
+    const existing = findOne_(SHEETS.TRAINING, "id", row.id);
+    if (!existing) throw new Error("Training session not found: " + row.id);
+    updateRowById_(SHEETS.TRAINING, row.id, row);
+    try {
+      writeAudit_(user.employeeId, "UPDATE_TRAINING", "Training", row.id, row.topic || "");
+    } catch (_) {}
+    return { ok: true, id: row.id };
+  }
+
   row.id = uid_("TRN");
   row.createdBy = user.employeeId;
-  row.status = row.status || "PLANNED";
+  row.status = row.status || "SCHEDULED";
   appendRow_(SHEETS.TRAINING, row);
+
+  try {
+    writeAudit_(user.employeeId, "CREATE_TRAINING", "Training", row.id, row.topic || "");
+  } catch (_) {}
+
   rowsToObjects_(SHEETS.USERS).forEach((u) => {
     if (String(u.active).toUpperCase() === "TRUE") {
       pushNotify_(
@@ -761,7 +777,24 @@ function apiSaveTraining(token, row) {
       );
     }
   });
-  return { ok: true };
+  return { ok: true, id: row.id };
+}
+
+function apiDeleteTraining(token, trainingId) {
+  const user = requireUser_(token);
+  if (user.role !== ROLES.MANAGER && user.role !== ROLES.DIRECTOR && user.role !== ROLES.ASST) {
+    throw new Error("Only Manager, Director, or Assistant Manager can delete training sessions.");
+  }
+  const id = String(trainingId || "").trim();
+  if (!id) throw new Error("Training ID is required.");
+  const item = findOne_(SHEETS.TRAINING, "id", id);
+  if (!item) return { ok: true };
+  const sh = sheet_(SHEETS.TRAINING);
+  sh.deleteRow(item._row);
+  try {
+    writeAudit_(user.employeeId, "DELETE_TRAINING", "Training", id, item.topic || "");
+  } catch (_) {}
+  return { ok: true, deletedId: id };
 }
 
 function apiUploadMeta(token, payload) {

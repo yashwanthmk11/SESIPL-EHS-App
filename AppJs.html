@@ -12,7 +12,7 @@
     "apiDeleteUploadedFile",
     "apiSaveDailyLog", "apiSavePpe", "apiSaveScaffold", "apiSaveMovement",
     "apiSaveObservation", "apiCloseObservation", "apiSaveTraining", "apiUploadMeta",
-    "apiSaveUser", "apiCreateProject", "apiUpdateProject", "apiDeleteProject"
+    "apiSaveUser", "apiCreateProject", "apiUpdateProject", "apiDeleteProject", "apiDeleteTraining"
   ]);
 
   const ROLE_LABEL = {
@@ -2682,47 +2682,595 @@
     }
   }
 
+  /* =========================================================
+     MODERN & CREATIVE TRAINING CALENDAR ENGINE
+     ========================================================= */
+  const TRAINING_PRESETS = [
+    { title: "LOTO (Lockout / Tagout) Isolation Protocols", dept: "Electrical", icon: "⚡" },
+    { title: "Working at Height & Full-Body Harness Inspection", dept: "Scaffolding / Civil", icon: "🦺" },
+    { title: "Emergency Fire Evacuation Drill & Extinguisher Operation", dept: "Site Wide", icon: "🧯" },
+    { title: "First Aid, CPR & Heat Stress Prevention", dept: "All Personnel", icon: "🩹" },
+    { title: "Rigging, Slings & Heavy Crane Lifting Safety", dept: "Mechanical / Lifting", icon: "🏗️" },
+    { title: "Confined Space Entry & Atmospheric Gas Testing", dept: "Substation / Basement", icon: "🕳️" },
+    { title: "Hazardous Chemical Handling, Spill Response & MSDS", dept: "Stores / Finishing", icon: "🧪" },
+    { title: "Hand & Portable Power Tool Safety Inspection", dept: "Technicians", icon: "🔨" },
+    { title: "Excavation, Shoring & Underground Utility Protection", dept: "Civil Works", icon: "🚜" },
+    { title: "Defensive Driving & Internal Vehicle Movement", dept: "Logistics", icon: "🚚" }
+  ];
+
+  function getTrainingCat(t) {
+    const text = (String(t.topic || "") + " " + String(t.dept || "") + " " + String(t.notes || "")).toLowerCase();
+    if (text.includes("loto") || text.includes("lockout") || text.includes("electric") || text.includes("substation") || text.includes("switchgear") || text.includes("panel")) {
+      return { id: "ELEC", name: "Electrical & LOTO", icon: "⚡", color: "#b45309", bg: "#fef3c7", border: "#fde68a" };
+    }
+    if (text.includes("height") || text.includes("fall") || text.includes("harness") || text.includes("scaffold") || text.includes("ladder")) {
+      return { id: "HEIGHT", name: "Height & Scaffolding", icon: "🦺", color: "#0369a1", bg: "#e0f2fe", border: "#bae6fd" };
+    }
+    if (text.includes("fire") || text.includes("evacuat") || text.includes("extinguish") || text.includes("drill") || text.includes("emergency")) {
+      return { id: "FIRE", name: "Fire & Emergency", icon: "🧯", color: "#b91c1c", bg: "#fee2e2", border: "#fecaca" };
+    }
+    if (text.includes("aid") || text.includes("cpr") || text.includes("heat") || text.includes("hygiene") || text.includes("medical") || text.includes("health")) {
+      return { id: "HEALTH", name: "First Aid & Health", icon: "🩹", color: "#047857", bg: "#d1fae5", border: "#a7f3d0" };
+    }
+    if (text.includes("crane") || text.includes("rigging") || text.includes("lift") || text.includes("slings") || text.includes("machin") || text.includes("tool")) {
+      return { id: "RIG", name: "Rigging & Tools", icon: "🏗️", color: "#6d28d9", bg: "#ede9fe", border: "#ddd6fe" };
+    }
+    if (text.includes("confined") || text.includes("gas") || text.includes("oxygen") || text.includes("manhole")) {
+      return { id: "CONF", name: "Confined Space", icon: "🕳️", color: "#c2410c", bg: "#ffedd5", border: "#fed7aa" };
+    }
+    if (text.includes("chemical") || text.includes("msds") || text.includes("spill") || text.includes("acid")) {
+      return { id: "CHEM", name: "Chemical Safety", icon: "🧪", color: "#4338ca", bg: "#e0e7ff", border: "#c7d2fe" };
+    }
+    return { id: "GEN", name: "General Safety", icon: "🎓", color: "#0f766e", bg: "#ccfbf1", border: "#99f6e4" };
+  }
+
+  function getDaysUntil(dateStr) {
+    if (!dateStr) return "";
+    const target = new Date(dateStr.split(" ")[0] + "T00:00:00");
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffTime = target - today;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+    if (diffDays === -1) return "Yesterday";
+    if (diffDays > 1 && diffDays < 7) return "In " + diffDays + " days";
+    if (diffDays >= 7 && diffDays < 14) return "Next week";
+    if (diffDays < -1) return Math.abs(diffDays) + " days ago";
+    return diffDays > 0 ? "In " + diffDays + " days" : "";
+  }
+
   function renderCalendar() {
-    $("page-title").textContent = "Training calendar";
+    $("page-title").textContent = "Corporate Safety Training Calendar";
     $("page-sub").textContent =
-      "Manager sets next month. It reflects on every role dashboard.";
-    const can = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
-    $("view").innerHTML =
-      (can
-        ? '<div class="card"><form id="tr-form" class="form-grid">' +
-          field("date", "Date", "date") +
-          field("topic", "Topic", "text") +
-          field("owner", "Owner", "text") +
-          field("dept", "Dept", "text") +
-          '<div class="full"><button class="btn small">Publish to all dashboards</button></div></form></div>'
-        : "") +
-      '<div class="card" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Topic</th><th>Owner</th><th>Dept</th></tr></thead><tbody>' +
-      STATE.training
-        .map(
-          (t) =>
-            "<tr><td>" +
-            displayDate(t.date) +
-            "</td><td>" +
-            esc(t.topic) +
-            "</td><td>" +
-            esc(t.owner) +
-            "</td><td>" +
-            esc(t.dept) +
-            "</td></tr>",
-        )
-        .join("") +
-      "</tbody></table></div>";
-    if ($("tr-form")) {
-      $("tr-form").onsubmit = async function (ev) {
-        ev.preventDefault();
+      "Interactive multi-site training schedule, tool box talks, and regulatory compliance matrix.";
+
+    const now = new Date();
+    if (window.CALENDAR_YEAR == null) window.CALENDAR_YEAR = now.getFullYear();
+    if (window.CALENDAR_MONTH == null) window.CALENDAR_MONTH = now.getMonth();
+    if (window.CALENDAR_VIEW == null) window.CALENDAR_VIEW = "GRID";
+    if (window.CALENDAR_FILTER == null) window.CALENDAR_FILTER = "ALL";
+    if (window.CALENDAR_SEARCH == null) window.CALENDAR_SEARCH = "";
+
+    const year = window.CALENDAR_YEAR;
+    const month = window.CALENDAR_MONTH;
+    const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
+
+    const pId = currentProjectId();
+    let trainings = (STATE.training || []).filter((t) => {
+      if (pId && t.projectId && t.projectId !== "*" && t.projectId !== pId) return false;
+      return true;
+    });
+
+    const q = String(window.CALENDAR_SEARCH || "").trim().toLowerCase();
+    const f = String(window.CALENDAR_FILTER || "ALL");
+
+    const filtered = trainings.filter((t) => {
+      if (f !== "ALL") {
+        const cat = getTrainingCat(t);
+        if (cat.id !== f) return false;
+      }
+      if (!q) return true;
+      const hay = (String(t.topic || "") + " " + String(t.owner || "") + " " + String(t.dept || "") + " " + String(t.notes || "")).toLowerCase();
+      return hay.includes(q);
+    });
+
+    // KPI Metrics
+    const totalCount = trainings.length;
+    const completedCount = trainings.filter((t) => String(t.status || "").toUpperCase() === "COMPLETED").length;
+    const currentMonthPrefix = year + "-" + String(month + 1).padStart(2, "0");
+    const thisMonthCount = trainings.filter((t) => String(t.date || "").startsWith(currentMonthPrefix)).length;
+    const uniqueTopics = new Set(trainings.map((t) => t.topic)).size;
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthTitle = monthNames[month] + " " + year;
+
+    const statBarHtml = 
+      '<div class="cal-stat-bar">' +
+        '<div class="cal-stat-card">' +
+          '<div class="cal-stat-icon">🎓</div>' +
+          '<div>' +
+            '<div class="cal-stat-val">' + totalCount + '</div>' +
+            '<div class="cal-stat-lbl">Total Scheduled Sessions</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cal-stat-card">' +
+          '<div class="cal-stat-icon">⚡</div>' +
+          '<div>' +
+            '<div class="cal-stat-val">' + thisMonthCount + '</div>' +
+            '<div class="cal-stat-lbl">Active in ' + monthNames[month] + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cal-stat-card">' +
+          '<div class="cal-stat-icon">✅</div>' +
+          '<div>' +
+            '<div class="cal-stat-val">' + completedCount + '</div>' +
+            '<div class="cal-stat-lbl">Completed Sessions</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cal-stat-card">' +
+          '<div class="cal-stat-icon">📚</div>' +
+          '<div>' +
+            '<div class="cal-stat-val">' + uniqueTopics + '</div>' +
+            '<div class="cal-stat-lbl">Safety Topics Covered</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    const topbarHtml = 
+      '<div class="cal-topbar">' +
+        '<div class="cal-nav-group">' +
+          '<button type="button" class="cal-nav-btn" onclick="navCalendarMonth(-1)">◀ Prev</button>' +
+          '<button type="button" class="cal-nav-btn" onclick="navCalendarToday()">Today</button>' +
+          '<button type="button" class="cal-nav-btn" onclick="navCalendarMonth(1)">Next ▶</button>' +
+          '<div class="cal-month-title">' + monthTitle + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+          '<div class="cal-toggle-group">' +
+            '<button type="button" class="cal-toggle-btn' + (window.CALENDAR_VIEW === "GRID" ? " active" : "") + '" onclick="window.CALENDAR_VIEW=\'GRID\';renderCalendar()">🗓️ Month Grid</button>' +
+            '<button type="button" class="cal-toggle-btn' + (window.CALENDAR_VIEW === "AGENDA" ? " active" : "") + '" onclick="window.CALENDAR_VIEW=\'AGENDA\';renderCalendar()">📋 Agenda Schedule</button>' +
+          '</div>' +
+          (canManage ? '<button type="button" class="btn small" style="display:inline-flex;align-items:center;gap:6px" onclick="openScheduleTrainingModal()">+ Schedule Training</button>' : '') +
+        '</div>' +
+      '</div>';
+
+    const categories = [
+      { id: "ALL", label: "All Safety Modules" },
+      { id: "ELEC", label: "⚡ Electrical & LOTO" },
+      { id: "HEIGHT", label: "🦺 Height Safety" },
+      { id: "FIRE", label: "🧯 Fire & Emergency" },
+      { id: "HEALTH", label: "🩹 First Aid & Health" },
+      { id: "RIG", label: "🏗️ Rigging & Tools" },
+      { id: "CONF", label: "🕳️ Confined Space" },
+      { id: "CHEM", label: "🧪 Chemical Safety" }
+    ];
+    const filterBarHtml = 
+      '<div class="cal-filter-bar">' +
+        categories.map((c) => 
+          '<button type="button" class="cal-filter-pill' + (f === c.id ? ' active' : '') + '" onclick="window.CALENDAR_FILTER=\'' + c.id + '\';renderCalendar()">' + c.label + '</button>'
+        ).join('') +
+      '</div>';
+
+    let contentHtml = '';
+    if (window.CALENDAR_VIEW === "GRID") {
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      
+      // Monday = 0, Sunday = 6
+      const startDayIndex = (firstDay.getDay() + 6) % 7;
+      const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+      const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const gridHeadHtml = '<div class="cal-grid-head">' + daysOfWeek.map((d) => '<div>' + d + '</div>').join('') + '</div>';
+
+      let cellsHtml = '';
+
+      // Leading days from previous month
+      for (let i = startDayIndex - 1; i >= 0; i--) {
+        const dNum = prevMonthLastDay - i;
+        cellsHtml += 
+          '<div class="cal-day-cell other-month">' +
+            '<div class="cal-cell-header">' +
+              '<span class="cal-day-num">' + dNum + '</span>' +
+            '</div>' +
+          '</div>';
+      }
+
+      // Current month days
+      const todayIso = now.toISOString().split("T")[0];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = String(d).padStart(2, "0");
+        const mStr = String(month + 1).padStart(2, "0");
+        const cellDate = year + "-" + mStr + "-" + dStr;
+        const isToday = cellDate === todayIso;
+
+        // Find trainings on this date
+        const dayTrainings = filtered.filter((t) => String(t.date || "").startsWith(cellDate));
+
+        let chipsHtml = '';
+        if (dayTrainings.length > 0) {
+          chipsHtml = '<div class="cal-chips-wrap">' +
+            dayTrainings.map((t) => {
+              const cat = getTrainingCat(t);
+              const isDone = String(t.status || "").toUpperCase() === "COMPLETED";
+              return (
+                '<div class="cal-chip' + (isDone ? ' completed' : '') + '" style="background:' + cat.bg + ';color:' + cat.color + ';border-color:' + cat.border + '" onclick="event.stopPropagation();openTrainingDetailsModal(\'' + esc(t.id) + '\')" title="' + esc(t.topic) + ' (' + esc(t.dept || 'General') + ')">' +
+                  '<span>' + cat.icon + '</span>' +
+                  '<span style="overflow:hidden;text-overflow:ellipsis">' + esc(t.topic) + '</span>' +
+                '</div>'
+              );
+            }).join('') +
+          '</div>';
+        }
+
+        const clickAttr = canManage ? ' onclick="openScheduleTrainingModal(\'' + cellDate + '\')"' : '';
+
+        cellsHtml += 
+          '<div class="cal-day-cell' + (isToday ? ' today' : '') + '"' + clickAttr + ' title="' + (canManage ? 'Click to schedule training on ' + cellDate : cellDate) + '">' +
+            '<div class="cal-cell-header">' +
+              '<span class="cal-day-num">' + d + '</span>' +
+              (isToday ? '<span class="cal-today-badge">Today</span>' : (canManage ? '<span class="cal-add-hint">+</span>' : '')) +
+            '</div>' +
+            chipsHtml +
+          '</div>';
+      }
+
+      // Trailing days to fill out full grid weeks
+      const totalCellsFilled = startDayIndex + daysInMonth;
+      const totalCellsNeeded = Math.ceil(totalCellsFilled / 7) * 7;
+      const trailingDays = totalCellsNeeded - totalCellsFilled;
+      for (let t = 1; t <= trailingDays; t++) {
+        cellsHtml += 
+          '<div class="cal-day-cell other-month">' +
+            '<div class="cal-cell-header">' +
+              '<span class="cal-day-num">' + t + '</span>' +
+            '</div>' +
+          '</div>';
+      }
+
+      contentHtml = 
+        '<div class="cal-grid-card">' +
+          gridHeadHtml +
+          '<div class="cal-grid-matrix">' + cellsHtml + '</div>' +
+        '</div>';
+    } else {
+      // Agenda Schedule View
+      const sorted = [...filtered].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+      const todayIso = now.toISOString().split("T")[0];
+
+      const todayItems = sorted.filter((t) => String(t.date || "").startsWith(todayIso));
+      const upcomingItems = sorted.filter((t) => String(t.date || "").split(" ")[0] > todayIso && String(t.status || "").toUpperCase() !== "COMPLETED");
+      const pastItems = sorted.filter((t) => String(t.date || "").split(" ")[0] < todayIso || String(t.status || "").toUpperCase() === "COMPLETED");
+
+      function renderAgendaCard(t, isToday) {
+        const cat = getTrainingCat(t);
+        const isDone = String(t.status || "").toUpperCase() === "COMPLETED";
+        const dateParts = String(t.date || "").split(" ")[0].split("-");
+        const dNum = dateParts[2] || "01";
+        const mIdx = Number(dateParts[1] || 1) - 1;
+        const mName = monthNames[mIdx] ? monthNames[mIdx].substring(0, 3) : "Mon";
+        const countdown = getDaysUntil(t.date);
+        const proj = (STATE.projects || []).find((p) => p.id === t.projectId);
+
+        return (
+          '<div class="cal-agenda-card' + (isToday ? ' today-card' : '') + '">' +
+            '<div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1">' +
+              '<div class="cal-agenda-date-box" style="border-color:' + (isToday ? '#99f6e4' : '#e2e8f0') + '">' +
+                '<div class="cal-agenda-date-day" style="color:' + (isToday ? '#0f766e' : '#0f172a') + '">' + dNum + '</div>' +
+                '<div class="cal-agenda-date-mon">' + mName + '</div>' +
+              '</div>' +
+              '<div class="cal-agenda-info">' +
+                '<div class="cal-agenda-topic">' +
+                  '<span style="font-size:18px">' + cat.icon + '</span>' +
+                  '<span>' + esc(t.topic) + '</span>' +
+                  (countdown ? '<span class="cal-pill-badge" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">' + countdown + '</span>' : '') +
+                  (isDone ? '<span class="cal-pill-badge" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0">✓ Completed</span>' : '') +
+                '</div>' +
+                '<div class="cal-agenda-meta">' +
+                  '<span>🏢 Site: <b>' + esc(proj ? proj.name : (t.projectId === '*' ? 'All Sites' : t.projectId)) + '</b></span>' +
+                  '<span>👥 Dept: <b>' + esc(t.dept || 'Site Wide') + '</b></span>' +
+                  '<span>👤 Trainer: <b>' + esc(t.owner || 'Safety Team') + '</b></span>' +
+                  (t.notes ? '<span style="color:#64748b">📝 ' + esc(t.notes) + '</span>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="cal-agenda-actions">' +
+              '<button type="button" class="ghost small" onclick="openTrainingDetailsModal(\'' + esc(t.id) + '\')">👁️ Details</button>' +
+              (canManage && !isDone ? '<button type="button" class="btn small" style="background:#059669;border-color:#059669;color:#fff" onclick="markTrainingCompleted(\'' + esc(t.id) + '\')">✅ Complete</button>' : '') +
+              (canManage ? '<button type="button" class="ghost small" style="color:#dc2626;border-color:#fecaca" onclick="confirmDeleteTraining(\'' + esc(t.id) + '\')">🗑️</button>' : '') +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      let agendaHtml = '';
+      if (todayItems.length > 0) {
+        agendaHtml += 
+          '<div class="cal-agenda-section">' +
+            '<div class="cal-agenda-sec-title">🚨 Today\'s Training Sessions (' + todayItems.length + ')</div>' +
+            todayItems.map((t) => renderAgendaCard(t, true)).join('') +
+          '</div>';
+      }
+
+      if (upcomingItems.length > 0) {
+        agendaHtml += 
+          '<div class="cal-agenda-section" style="margin-top:10px">' +
+            '<div class="cal-agenda-sec-title">⏳ Upcoming Scheduled Sessions (' + upcomingItems.length + ')</div>' +
+            upcomingItems.map((t) => renderAgendaCard(t, false)).join('') +
+          '</div>';
+      }
+
+      if (pastItems.length > 0) {
+        agendaHtml += 
+          '<div class="cal-agenda-section" style="margin-top:10px">' +
+            '<div class="cal-agenda-sec-title" style="color:#64748b">✅ Completed &amp; Past Records (' + pastItems.length + ')</div>' +
+            pastItems.map((t) => renderAgendaCard(t, false)).join('') +
+          '</div>';
+      }
+
+      if (!sorted.length) {
+        agendaHtml = 
+          '<div class="card" style="text-align:center;padding:48px 16px;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0">' +
+            '<div style="font-size:42px;margin-bottom:8px">🎓</div>' +
+            '<h3 style="margin:0 0 6px">No training sessions found</h3>' +
+            '<p class="muted" style="margin:0 0 16px">No sessions matching the selected filter or search.</p>' +
+            (canManage ? '<button type="button" class="btn small" onclick="openScheduleTrainingModal()">+ Schedule a Session</button>' : '') +
+          '</div>';
+      }
+
+      contentHtml = '<div class="cal-agenda-wrap">' + agendaHtml + '</div>';
+    }
+
+    $("view").innerHTML = 
+      '<div class="cal-wrap">' + 
+        statBarHtml + 
+        topbarHtml + 
+        filterBarHtml + 
+        contentHtml + 
+      '</div>';
+  }
+  window.renderCalendar = renderCalendar;
+
+  function navCalendarMonth(delta) {
+    let m = (window.CALENDAR_MONTH || 0) + delta;
+    let y = window.CALENDAR_YEAR || new Date().getFullYear();
+    if (m < 0) { m = 11; y--; }
+    else if (m > 11) { m = 0; y++; }
+    window.CALENDAR_MONTH = m;
+    window.CALENDAR_YEAR = y;
+    renderCalendar();
+  }
+  window.navCalendarMonth = navCalendarMonth;
+
+  function navCalendarToday() {
+    const now = new Date();
+    window.CALENDAR_YEAR = now.getFullYear();
+    window.CALENDAR_MONTH = now.getMonth();
+    renderCalendar();
+  }
+  window.navCalendarToday = navCalendarToday;
+
+  function openScheduleTrainingModal(prefillDate) {
+    if (USER.role !== "EHS_MANAGER" && USER.role !== "DIRECTOR" && USER.role !== "ASST_EHS_MANAGER") {
+      toast("Access Denied: Only Safety Managers can schedule training sessions.", "error");
+      return;
+    }
+
+    const defaultDate = prefillDate || new Date().toISOString().split("T")[0];
+    const projects = STATE.projects || [];
+    const pId = currentProjectId();
+
+    const projOptions = '<option value="*">All Project Sites (Company Wide)</option>' +
+      projects.map((p) => '<option value="' + esc(p.id) + '"' + (pId === p.id ? ' selected' : '') + '>' + esc(p.name) + ' (' + esc(p.code) + ')</option>').join('');
+
+    const presetOptions = '<option value="">-- Choose from Standard Safety Modules --</option>' +
+      TRAINING_PRESETS.map((p, idx) => '<option value="' + idx + '">' + p.icon + ' ' + esc(p.title) + '</option>').join('');
+
+    const modalHtml = 
+      '<div style="max-width:560px;margin:0 auto;text-align:left">' +
+        '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
+          '<h3 style="margin:0 0 4px;font-size:18px;display:flex;align-items:center;gap:8px">🎓 Schedule Safety Training Session</h3>' +
+          '<p class="muted" style="margin:0;font-size:12.5px">Publishes safety training to site engineers and dashboard calendars with auto-notifications.</p>' +
+        '</div>' +
+        '<form id="sch-tr-form" class="form-grid">' +
+          '<div class="full">' +
+            '<label>Quick Standard Module Preset</label>' +
+            '<select id="tr-preset-sel" style="width:100%" onchange="handleTrainingPresetChange(this)">' + presetOptions + '</select>' +
+          '</div>' +
+          fieldVal("topic", "Training Topic / Course Title", "text", "") +
+          fieldVal("date", "Scheduled Date", "date", defaultDate) +
+          fieldVal("owner", "Faculty / Trainer In-Charge", "text", USER.name || "") +
+          fieldVal("dept", "Target Department / Trade", "text", "Electrical & Safety") +
+          '<div>' +
+            '<label>Target Project Site</label>' +
+            '<select name="projectId" style="width:100%">' + projOptions + '</select>' +
+          '</div>' +
+          '<div>' +
+            '<label>Session Status</label>' +
+            '<select name="status" style="width:100%">' +
+              '<option value="SCHEDULED" selected>SCHEDULED (Planned Session)</option>' +
+              '<option value="COMPLETED">COMPLETED (Conducted)</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="full">' +
+            '<label>Learning Objectives &amp; Syllabus Notes</label>' +
+            '<textarea name="notes" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Key topics: hazards, PPE compliance, demo, attendance requirement..."></textarea>' +
+          '</div>' +
+          '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:14px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" id="sch-tr-submit-btn" class="btn small">Publish &amp; Broadcast</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    setTimeout(() => {
+      const inp = document.querySelector('#sch-tr-form input[name="topic"]');
+      if (inp) inp.focus();
+    }, 100);
+
+    $("sch-tr-form").onsubmit = async function(ev) {
+      ev.preventDefault();
+      const btn = $("sch-tr-submit-btn");
+      if (btn) { btn.disabled = true; btn.textContent = "Publishing..."; }
+      try {
         const fd = new FormData(this);
-        const row = { projectId: currentProjectId() || "*" };
+        const row = {};
         fd.forEach((v, k) => (row[k] = v));
+
+        if (!row.topic || !row.date) {
+          toast("Topic and Date are required.", "warning");
+          if (btn) { btn.disabled = false; btn.textContent = "Publish & Broadcast"; }
+          return;
+        }
+
         await run("apiSaveTraining", TOKEN, row);
+        hideModal();
         await refresh();
-      };
+        go("calendar");
+        toast("Training session '" + row.topic + "' published successfully!", "success");
+      } catch (err) {
+        toast("Failed to schedule training: " + (err && err.message ? err.message : err), "error");
+        if (btn) { btn.disabled = false; btn.textContent = "Publish & Broadcast"; }
+      }
+    };
+  }
+  window.openScheduleTrainingModal = openScheduleTrainingModal;
+
+  function handleTrainingPresetChange(sel) {
+    if (!sel || !sel.value) return;
+    const idx = Number(sel.value);
+    const p = TRAINING_PRESETS[idx];
+    if (p) {
+      const topInp = document.querySelector('#sch-tr-form input[name="topic"]');
+      const deptInp = document.querySelector('#sch-tr-form input[name="dept"]');
+      if (topInp) topInp.value = p.title;
+      if (deptInp) deptInp.value = p.dept;
     }
   }
+  window.handleTrainingPresetChange = handleTrainingPresetChange;
+
+  function openTrainingDetailsModal(trainingId) {
+    const t = (STATE.training || []).find((x) => x.id === trainingId);
+    if (!t) {
+      toast("Training session not found: " + trainingId, "error");
+      return;
+    }
+
+    const cat = getTrainingCat(t);
+    const isDone = String(t.status || "").toUpperCase() === "COMPLETED";
+    const proj = (STATE.projects || []).find((p) => p.id === t.projectId);
+    const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
+
+    const modalHtml = 
+      '<div style="max-width:520px;margin:0 auto;text-align:left">' +
+        '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
+            '<span class="cal-pill-badge" style="background:' + cat.bg + ';color:' + cat.color + ';border:1px solid ' + cat.border + '">' + cat.icon + ' ' + cat.name + '</span>' +
+            '<span class="cal-pill-badge" style="background:' + (isDone ? '#ecfdf5' : '#f0fdfa') + ';color:' + (isDone ? '#059669' : '#0f766e') + ';border:1px solid ' + (isDone ? '#a7f3d0' : '#ccfbf1') + '">' + (isDone ? '✓ Completed' : '● Scheduled') + '</span>' +
+          '</div>' +
+          '<h3 style="margin:0;font-size:19px;color:#0f172a;line-height:1.3">' + esc(t.topic) + '</h3>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:16px">' +
+          '<div>' +
+            '<div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">📅 Scheduled Date</div>' +
+            '<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-top:2px">' + displayDate(t.date) + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">🏢 Project Site</div>' +
+            '<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-top:2px">' + esc(proj ? proj.name : (t.projectId === '*' ? 'All Corporate Sites' : t.projectId)) + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">👥 Department / Trade</div>' +
+            '<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-top:2px">' + esc(t.dept || 'Site Wide') + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">👤 Trainer In-Charge</div>' +
+            '<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-top:2px">' + esc(t.owner || 'Safety Faculty') + '</div>' +
+          '</div>' +
+        '</div>' +
+        (t.notes ? 
+          '<div style="margin-bottom:16px">' +
+            '<div style="font-size:11.5px;font-weight:700;color:#475569;margin-bottom:4px">📝 Learning Objectives &amp; Syllabus:</div>' +
+            '<div style="font-size:13px;color:#334155;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;line-height:1.4">' + esc(t.notes) + '</div>' +
+          '</div>' : '') +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:14px;gap:8px">' +
+          '<div>' +
+            (canManage ? '<button type="button" class="ghost small" style="color:#dc2626;border-color:#fecaca" onclick="confirmDeleteTraining(\'' + esc(t.id) + '\')">🗑️ Delete</button>' : '') +
+          '</div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button type="button" class="ghost small" onclick="hideModal()">Close</button>' +
+            (canManage && !isDone ? '<button type="button" class="btn small" style="background:#059669;border-color:#059669;color:#fff" onclick="markTrainingCompleted(\'' + esc(t.id) + '\')">✅ Mark Completed</button>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    showModal(modalHtml);
+  }
+  window.openTrainingDetailsModal = openTrainingDetailsModal;
+
+  async function markTrainingCompleted(trainingId) {
+    const t = (STATE.training || []).find((x) => x.id === trainingId);
+    if (!t) return;
+    try {
+      await run("apiSaveTraining", TOKEN, {
+        id: t.id,
+        status: "COMPLETED"
+      });
+      hideModal();
+      await refresh();
+      go("calendar");
+      toast("Training session marked as COMPLETED!", "success");
+    } catch (err) {
+      toast("Failed to update status: " + (err && err.message ? err.message : err), "error");
+    }
+  }
+  window.markTrainingCompleted = markTrainingCompleted;
+
+  function confirmDeleteTraining(trainingId) {
+    const t = (STATE.training || []).find((x) => x.id === trainingId);
+    if (!t) return;
+
+    const modalHtml = 
+      '<div style="max-width:440px;margin:0 auto;text-align:left">' +
+        '<div style="border-bottom:1px solid #fee2e2;padding-bottom:12px;margin-bottom:16px">' +
+          '<h3 style="margin:0 0 4px;font-size:18px;color:#b91c1c;display:flex;align-items:center;gap:8px">🗑️ Remove Training Session?</h3>' +
+          '<p class="muted" style="margin:0;font-size:12.5px">This session will be removed from the corporate calendar.</p>' +
+        '</div>' +
+        '<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:12px 14px;margin-bottom:16px">' +
+          '<div style="font-weight:800;font-size:14px;color:#9f1239">' + esc(t.topic) + '</div>' +
+          '<div style="font-size:12px;color:#475569;margin-top:2px">📅 ' + displayDate(t.date) + ' | 👥 ' + esc(t.dept || 'Site Wide') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px">' +
+          '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+          '<button type="button" id="del-tr-btn" class="btn small" style="background:#dc2626;border-color:#dc2626;color:#ffffff" onclick="executeDeleteTraining(\'' + esc(t.id) + '\')">Yes, Remove</button>' +
+        '</div>' +
+      '</div>';
+
+    showModal(modalHtml);
+  }
+  window.confirmDeleteTraining = confirmDeleteTraining;
+
+  async function executeDeleteTraining(trainingId) {
+    const btn = $("del-tr-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Removing..."; }
+    try {
+      await run("apiDeleteTraining", TOKEN, trainingId);
+      hideModal();
+      await refresh();
+      go("calendar");
+      toast("Training session removed from calendar.", "success");
+    } catch (err) {
+      toast("Failed to delete training: " + (err && err.message ? err.message : err), "error");
+      if (btn) { btn.disabled = false; btn.textContent = "Yes, Remove"; }
+    }
+  }
+  window.executeDeleteTraining = executeDeleteTraining;
 
   function renderUsers() {
     $("page-title").textContent = "Users (Sheets auth)";
