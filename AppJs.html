@@ -82,6 +82,100 @@
 
   function $(id) { return document.getElementById(id); }
 
+  /* =========================================================
+     MODERN TOAST NOTIFICATION ENGINE
+     ========================================================= */
+  function showToast(msg, type, duration) {
+    if (!msg) return;
+    const text = typeof msg === "string" ? msg : (msg && msg.message ? msg.message : String(msg));
+    const container = $("toast-container") || createToastContainer_();
+
+    // Auto-detect type if not explicitly supplied
+    let toastType = (type || "").toLowerCase();
+    const lower = text.toLowerCase();
+    if (!toastType || !["success", "error", "warning", "info"].includes(toastType)) {
+      if (lower.includes("fail") || lower.includes("error") || lower.includes("denied") || lower.includes("mandatory") || lower.includes("not found")) {
+        toastType = "error";
+      } else if (lower.includes("success") || lower.includes("saved") || lower.includes("submitted") || lower.includes("created") || lower.includes("deleted") || lower.includes("updated")) {
+        toastType = "success";
+      } else if (lower.includes("select") || lower.includes("warning") || lower.includes("required") || lower.includes("please")) {
+        toastType = "warning";
+      } else {
+        toastType = "info";
+      }
+    }
+
+    const icons = {
+      success: "✓",
+      error: "✕",
+      warning: "⚠️",
+      info: "ℹ️"
+    };
+
+    const titles = {
+      success: "Success",
+      error: "Notice",
+      warning: "Attention Required",
+      info: "Notification"
+    };
+
+    const toastDur = duration || (toastType === "error" ? 5000 : 3800);
+    const toastId = "toast-" + Date.now() + "-" + Math.floor(Math.random() * 10000);
+
+    const item = document.createElement("div");
+    item.className = "toast-item " + toastType;
+    item.id = toastId;
+
+    item.innerHTML = 
+      '<div class="toast-icon-wrap">' + (icons[toastType] || "ℹ️") + '</div>' +
+      '<div class="toast-body">' +
+        '<div class="toast-title">' + (titles[toastType] || "Notice") + '</div>' +
+        '<div class="toast-desc">' + esc(text) + '</div>' +
+      '</div>' +
+      '<button type="button" class="toast-close-btn" aria-label="Close" onclick="dismissToast(\'' + toastId + '\')">&times;</button>' +
+      '<div class="toast-progress" style="animation-duration:' + toastDur + 'ms"></div>';
+
+    container.appendChild(item);
+
+    const timer = setTimeout(() => {
+      dismissToast(toastId);
+    }, toastDur);
+
+    item._timer = timer;
+    return item;
+  }
+
+  function dismissToast(id) {
+    const item = typeof id === "string" ? $(id) : id;
+    if (!item || item.classList.contains("dismissing")) return;
+    if (item._timer) clearTimeout(item._timer);
+    item.classList.add("dismissing");
+    setTimeout(() => {
+      try { item.remove(); } catch (_) {}
+    }, 280);
+  }
+
+  function createToastContainer_() {
+    let c = $("toast-container");
+    if (!c) {
+      c = document.createElement("div");
+      c.id = "toast-container";
+      c.className = "toast-container";
+      c.setAttribute("aria-live", "polite");
+      document.body.appendChild(c);
+    }
+    return c;
+  }
+
+  window.showToast = showToast;
+  window.toast = showToast;
+  window.dismissToast = dismissToast;
+
+  // Intercept window.alert so all popups seamlessly render as rich modern toasts!
+  window.alert = function(msg) {
+    showToast(msg);
+  };
+
   function displayDate(value) {
     const text = String(value == null ? "" : value).trim();
     const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
@@ -2964,7 +3058,7 @@
         fd.forEach((v, k) => { payload[k] = v; });
 
         if (!payload.code || !payload.name) {
-          alert("Project Code and Name are mandatory.");
+          toast("Project Code and Name are mandatory.", "warning");
           if (btn) { btn.disabled = false; btn.textContent = "+ Create Project"; }
           return;
         }
@@ -2980,9 +3074,9 @@
         }
 
         go("projects");
-        alert("Project " + payload.code + " (" + payload.name + ") created successfully! Drive compliance folders have been provisioned.");
+        toast("Project " + payload.code + " (" + payload.name + ") created successfully! Drive compliance folders have been provisioned.", "success");
       } catch (err) {
-        alert("Failed to create project: " + (err && err.message ? err.message : err));
+        toast("Failed to create project: " + (err && err.message ? err.message : err), "error");
         if (btn) {
           btn.disabled = false;
           btn.textContent = "+ Create Project";
@@ -3008,13 +3102,13 @@
 
   function openEditProjectModal(projectId) {
     if (!canManageProjects()) {
-      alert("Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can edit projects.");
+      toast("Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can edit projects.", "error");
       return;
     }
 
     const p = (STATE.projects || []).find((x) => x.id === projectId);
     if (!p) {
-      alert("Project not found: " + projectId);
+      toast("Project not found: " + projectId, "error");
       return;
     }
 
@@ -3093,7 +3187,7 @@
         fd.forEach((v, k) => { payload[k] = v; });
 
         if (!payload.name) {
-          alert("Project Name is mandatory.");
+          toast("Project Name is mandatory.", "warning");
           if (btn) { btn.disabled = false; btn.textContent = "💾 Save Changes"; }
           return;
         }
@@ -3102,9 +3196,9 @@
         hideModal();
         await refresh();
         go("projects");
-        alert("Project " + (payload.code || p.code) + " updated successfully!");
+        toast("Project " + (payload.code || p.code) + " updated successfully!", "success");
       } catch (err) {
-        alert("Failed to update project: " + (err && err.message ? err.message : err));
+        toast("Failed to update project: " + (err && err.message ? err.message : err), "error");
         if (btn) {
           btn.disabled = false;
           btn.textContent = "💾 Save Changes";
@@ -3116,13 +3210,13 @@
 
   function confirmDeleteProject(projectId) {
     if (!canManageProjects()) {
-      alert("Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can delete projects.");
+      toast("Access Denied: Only Director, EHS Manager, or Assistant EHS Manager can delete projects.", "error");
       return;
     }
 
     const p = (STATE.projects || []).find((x) => x.id === projectId);
     if (!p) {
-      alert("Project not found: " + projectId);
+      toast("Project not found: " + projectId, "error");
       return;
     }
 
@@ -3165,9 +3259,9 @@
       hideModal();
       await refresh();
       go("projects");
-      alert("Project has been deleted successfully.");
+      toast("Project has been deleted successfully.", "success");
     } catch (err) {
-      alert("Failed to delete project: " + (err && err.message ? err.message : err));
+      toast("Failed to delete project: " + (err && err.message ? err.message : err), "error");
       if (btn) {
         btn.disabled = false;
         btn.textContent = "Yes, Delete Project";
