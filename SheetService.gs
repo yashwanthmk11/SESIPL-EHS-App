@@ -328,27 +328,57 @@ function cleanAndAlignSheet_(sh, sheetName, canonicalHeaders) {
   formatSheetProfessionally_(sh, sheetName, canonicalHeaders);
 }
 
+function batchWriteObjects_(sh, headerList, objects) {
+  if (!sh || !headerList || !headerList.length || !objects || !objects.length) return;
+  const numCols = headerList.length;
+  const matrix = objects.map(obj => {
+    return headerList.map(h => {
+      if (obj[h] !== undefined && obj[h] !== null) return obj[h];
+      const camel = toCamelCase_(h);
+      if (camel && obj[camel] !== undefined && obj[camel] !== null) return obj[camel];
+      const normH = normalizeKey_(h);
+      const matchKey = Object.keys(obj).find(k => normalizeKey_(k) === normH);
+      if (matchKey && obj[matchKey] !== undefined && obj[matchKey] !== null) return obj[matchKey];
+      return '';
+    });
+  });
+
+  const currentMaxRows = sh.getMaxRows();
+  const requiredRows = matrix.length + 1;
+  if (currentMaxRows < requiredRows) {
+    sh.insertRowsAfter(currentMaxRows, requiredRows - currentMaxRows);
+  }
+  sh.getRange(2, 1, matrix.length, numCols).setValues(matrix);
+}
+
 function formatSheetProfessionally_(sh, sheetName, headers) {
   if (!sh || !headers || !headers.length) return;
   const numCols = headers.length;
 
-  // Ensure sheet has enough columns
+  // 1. Column dimension guard: ensure sheet has at least numCols
   const currentMaxCols = sh.getMaxColumns();
   if (currentMaxCols < numCols) {
     sh.insertColumnsAfter(currentMaxCols, numCols - currentMaxCols);
   }
 
+  // 2. Remove excess trailing columns beyond canonical schema
+  if (sh.getMaxColumns() > numCols) {
+    try {
+      sh.deleteColumns(numCols + 1, sh.getMaxColumns() - numCols);
+    } catch (e) {}
+  }
+
   const lastRow = Math.max(sh.getLastRow(), 1);
 
-  // 1. Freeze Header Row
+  // 3. Freeze Header Row 1
   sh.setFrozenRows(1);
 
-  // 2. Format Header Row with Clean Corporate Styling: Executive Dark Slate (#0f172a), Bold White text, 38px height
+  // 4. Highlighted Corporate Header: Deep SESIPL Teal (#0f766e), Bold White Text, 38px height, Centered
   const formattedHeaders = headers.map(h => formatHeaderLabel_(h));
   const headerRange = sh.getRange(1, 1, 1, numCols);
   headerRange
     .setValues([formattedHeaders])
-    .setBackground('#0f172a')
+    .setBackground('#0f766e')
     .setFontColor('#ffffff')
     .setFontFamily('Arial')
     .setFontSize(10)
@@ -358,50 +388,52 @@ function formatSheetProfessionally_(sh, sheetName, headers) {
     .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
   sh.setRowHeight(1, 38);
 
-  // 3. Tab Color: Clean Executive Slate
-  try { sh.setTabColor('#0f172a'); } catch (e) {}
+  // 5. Tab Color: Matching SESIPL Corporate Teal
+  try { sh.setTabColor('#0f766e'); } catch (e) {}
 
-  // 4. AutoFilter on Header
+  // 6. AutoFilter on Header Row across all columns
   const existingFilter = sh.getFilter();
   if (existingFilter) existingFilter.remove();
   try {
     sh.getRange(1, 1, Math.max(lastRow, 2), numCols).createFilter();
   } catch (e) {}
 
-  // 5. Format Data Rows (if any exist)
+  // 7. Data Rows Formatting
   if (lastRow > 1) {
     const numDataRows = lastRow - 1;
-    sh.setRowHeights(2, numDataRows, 26);
+    // Spacious corporate row height: 28px
+    sh.setRowHeights(2, numDataRows, 28);
     const dataRange = sh.getRange(2, 1, numDataRows, numCols);
-    dataRange
-      .setFontFamily('Arial')
-      .setFontSize(10)
-      .setFontColor('#0f172a')
-      .setVerticalAlignment('middle');
 
-    // Subtle Corporate Light Grey Alternating Banding
+    // Remove any alternating zebra banding so body remains clean & plain white
     const bandings = sh.getBandings();
     bandings.forEach(b => { try { b.remove(); } catch (err) {} });
+
+    // Plain corporate styling: Pure white background, crisp dark slate font
+    dataRange
+      .setBackground('#ffffff')
+      .setFontFamily('Arial')
+      .setFontSize(10)
+      .setFontColor('#1e293b')
+      .setFontWeight('normal')
+      .setVerticalAlignment('middle');
+
+    // Subtle modern grid borders (#e2e8f0)
     try {
-      sh.getRange(1, 1, lastRow, numCols).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, true, false);
+      dataRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
     } catch (e) {}
 
-    // Clean subtle borders
-    try {
-      sh.getRange(1, 1, lastRow, numCols).setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
-    } catch (e) {}
-
-    // Column-specific formatting & alignment
+    // Column-specific alignment and number formatting
     for (let c = 1; c <= numCols; c++) {
       const h = headers[c - 1];
       const normH = normalizeKey_(h);
       const colDataRange = sh.getRange(2, c, numDataRows, 1);
 
-      // Plain text formatting for IDs, phone numbers, codes to preserve exact characters
+      // Plain text format (@) for IDs, phones, codes to preserve exact characters
       if (['employeeid', 'uan', 'phone', 'pono', 'reportno', 'dcno'].indexOf(normH) >= 0) {
         colDataRange.setNumberFormat('@').setHorizontalAlignment('center');
-      } else if (['id', 'code', 'projectid', 'level', 'version', 'grade', 'active', 'returnable'].indexOf(normH) >= 0) {
-        colDataRange.setHorizontalAlignment('center');
+      } else if (['id', 'code', 'projectid', 'level', 'version', 'active', 'returnable', 'cadence', 'entrytype', 'slahours'].indexOf(normH) >= 0) {
+        colDataRange.setNumberFormat('@').setHorizontalAlignment('center');
       } else if (normH === 'status') {
         colDataRange.setHorizontalAlignment('center').setFontWeight('bold');
       } else if (normH.indexOf('date') >= 0) {
@@ -410,7 +442,9 @@ function formatSheetProfessionally_(sh, sheetName, headers) {
         colDataRange.setHorizontalAlignment('center').setNumberFormat('yyyy-MM-dd HH:mm');
       } else if (normH === 'percent') {
         colDataRange.setHorizontalAlignment('right').setNumberFormat('0"%"');
-      } else if (['staff', 'workers', 'totalmanpower', 'manhours', 'safemanhours', 'cumsafemanhours', 'totalmanhours', 'inductions', 'tbtcount', 'tbtpersons', 'totalscaffold', 'totalladder', 'totalreceived', 'balancestock', 'totalscore', 'maxscore', 'workinghours', 'permithot', 'permitelectrical', 'permitcold', 'permitgeneral', 'lticount', 'areasqft', 'issuedqty', 'totalreceivedqty'].indexOf(normH) >= 0) {
+      } else if (normH === 'grade') {
+        colDataRange.setHorizontalAlignment('center').setFontWeight('bold');
+      } else if (['staff', 'workers', 'totalmanpower', 'manhours', 'safemanhours', 'cumsafemanhours', 'totalmanhours', 'inductions', 'indstaff', 'indworkers', 'tbtcount', 'tbtpersons', 'trainingpersons', 'totalscaffold', 'totalladder', 'totalreceived', 'balancestock', 'totalscore', 'maxscore', 'workinghours', 'permithot', 'permitelectrical', 'permitcold', 'permitgeneral', 'permitothers', 'firstaid', 'nearmiss', 'lticount', 'areasqft', 'issuedqty', 'totalreceivedqty', 'returnedscaffold', 'returnedladder'].indexOf(normH) >= 0) {
         colDataRange.setHorizontalAlignment('right').setNumberFormat('#,##0');
       }
 
@@ -418,79 +452,205 @@ function formatSheetProfessionally_(sh, sheetName, headers) {
       if (['observation', 'preventive', 'remarks', 'scope', 'payloadjson', 'address', 'accidentdetails', 'defects', 'highlights', 'notes', 'detail', 'permanentaddress', 'presentaddress'].indexOf(normH) >= 0) {
         colDataRange.setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
       } else if (['fileid', 'unsafefileid', 'rectifiedfileid', 'pdffileid', 'docfileid', 'url'].indexOf(normH) >= 0) {
-        colDataRange.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+        colDataRange.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP).setHorizontalAlignment('center');
       }
     }
 
-    // Corporate Conditional Formatting for Status column
+    // ==========================================
+    // SPECIAL CASES WITH CREATIVE EHS STYLING
+    // ==========================================
+    const rules = [];
+
+    // Special Case 1: Status column (Executive soft pill styling)
     const statusIdx = headers.findIndex(h => normalizeKey_(h) === 'status');
     if (statusIdx >= 0) {
       const statusRange = sh.getRange(2, statusIdx + 1, numDataRows, 1);
-      const rules = sh.getConditionalFormatRules().filter(r => {
-        const ranges = r.getRanges();
-        return !ranges.some(rg => rg.getColumn() === statusIdx + 1);
-      });
       rules.push(
         SpreadsheetApp.newConditionalFormatRule()
           .whenTextEqualTo('APPROVED')
-          .setBackground('#dcfce7')
-          .setFontColor('#166534')
+          .setBackground('#ecfdf5')
+          .setFontColor('#047857')
           .setRanges([statusRange])
           .build(),
         SpreadsheetApp.newConditionalFormatRule()
           .whenTextEqualTo('REJECTED')
-          .setBackground('#fee2e2')
-          .setFontColor('#991b1b')
+          .setBackground('#fff1f2')
+          .setFontColor('#be123c')
           .setRanges([statusRange])
           .build(),
         SpreadsheetApp.newConditionalFormatRule()
           .whenTextContains('OPEN')
-          .setBackground('#fef3c7')
-          .setFontColor('#92400e')
+          .setBackground('#fffbeb')
+          .setFontColor('#b45309')
+          .setRanges([statusRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextContains('PENDING')
+          .setBackground('#fffbeb')
+          .setFontColor('#b45309')
           .setRanges([statusRange])
           .build(),
         SpreadsheetApp.newConditionalFormatRule()
           .whenTextContains('SUBMITTED')
-          .setBackground('#e0f2fe')
-          .setFontColor('#075985')
+          .setBackground('#f0f9ff')
+          .setFontColor('#0369a1')
           .setRanges([statusRange])
           .build(),
         SpreadsheetApp.newConditionalFormatRule()
           .whenTextEqualTo('CLOSED')
-          .setBackground('#f1f5f9')
+          .setBackground('#f8fafc')
           .setFontColor('#475569')
+          .setRanges([statusRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo('RUNNING')
+          .setBackground('#ecfdf5')
+          .setFontColor('#047857')
+          .setRanges([statusRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo('ACTIVE')
+          .setBackground('#ecfdf5')
+          .setFontColor('#047857')
           .setRanges([statusRange])
           .build()
       );
+    }
+
+    // Special Case 2: Cumulative Safe Man-Hours (Prominent safety milestone in pale teal)
+    const cumSafeIdx = headers.findIndex(h => normalizeKey_(h) === 'cumsafemanhours');
+    if (cumSafeIdx >= 0) {
+      const cumSafeRange = sh.getRange(2, cumSafeIdx + 1, numDataRows, 1);
+      cumSafeRange.setBackground('#f0fdfa').setFontColor('#0f766e').setFontWeight('bold');
+    }
+
+    // Special Case 3: Lost Time Injuries (Zero Harm Celebration vs Accident Alert)
+    const ltiIdx = headers.findIndex(h => normalizeKey_(h) === 'lticount');
+    if (ltiIdx >= 0) {
+      const ltiRange = sh.getRange(2, ltiIdx + 1, numDataRows, 1);
+      ltiRange.setFontWeight('bold');
+      rules.push(
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberEqualTo(0)
+          .setBackground('#f0fdf4')
+          .setFontColor('#15803d')
+          .setRanges([ltiRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberGreaterThan(0)
+          .setBackground('#fee2e2')
+          .setFontColor('#991b1b')
+          .setRanges([ltiRange])
+          .build()
+      );
+    }
+
+    // Special Case 4: Audit Grades & Percentages
+    const gradeIdx = headers.findIndex(h => normalizeKey_(h) === 'grade');
+    if (gradeIdx >= 0) {
+      const gradeRange = sh.getRange(2, gradeIdx + 1, numDataRows, 1);
+      rules.push(
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextContains('A')
+          .setBackground('#ecfdf5')
+          .setFontColor('#047857')
+          .setRanges([gradeRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextContains('B')
+          .setBackground('#fffbeb')
+          .setFontColor('#b45309')
+          .setRanges([gradeRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextContains('C')
+          .setBackground('#fff1f2')
+          .setFontColor('#be123c')
+          .setRanges([gradeRange])
+          .build()
+      );
+    }
+
+    const percentIdx = headers.findIndex(h => normalizeKey_(h) === 'percent');
+    if (percentIdx >= 0) {
+      const pctRange = sh.getRange(2, percentIdx + 1, numDataRows, 1);
+      rules.push(
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberGreaterThanOrEqualTo(90)
+          .setBackground('#f0fdf4')
+          .setFontColor('#166534')
+          .setRanges([pctRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenNumberLessThan(75)
+          .setBackground('#fffbeb')
+          .setFontColor('#b45309')
+          .setRanges([pctRange])
+          .build()
+      );
+    }
+
+    // Special Case 5: Active users flag
+    const activeIdx = headers.findIndex(h => normalizeKey_(h) === 'active');
+    if (activeIdx >= 0) {
+      const activeRange = sh.getRange(2, activeIdx + 1, numDataRows, 1);
+      rules.push(
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo('TRUE')
+          .setBackground('#ecfdf5')
+          .setFontColor('#047857')
+          .setRanges([activeRange])
+          .build(),
+        SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo('FALSE')
+          .setBackground('#fff1f2')
+          .setFontColor('#be123c')
+          .setRanges([activeRange])
+          .build()
+      );
+    }
+
+    if (rules.length > 0) {
       sh.setConditionalFormatRules(rules);
     }
   }
 
-  // 6. Intelligent Column Widths
+  // 8. Trim excessive empty rows to keep the sheet compact, clean and fast
+  const maxRows = sh.getMaxRows();
+  const keepRows = Math.max(lastRow + 20, 25);
+  if (maxRows > keepRows) {
+    try {
+      sh.deleteRows(keepRows + 1, maxRows - keepRows);
+    } catch (e) {}
+  }
+
+  // 9. Intelligent Corporate Column Widths (Spacious, Clear & Readable)
   try {
     sh.autoResizeColumns(1, numCols);
   } catch (e) {}
+
   for (let c = 1; c <= numCols; c++) {
     const h = headers[c - 1];
     const normH = normalizeKey_(h);
     let w = sh.getColumnWidth(c);
-    if (w < 110) w = 110;
+    if (w < 120) w = 120; // Minimum 120px for ample spacing
 
-    // Standard widths for readability
     if (['observation', 'preventive', 'payloadjson', 'accidentdetails'].indexOf(normH) >= 0) {
-      w = 320;
+      w = 350;
     } else if (['remarks', 'scope', 'defects', 'highlights', 'notes', 'detail', 'permanentaddress', 'presentaddress'].indexOf(normH) >= 0) {
-      w = 260;
-    } else if (['name', 'title', 'client', 'pmc', 'contractor', 'email', 'topic'].indexOf(normH) >= 0) {
-      w = Math.max(w, 180);
-    } else if (['status', 'region', 'level', 'version', 'grade', 'active'].indexOf(normH) >= 0) {
-      w = 120;
+      w = 280;
+    } else if (['name', 'title', 'client', 'pmc', 'contractor', 'email', 'topic', 'trainingtopic'].indexOf(normH) >= 0) {
+      w = Math.max(w, 200);
+    } else if (['status', 'region', 'level', 'version', 'grade', 'active', 'cadence', 'entrytype'].indexOf(normH) >= 0) {
+      w = 130;
     } else if (normH.indexOf('date') >= 0) {
-      w = 115;
+      w = 125;
     } else if (normH.indexOf('at') >= 0 || normH === 'at') {
-      w = 145;
+      w = 155;
+    } else if (['employeeid', 'uan', 'phone', 'pono', 'reportno', 'dcno', 'id', 'code', 'projectid'].indexOf(normH) >= 0) {
+      w = Math.max(w, 130);
     }
-    if (w > 380) w = 380;
+    if (w > 400) w = 400;
     sh.setColumnWidth(c, w);
   }
 }
