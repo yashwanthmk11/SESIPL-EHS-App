@@ -282,11 +282,13 @@
 
   function fillProjects() {
     const sel = $("project-select");
+    if (!sel) return;
+    const prevVal = sel.value;
     sel.innerHTML = "";
-    STATE.projects.forEach((p) => {
+    (STATE.projects || []).forEach((p) => {
       const o = document.createElement("option");
       o.value = p.id;
-      o.textContent = p.code + " — " + p.name;
+      o.textContent = (p.code || "PRJ") + " — " + (p.name || "Untitled");
       sel.appendChild(o);
     });
     if (USER.role === "EHS_LEAD") {
@@ -299,7 +301,11 @@
         all.value = "";
         all.textContent = "All running projects";
         sel.insertBefore(all, sel.firstChild);
-        sel.value = "";
+      }
+      if (prevVal && Array.from(sel.options).some((o) => o.value === prevVal)) {
+        sel.value = prevVal;
+      } else if (sel.options.length > 0) {
+        sel.selectedIndex = 0;
       }
     }
     sel.onchange = () => render();
@@ -361,6 +367,7 @@
 
   function go(view) {
     VIEW = view;
+    try { window.scrollTo(0, 0); } catch (_) {}
     render();
   }
 
@@ -3243,19 +3250,53 @@
     const canAdd = canManageProjects();
     const projects = STATE.projects || [];
     const runningCount = projects.filter((p) => (p.status || "").toUpperCase() === "RUNNING").length;
-    const regions = Array.from(new Set(projects.map((p) => p.region || "Bangalore")));
+    const upcomingCount = projects.filter((p) => (p.status || "").toUpperCase() === "UPCOMING").length;
+    const regions = Array.from(new Set(projects.map((p) => p.region || "Bangalore").filter(Boolean)));
 
     window.PROJECT_SEARCH = window.PROJECT_SEARCH || "";
+    window.PROJECT_REGION_FILTER = window.PROJECT_REGION_FILTER || "ALL";
+    window.PROJECT_STATUS_FILTER = window.PROJECT_STATUS_FILTER || "ALL";
+
     const q = String(window.PROJECT_SEARCH || "").trim().toLowerCase();
+    const rFilter = String(window.PROJECT_REGION_FILTER || "ALL");
+    const sFilter = String(window.PROJECT_STATUS_FILTER || "ALL");
 
     const filtered = projects.filter((p) => {
+      if (rFilter !== "ALL" && String(p.region || "").toLowerCase() !== rFilter.toLowerCase()) return false;
+      if (sFilter !== "ALL" && String(p.status || "RUNNING").toUpperCase() !== sFilter.toUpperCase()) return false;
       if (!q) return true;
       const n = String(p.name || "").toLowerCase();
       const c = String(p.code || "").toLowerCase();
       const cl = String(p.client || "").toLowerCase();
+      const pmc = String(p.pmc || "").toLowerCase();
       const r = String(p.region || "").toLowerCase();
-      return n.includes(q) || c.includes(q) || cl.includes(q) || r.includes(q);
+      return n.includes(q) || c.includes(q) || cl.includes(q) || pmc.includes(q) || r.includes(q);
     });
+
+    const embeddedStyles = 
+      '<style id="proj-injected-styles">' +
+        '.proj-stat-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }' +
+        '.proj-stat-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05); }' +
+        '.proj-stat-icon { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: #f0fdfa; color: #0f766e; border: 1px solid #ccfbf1; flex-shrink: 0; }' +
+        '.proj-stat-val { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.2; }' +
+        '.proj-stat-lbl { font-size: 12px; color: #64748b; font-weight: 600; }' +
+        '.proj-filter-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }' +
+        '.proj-filter-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1; min-width: 280px; }' +
+        '.proj-pill-group { display: inline-flex; align-items: center; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 2px; }' +
+        '.proj-pill-btn { border: none; background: transparent; padding: 4px 10px; font-size: 11.5px; font-weight: 600; color: #64748b; border-radius: 6px; cursor: pointer; transition: all 0.15s ease; }' +
+        '.proj-pill-btn.active { background: #0f766e; color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }' +
+        '.proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; margin-top: 6px; }' +
+        '.proj-card { background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 22px; box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05); display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease; position: relative; }' +
+        '.proj-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.12); border-color: #0f766e; }' +
+        '.proj-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }' +
+        '.proj-code-badge { font-size: 12.5px; font-weight: 800; background: #0f766e; color: #ffffff; padding: 4px 10px; border-radius: 7px; letter-spacing: 0.5px; display: inline-block; }' +
+        '.proj-card-title { font-size: 18px; font-weight: 800; color: #0f172a; margin: 4px 0 2px 0; line-height: 1.3; }' +
+        '.proj-card-client { font-size: 13px; color: #64748b; font-weight: 600; }' +
+        '.proj-meta-table { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin: 14px 0; }' +
+        '.proj-meta-item-lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-bottom: 2px; }' +
+        '.proj-meta-item-val { font-size: 13px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+        '.proj-card-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid #f1f5f9; gap: 8px; flex-wrap: wrap; margin-top: auto; }' +
+      '</style>';
 
     const statBarHtml = 
       '<div class="proj-stat-bar">' +
@@ -3263,49 +3304,74 @@
           '<div class="proj-stat-icon">🏗️</div>' +
           '<div class="proj-stat-info">' +
             '<div class="proj-stat-val">' + projects.length + '</div>' +
-            '<div class="proj-stat-lbl">Total Corporate Projects</div>' +
+            '<div class="proj-stat-lbl">Total Corporate Sites</div>' +
           '</div>' +
         '</div>' +
         '<div class="proj-stat-card">' +
           '<div class="proj-stat-icon">⚡</div>' +
           '<div class="proj-stat-info">' +
             '<div class="proj-stat-val">' + runningCount + '</div>' +
-            '<div class="proj-stat-lbl">Active Running Sites</div>' +
+            '<div class="proj-stat-lbl">Active Construction Sites</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="proj-stat-card">' +
+          '<div class="proj-stat-icon">⏳</div>' +
+          '<div class="proj-stat-info">' +
+            '<div class="proj-stat-val">' + upcomingCount + '</div>' +
+            '<div class="proj-stat-lbl">Pre-Mobilization / Upcoming</div>' +
           '</div>' +
         '</div>' +
         '<div class="proj-stat-card">' +
           '<div class="proj-stat-icon">📍</div>' +
           '<div class="proj-stat-info">' +
             '<div class="proj-stat-val">' + regions.length + '</div>' +
-            '<div class="proj-stat-lbl">Operating Regions (' + esc(regions.slice(0, 3).join(", ")) + (regions.length > 3 ? "..." : "") + ')</div>' +
+            '<div class="proj-stat-lbl">Operating Regions</div>' +
           '</div>' +
         '</div>' +
       '</div>';
 
-    const toolbarHtml = 
-      '<div class="gal-toolbar">' +
-        '<div class="gal-toolbar-left">' +
-          '<div class="gal-search-wrap" style="max-width:360px">' +
+    const regionButtonsHtml = 
+      '<div class="proj-pill-group">' +
+        '<button type="button" class="proj-pill-btn ' + (rFilter === "ALL" ? "active" : "") + '" onclick="window.PROJECT_REGION_FILTER=\'ALL\';renderProjects()">All Regions</button>' +
+        regions.map((r) => 
+          '<button type="button" class="proj-pill-btn ' + (rFilter.toLowerCase() === r.toLowerCase() ? "active" : "") + '" onclick="window.PROJECT_REGION_FILTER=\'' + esc(r) + '\';renderProjects()">' + esc(r) + '</button>'
+        ).join("") +
+      '</div>';
+
+    const statusButtonsHtml = 
+      '<div class="proj-pill-group">' +
+        '<button type="button" class="proj-pill-btn ' + (sFilter === "ALL" ? "active" : "") + '" onclick="window.PROJECT_STATUS_FILTER=\'ALL\';renderProjects()">All Status</button>' +
+        '<button type="button" class="proj-pill-btn ' + (sFilter === "RUNNING" ? "active" : "") + '" onclick="window.PROJECT_STATUS_FILTER=\'RUNNING\';renderProjects()">Running</button>' +
+        '<button type="button" class="proj-pill-btn ' + (sFilter === "UPCOMING" ? "active" : "") + '" onclick="window.PROJECT_STATUS_FILTER=\'UPCOMING\';renderProjects()">Upcoming</button>' +
+      '</div>';
+
+    const filterBarHtml = 
+      '<div class="proj-filter-bar">' +
+        '<div class="proj-filter-left">' +
+          '<div class="gal-search-wrap" style="max-width:320px;flex:1">' +
             '<span class="gal-search-icon">' +
               '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>' +
             '</span>' +
-            '<input type="text" class="gal-search-input" placeholder="Search project name, code, client, or region..." value="' + esc(window.PROJECT_SEARCH || "") + '" oninput="window.PROJECT_SEARCH=this.value;renderProjects()">' +
+            '<input type="text" class="gal-search-input" placeholder="Search site name, code, client, or PMC..." value="' + esc(window.PROJECT_SEARCH || "") + '" oninput="window.PROJECT_SEARCH=this.value;renderProjects()">' +
           '</div>' +
-          '<span class="gal-stats-pill">Showing ' + filtered.length + ' of ' + projects.length + ' Projects</span>' +
+          regionButtonsHtml +
+          statusButtonsHtml +
         '</div>' +
-        '<div class="gal-toolbar-right">' +
-          (canAdd ? '<button type="button" class="btn small" onclick="openAddProjectModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>+ Add New Project</button>' : '') +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          '<span class="gal-stats-pill">Showing ' + filtered.length + ' of ' + projects.length + ' Sites</span>' +
+          (canAdd ? '<button type="button" class="btn small" style="white-space:nowrap" onclick="openAddProjectModal()">+ Add New Project</button>' : '') +
         '</div>' +
       '</div>';
 
     let cardsHtml = '';
     if (!filtered.length) {
       cardsHtml = 
-        '<div class="card" style="text-align:center;padding:48px 16px;grid-column:1/-1;">' +
-          '<div style="font-size:38px;margin-bottom:8px">🏗️</div>' +
-          '<h4>No projects found</h4>' +
-          '<p class="muted">No project sites matching your search criteria.</p>' +
-          (canAdd ? '<button type="button" class="btn small" style="margin-top:10px" onclick="openAddProjectModal()">+ Add New Project</button>' : '') +
+        '<div class="card" style="text-align:center;padding:48px 16px;grid-column:1/-1;background:#fff;border-radius:12px;border:1px solid #e2e8f0">' +
+          '<div style="font-size:42px;margin-bottom:8px">🏗️</div>' +
+          '<h3 style="margin:0 0 6px">No project sites found</h3>' +
+          '<p class="muted" style="margin:0 0 16px">No projects match the current search or filters.</p>' +
+          '<button type="button" class="ghost small" onclick="window.PROJECT_SEARCH=\'\';window.PROJECT_REGION_FILTER=\'ALL\';window.PROJECT_STATUS_FILTER=\'ALL\';renderProjects()">Clear Filters</button>' +
+          (canAdd ? ' <button type="button" class="btn small" onclick="openAddProjectModal()">+ Add New Project</button>' : '') +
         '</div>';
     } else {
       cardsHtml = 
@@ -3313,50 +3379,56 @@
           filtered.map((p) => {
             const status = String(p.status || "RUNNING").toUpperCase();
             const statusColor = status === "RUNNING" ? "pill approved" : (status === "UPCOMING" ? "pill open" : "pill");
+            const areaFormatted = p.areaSqft && !isNaN(Number(p.areaSqft)) 
+              ? Number(p.areaSqft).toLocaleString("en-IN") + " sq.ft" 
+              : (p.areaSqft || "TBD");
+            const durationDisplay = (p.startDate ? displayDate(p.startDate) : "Active") + 
+              (p.projectDuration ? ' (' + esc(p.projectDuration) + ')' : '');
+
             return (
               '<div class="proj-card">' +
                 '<div>' +
                   '<div class="proj-card-head">' +
-                    '<span class="proj-code-badge">' + esc(p.code) + '</span>' +
+                    '<span class="proj-code-badge">' + esc(p.code || "PRJ") + '</span>' +
                     '<div style="display:flex;align-items:center;gap:6px">' +
-                      '<span class="pill">' + esc(p.region || 'Bangalore') + '</span>' +
-                      '<span class="' + statusColor + '">' + esc(status) + '</span>' +
+                      '<span class="pill" style="font-size:11.5px;color:#334155;background:#f1f5f9;border:1px solid #e2e8f0">📍 ' + esc(p.region || 'Bangalore') + '</span>' +
+                      '<span class="' + statusColor + '" style="font-size:11.5px;font-weight:700">● ' + esc(status) + '</span>' +
                     '</div>' +
                   '</div>' +
-                  '<div class="proj-card-title">' + esc(p.name) + '</div>' +
-                  '<div class="proj-card-client">🏢 Client: <strong>' + esc(p.client || 'Corporate Client') + '</strong></div>' +
-                  (p.scope ? '<div style="font-size:12px;color:#475569;margin-top:6px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"><strong>Scope:</strong> ' + esc(p.scope) + '</div>' : '') +
+                  '<div class="proj-card-title">' + esc(p.name || "Untitled Project") + '</div>' +
+                  '<div class="proj-card-client">🏢 Client: <strong style="color:#0f172a">' + esc(p.client || 'Corporate Client') + '</strong></div>' +
+                  (p.scope ? '<div style="font-size:12px;color:#475569;background:#f8fafc;border:1px solid #f1f5f9;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"><strong>Scope:</strong> ' + esc(p.scope) + '</div>' : '') +
                   '<div class="proj-meta-table">' +
                     '<div>' +
                       '<div class="proj-meta-item-lbl">PMC Consultant</div>' +
-                      '<div class="proj-meta-item-val" title="' + esc(p.pmc || '-') + '">' + esc(p.pmc || '-') + '</div>' +
+                      '<div class="proj-meta-item-val" title="' + esc(p.pmc || 'Not Assigned') + '">' + esc(p.pmc || 'Not Assigned') + '</div>' +
                     '</div>' +
                     '<div>' +
                       '<div class="proj-meta-item-lbl">Site In-Charge</div>' +
-                      '<div class="proj-meta-item-val" title="' + esc(p.inCharge || '-') + '">' + esc(p.inCharge || '-') + '</div>' +
+                      '<div class="proj-meta-item-val" title="' + esc(p.inCharge || 'Safety Lead') + '">' + esc(p.inCharge || 'Safety Lead') + '</div>' +
                     '</div>' +
                     '<div>' +
                       '<div class="proj-meta-item-lbl">Project Manager</div>' +
-                      '<div class="proj-meta-item-val" title="' + esc(p.manager || '-') + '">' + esc(p.manager || '-') + '</div>' +
+                      '<div class="proj-meta-item-val" title="' + esc(p.manager || 'Site PM') + '">' + esc(p.manager || 'Site PM') + '</div>' +
                     '</div>' +
                     '<div>' +
                       '<div class="proj-meta-item-lbl">Built-Up Area</div>' +
-                      '<div class="proj-meta-item-val">' + (p.areaSqft ? (Number(p.areaSqft).toLocaleString("en-IN") + " sq.ft") : "-") + '</div>' +
+                      '<div class="proj-meta-item-val">' + esc(areaFormatted) + '</div>' +
                     '</div>' +
                     '<div>' +
                       '<div class="proj-meta-item-lbl">Start / Duration</div>' +
-                      '<div class="proj-meta-item-val">' + (p.startDate ? displayDate(p.startDate) : "-") + (p.projectDuration ? ' (' + esc(p.projectDuration) + ')' : '') + '</div>' +
+                      '<div class="proj-meta-item-val" title="' + esc(durationDisplay) + '">' + esc(durationDisplay) + '</div>' +
                     '</div>' +
                     '<div>' +
                       '<div class="proj-meta-item-lbl">Work Order / PO</div>' +
-                      '<div class="proj-meta-item-val" title="' + esc(p.poNo || '-') + '">' + esc(p.poNo || '-') + '</div>' +
+                      '<div class="proj-meta-item-val" title="' + esc(p.poNo || 'Pending / Internal') + '">' + esc(p.poNo || 'Pending / Internal') + '</div>' +
                     '</div>' +
                   '</div>' +
                 '</div>' +
                 '<div class="proj-card-foot">' +
-                  '<button type="button" class="btn small" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'dashboard\')">Site Dashboard &rarr;</button>' +
-                  '<button type="button" class="ghost small" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'gallery\')">Gallery</button>' +
-                  '<button type="button" class="ghost small" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'observations\')">Observations</button>' +
+                  '<button type="button" class="btn small" style="flex:1.2;font-size:12.5px" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'dashboard\')">Site Dashboard &rarr;</button>' +
+                  '<button type="button" class="ghost small" style="flex:0.8;font-size:12px" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'gallery\')">📸 Gallery</button>' +
+                  '<button type="button" class="ghost small" style="flex:1;font-size:12px" onclick="$(\'project-select\').value=\'' + esc(p.id) + '\';go(\'observations\')">⚠️ Observations</button>' +
                 '</div>' +
               '</div>'
             );
@@ -3364,7 +3436,7 @@
         '</div>';
     }
 
-    $("view").innerHTML = statBarHtml + toolbarHtml + cardsHtml;
+    $("view").innerHTML = embeddedStyles + statBarHtml + filterBarHtml + cardsHtml;
   }
   window.renderProjects = renderProjects;
 
@@ -4271,6 +4343,8 @@
         const dismissed = getDismissedNotifIds();
         STATE.notifications = STATE.notifications.filter(n => !dismissed.has(n.id) && String(n.dismissed || '').toUpperCase() !== 'TRUE');
       }
+      fillProjects();
+      buildNav();
       render();
     } catch (e) {
       await doLogout();
