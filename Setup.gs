@@ -209,6 +209,18 @@ function initializeSystem() {
       { id: uid_('TRN'), projectId: p3, date: '2026-09-22', topic: 'Height Safety & Fall Protection', owner: 'V. Murugan', dept: 'Cable Tray Team', status: 'SCHEDULED', notes: 'Inspection of lifelines and harnesses', createdBy: 'EMP005' }
     ];
 
+    // Seed Realistic Corporate Safety Media Gallery
+    const gallerySeeds = [
+      { id: uid_('GAL'), projectId: p1, category: 'TRAINING', title: 'Work at Height & Safety Harness Induction', fileId: 'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP001', uploadedAt: '2026-09-14 10:30' },
+      { id: uid_('GAL'), projectId: p1, category: 'COMPANY', title: 'Scaffold Cuplock & Sole Board Audit Inspection', fileId: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP002', uploadedAt: '2026-09-15 11:45' },
+      { id: uid_('GAL'), projectId: p2, category: 'MEETING', title: 'Daily Tool Box Talk (TBT) - Electrical Safety & LOTO', fileId: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP003', uploadedAt: '2026-09-15 08:30' },
+      { id: uid_('GAL'), projectId: p1, category: 'EVENT', title: 'Celebration of 370,000 Safe Man-Hours Zero LTI Milestone', fileId: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP001', uploadedAt: '2026-09-16 16:00' },
+      { id: uid_('GAL'), projectId: p2, category: 'TRAINING', title: 'Live Fire Extinguisher Drill & Emergency Evacuation', fileId: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP002', uploadedAt: '2026-09-16 14:15' },
+      { id: uid_('GAL'), projectId: p3, category: 'COMPANY', title: 'Substation Control Panel Earthing & PPE Verification', fileId: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP005', uploadedAt: '2026-09-15 15:20' },
+      { id: uid_('GAL'), projectId: p3, category: 'MEETING', title: 'Joint PMC & Contractor Weekly Safety Committee Walk', fileId: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP005', uploadedAt: '2026-09-14 09:15' },
+      { id: uid_('GAL'), projectId: p2, category: 'EVENT', title: 'National Safety Month Best EHS Lead Recognition Award', fileId: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP001', uploadedAt: '2026-09-16 17:30' }
+    ];
+
     // 5. BATCH SEED DATA WRITING (Lightning Fast Single-Call setValues)
     batchWriteObjects_(sheetMap[SHEETS.USERS], HEADERS.Users, userRows);
     batchWriteObjects_(sheetMap[SHEETS.PROJECTS], HEADERS.Projects, projects);
@@ -223,6 +235,7 @@ function initializeSystem() {
     batchWriteObjects_(sheetMap[SHEETS.OBSERVATIONS], HEADERS.Observations, obsSeeds);
     batchWriteObjects_(sheetMap[SHEETS.NOTIFICATIONS], HEADERS.Notifications, notifSeeds);
     batchWriteObjects_(sheetMap[SHEETS.TRAINING], HEADERS.TrainingCalendar, trainingSeeds);
+    batchWriteObjects_(sheetMap[SHEETS.GALLERY], HEADERS.Gallery, gallerySeeds);
 
     // 6. FORMAT ALL CANONICAL SHEETS (Highlighted Teal Headers, Plain Body, Creative Special Cases)
     Object.keys(HEADERS).forEach(name => {

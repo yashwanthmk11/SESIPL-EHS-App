@@ -56,9 +56,12 @@ function buildBootstrap_(user) {
   const daily = rowsToObjects_(SHEETS.DAILY_LOG).filter(
     (s) => ids.indexOf(s.projectId) >= 0,
   );
-  const gallery = rowsToObjects_(SHEETS.GALLERY).filter(
+  let gallery = rowsToObjects_(SHEETS.GALLERY).filter(
     (s) => ids.indexOf(s.projectId) >= 0,
   );
+  if (!gallery.length && projects.length) {
+    gallery = ensureDemoGallery_(projects);
+  }
   const library = rowsToObjects_(SHEETS.LIBRARY).filter(
     (s) => !s.projectId || ids.indexOf(s.projectId) >= 0,
   );
@@ -129,7 +132,16 @@ function decorateSubmission_(s) {
 function withFileUrl_(row) {
   const out = Object.assign({}, row);
   if (!out.url && out.fileId) {
-    out.url = 'https://drive.google.com/file/d/' + out.fileId + '/view';
+    out.url = String(out.fileId).startsWith('http') ? out.fileId : ('https://drive.google.com/file/d/' + out.fileId + '/view');
+  }
+  if (!out.thumbUrl) {
+    if (out.fileId && !String(out.fileId).startsWith('http')) {
+      out.thumbUrl = 'https://drive.google.com/thumbnail?id=' + out.fileId + '&sz=w800';
+    } else if (out.url && String(out.url).startsWith('http')) {
+      out.thumbUrl = out.url;
+    } else if (out.fileId && String(out.fileId).startsWith('http')) {
+      out.thumbUrl = out.fileId;
+    }
   }
   return out;
 }
@@ -1105,4 +1117,27 @@ function apiSaveObservationFromInternal_(projectId, data, user) {
     rectifiedFileId: "",
     submittedBy: user.employeeId,
   });
+}
+
+function ensureDemoGallery_(projects) {
+  const p1 = projects[0] ? projects[0].id : "PRJ-2026-001";
+  const p2 = projects[1] ? projects[1].id : p1;
+  const p3 = projects[2] ? projects[2].id : p1;
+  const seeds = [
+    { id: uid_('GAL'), projectId: p1, category: 'TRAINING', title: 'Work at Height & Safety Harness Induction', fileId: 'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP001', uploadedAt: '2026-09-14 10:30' },
+    { id: uid_('GAL'), projectId: p1, category: 'COMPANY', title: 'Scaffold Cuplock & Sole Board Audit Inspection', fileId: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP002', uploadedAt: '2026-09-15 11:45' },
+    { id: uid_('GAL'), projectId: p2, category: 'MEETING', title: 'Daily Tool Box Talk (TBT) - Electrical Safety & LOTO', fileId: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP003', uploadedAt: '2026-09-15 08:30' },
+    { id: uid_('GAL'), projectId: p1, category: 'EVENT', title: 'Celebration of 370,000 Safe Man-Hours Zero LTI Milestone', fileId: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP001', uploadedAt: '2026-09-16 16:00' },
+    { id: uid_('GAL'), projectId: p2, category: 'TRAINING', title: 'Live Fire Extinguisher Drill & Emergency Evacuation', fileId: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP002', uploadedAt: '2026-09-16 14:15' },
+    { id: uid_('GAL'), projectId: p3, category: 'COMPANY', title: 'Substation Control Panel Earthing & PPE Verification', fileId: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP005', uploadedAt: '2026-09-15 15:20' },
+    { id: uid_('GAL'), projectId: p3, category: 'MEETING', title: 'Joint PMC & Contractor Weekly Safety Committee Walk', fileId: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP005', uploadedAt: '2026-09-14 09:15' },
+    { id: uid_('GAL'), projectId: p2, category: 'EVENT', title: 'National Safety Month Best EHS Lead Recognition Award', fileId: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80', mimeType: 'image/jpeg', uploadedBy: 'EMP001', uploadedAt: '2026-09-16 17:30' }
+  ];
+  try {
+    const sh = sheet_(SHEETS.GALLERY);
+    batchWriteObjects_(sh, HEADERS.Gallery, seeds);
+  } catch (e) {
+    Logger.log("ensureDemoGallery_ warning: " + e);
+  }
+  return seeds;
 }
