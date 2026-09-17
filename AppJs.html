@@ -2865,7 +2865,7 @@
       const prevMonthLastDay = new Date(year, month, 0).getDate();
 
       const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-      const gridHeadHtml = '<div class="cal-grid-head">' + daysOfWeek.map((d) => '<div>' + d + '</div>').join('') + '</div>';
+      const gridHeadHtml = daysOfWeek.map((d) => '<div class="cal-head-cell">' + d + '</div>').join('');
 
       let cellsHtml = '';
 
@@ -2934,8 +2934,7 @@
 
       contentHtml = 
         '<div class="cal-grid-card">' +
-          gridHeadHtml +
-          '<div class="cal-grid-matrix">' + cellsHtml + '</div>' +
+          '<div class="cal-grid-matrix">' + gridHeadHtml + cellsHtml + '</div>' +
         '</div>';
     } else {
       // Agenda Schedule View
