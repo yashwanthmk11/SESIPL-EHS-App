@@ -15,20 +15,27 @@ function moduleTitle_(id) {
 }
 
 function htmlToPdfFile_(html, name, folder) {
-  const doc = DocumentApp.create(name);
-  const body = doc.getBody();
-  body.clear();
-  const tmp = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<\/tr>/gi, '\n').replace(/<[^>]+>/g, ' ');
-  const text = tmp.replace(/\s+\n/g, '\n').replace(/[ \t]+/g, ' ').trim();
-  body.appendParagraph(APP_NAME + ' — Safety Management System').setHeading(DocumentApp.ParagraphHeading.HEADING1);
-  body.appendParagraph(text.substring(0, 45000));
-  doc.saveAndClose();
-  const docFile = DriveApp.getFileById(doc.getId());
-  const pdfBlob = docFile.getAs(MimeType.PDF).setName(name + '.pdf');
-  const pdfFile = folder.createFile(pdfBlob);
-  folder.addFile(docFile);
-  DriveApp.getRootFolder().removeFile(docFile);
-  return { fileId: pdfFile.getId(), docId: doc.getId(), url: pdfFile.getUrl() };
+  try {
+    const blob = Utilities.newBlob(html, 'text/html', name + '.html');
+    const pdfBlob = blob.getAs('application/pdf').setName(name + '.pdf');
+    const pdfFile = folder.createFile(pdfBlob);
+    return { fileId: pdfFile.getId(), docId: '', url: pdfFile.getUrl() };
+  } catch (err) {
+    const doc = DocumentApp.create(name);
+    const body = doc.getBody();
+    body.clear();
+    const tmp = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<\/tr>/gi, '\n').replace(/<[^>]+>/g, ' ');
+    const text = tmp.replace(/\s+\n/g, '\n').replace(/[ \t]+/g, ' ').trim();
+    body.appendParagraph(APP_NAME + ' — Safety Management System').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    body.appendParagraph(text.substring(0, 45000));
+    doc.saveAndClose();
+    const docFile = DriveApp.getFileById(doc.getId());
+    const pdfBlob = docFile.getAs(MimeType.PDF).setName(name + '.pdf');
+    const pdfFile = folder.createFile(pdfBlob);
+    folder.addFile(docFile);
+    DriveApp.getRootFolder().removeFile(docFile);
+    return { fileId: pdfFile.getId(), docId: doc.getId(), url: pdfFile.getUrl() };
+  }
 }
 
 function buildFormPdfHtml_(project, def, fields, user, version) {
@@ -354,4 +361,227 @@ function escapeHtml_(s) {
 
 function prettyLabel_(k) {
   return String(k).replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+}
+
+function buildEhsAuditPdfHtml_(audit, project, user) {
+  const data = audit || (typeof getDefaultAuditSeedData_ === 'function' ? getDefaultAuditSeedData_(project) : null);
+  const proj = project || { name: (data ? data.projectName : 'Intuit Bellandur'), areaSqft: (data ? data.projectLocation : 'Pritech Park, Bellandur, Bengaluru') };
+  const pName = escapeHtml_((data && data.projectName) || proj.name || 'Intuit Bellandur');
+  const pLoc = escapeHtml_((data && data.projectLocation) || proj.areaSqft || 'Pritech Park, Bellandur, Bengaluru');
+  const aDate = escapeHtml_(displayDate_((data && data.auditDate) || '2026-09-10'));
+  const auditor = escapeHtml_((data && data.auditor) || (user && user.name) || 'CBRE Lead Auditor');
+  const schema = (typeof AUDIT_CHECKLIST_SCHEMA !== 'undefined') ? AUDIT_CHECKLIST_SCHEMA : [];
+
+  const renderHeader = () => {
+    return '<div class="audit-header" style="margin-bottom:6px">' +
+      '<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;margin-bottom:0">' +
+      '  <tr>' +
+      '    <td style="width:16%;padding:4px 8px;border-right:1.5px solid #000;text-align:center;vertical-align:middle;background:#fff">' +
+      '      <img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" style="height:30px;object-fit:contain" alt="SESIPL" onerror="this.onerror=null;this.src=\'https://sesipl.com/sites/default/files/sesipl-logo.png\'">' +
+      '      <div style="font-weight:900;font-size:10.5px;color:#0369a1;letter-spacing:0.5px">SESIPL</div>' +
+      '    </td>' +
+      '    <td style="width:54%;padding:6px 8px;border-right:1.5px solid #000;text-align:center;vertical-align:middle;background:#c6efce">' +
+      '      <div style="font-size:15px;font-weight:bold;color:#000;letter-spacing:0.3px">Shankar Electricals EHS Audit Checklist</div>' +
+      '    </td>' +
+      '    <td style="width:30%;padding:4px 6px;font-size:7.5px;color:#000;text-align:right;vertical-align:middle;line-height:1.2;background:#fff">' +
+      '      <div style="font-style:italic">"Sree DeviArcade"</div>' +
+      '      <div>668/A, 2nd Floor, 17th C Main, 6th Block, Koramangala, Bengaluru - 560095</div>' +
+      '    </td>' +
+      '  </tr>' +
+      '</table>' +
+      '<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;border-top:none;margin-bottom:5px;font-size:9.5px;background:#fff">' +
+      '  <tr>' +
+      '    <td colspan="2" style="padding:2.5px 6px;border-bottom:1px solid #000"><b>Project Name:</b> <span>' + pName + '</span></td>' +
+      '  </tr>' +
+      '  <tr>' +
+      '    <td colspan="2" style="padding:2.5px 6px;border-bottom:1px solid #000"><b>Project Location:</b> <span>' + pLoc + '</span></td>' +
+      '  </tr>' +
+      '  <tr>' +
+      '    <td style="width:50%;padding:2.5px 6px;border-bottom:1px solid #000;border-right:1px solid #000"><b>Audit Date:</b> <span>' + aDate + '</span></td>' +
+      '    <td style="width:50%;padding:2.5px 6px;border-bottom:1px solid #000;text-align:right;font-size:8.5px;color:#0369a1">info@shankarelectricals.com www.shankarelectricals.com</td>' +
+      '  </tr>' +
+      '  <tr>' +
+      '    <td colspan="2" style="padding:2.5px 6px"><b>Auditor:</b> <span>' + auditor + '</span></td>' +
+      '  </tr>' +
+      '</table>' +
+      '</div>';
+  };
+
+  const renderSectionTable = (sections, itemFilterFn) => {
+    let html = '<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-size:9px;margin-bottom:6px;background:#fff">';
+    html += '<tr style="background:#e2e8f0;font-weight:bold">' +
+      '<th style="width:3.5%;padding:3px;border:1px solid #000;text-align:center">SN</th>' +
+      '<th style="width:68.5%;padding:3px 6px;border:1px solid #000;text-align:left">Particulars</th>' +
+      '<th colspan="7" style="width:28%;padding:3px;border:1px solid #000;text-align:center">Score</th>' +
+      '</tr>';
+
+    sections.forEach(sec => {
+      const secScoreInfo = (data && data.sectionScores && data.sectionScores[sec.id])
+        ? data.sectionScores[sec.id]
+        : { actual: sec.items.reduce((acc, it) => typeof it.defaultScore === 'number' ? acc + it.defaultScore : acc, 0) };
+
+      const itemsToRender = itemFilterFn ? sec.items.filter(itemFilterFn) : sec.items;
+      if (!itemsToRender.length) return;
+
+      // Section Header row
+      html += '<tr style="background:#e2e8f0;font-weight:bold">' +
+        '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + sec.id + '</td>' +
+        '<td style="padding:2.5px 6px;border:1px solid #000">' + escapeHtml_(sec.name) + '</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">0</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">1</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">2</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">3</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">4</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">5</td>' +
+        '<td style="width:4%;padding:2.5px;border:1px solid #000;text-align:center">NA</td>' +
+        '</tr>';
+
+      itemsToRender.forEach(item => {
+        const sc = item.defaultScore;
+        const mark = (val) => (sc === val ? '<span style="font-weight:bold;font-size:12px;color:#000">*</span>' : '');
+        html += '<tr>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + item.sn + '</td>' +
+          '<td style="padding:2.5px 6px;border:1px solid #000">' + escapeHtml_(item.text) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark(0) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark(1) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark(2) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark(3) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark(4) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark(5) + '</td>' +
+          '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + mark('NA') + '</td>' +
+          '</tr>';
+      });
+
+      const isComplete = !itemFilterFn || itemsToRender[itemsToRender.length - 1].sn === sec.items[sec.items.length - 1].sn;
+      if (isComplete) {
+        html += '<tr>' +
+          '<td colspan="2" style="padding:3px 12px;border:1px solid #000;text-align:right;font-weight:bold">Section Total ' + sec.max + '</td>' +
+          '<td colspan="7" style="padding:3px;border:1px solid #000;text-align:center;background:#fb923c;color:#000;font-weight:bold;font-size:10.5px">' + secScoreInfo.actual + '</td>' +
+          '</tr>';
+      }
+    });
+
+    html += '</table>';
+    return html;
+  };
+
+  const renderSummaryScorecardPage = () => {
+    let html = renderHeader();
+    html += '<div style="background:#f1f5f9;border:1.5px solid #000;border-bottom:none;padding:4px;font-size:9px;font-weight:bold;text-align:center">' +
+      '0 - Major NC; 1 - Minor NC; 2 - Partial Compliance; 3 - Full Compliance; NA - Not Applicable' +
+      '</div>';
+
+    html += '<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-size:9px;background:#fff">';
+    html += '<tr style="background:#fbbf24;font-weight:bold;text-align:center">' +
+      '<th style="width:4%;padding:3px;border:1px solid #000">SN</th>' +
+      '<th style="width:48%;padding:3px 6px;border:1px solid #000;text-align:left">Item</th>' +
+      '<th style="width:8%;padding:3px;border:1px solid #000">Max</th>' +
+      '<th style="width:8%;padding:3px;border:1px solid #000">Actual</th>' +
+      '<th style="width:8%;padding:3px;border:1px solid #000">%</th>' +
+      '<th style="width:24%;padding:3px;border:1px solid #000">Performance</th>' +
+      '</tr>';
+
+    schema.forEach((sec, idx) => {
+      const info = (data && data.sectionScores && data.sectionScores[sec.id])
+        ? data.sectionScores[sec.id]
+        : { actual: 0, percent: 0, percentText: '0%' };
+      const pctDisplay = info.percentText || (sec.max > 0 ? Math.round((info.actual / sec.max) * 100) + '%' : '#DIV/0!');
+
+      let tierCell = '';
+      if (idx === 0) {
+        tierCell = '<td rowspan="5" style="border:1.5px solid #000;text-align:center;vertical-align:middle;background:#f8fafc;padding:4px">' +
+          '<div style="font-size:10.5px;font-weight:bold;color:#475569">Platinum</div>' +
+          '<div style="font-size:9px;color:#64748b;margin-top:2px">85 - 100 %</div>' +
+          '</td>';
+      } else if (idx === 5) {
+        tierCell = '<td rowspan="5" style="border:1.5px solid #000;text-align:center;vertical-align:middle;background:#fef08a;padding:4px">' +
+          '<div style="font-size:10.5px;font-weight:bold;color:#854d0e">Gold</div>' +
+          '<div style="font-size:9px;color:#a16207;margin-top:2px">71 - 84 %</div>' +
+          '</td>';
+      } else if (idx === 10) {
+        tierCell = '<td rowspan="4" style="border:1.5px solid #000;text-align:center;vertical-align:middle;background:#bbf7d0;padding:4px">' +
+          '<div style="font-size:10.5px;font-weight:bold;color:#166534">Silver</div>' +
+          '<div style="font-size:9px;color:#15803d;margin-top:2px">55 - 70 %</div>' +
+          '</td>';
+      } else if (idx === 14) {
+        tierCell = '<td rowspan="4" style="border:1.5px solid #000;text-align:center;vertical-align:middle;background:#bfdbfe;padding:4px">' +
+          '<div style="font-size:10.5px;font-weight:bold;color:#1e40af">Blue</div>' +
+          '<div style="font-size:9px;color:#1d4ed8;margin-top:2px">&lt; 54 %</div>' +
+          '</td>';
+      }
+
+      html += '<tr>' +
+        '<td style="padding:2.5px;border:1px solid #000;text-align:center;font-weight:bold">' + sec.id + '</td>' +
+        '<td style="padding:2.5px 6px;border:1px solid #000">' + escapeHtml_(sec.name) + '</td>' +
+        '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + sec.max + '</td>' +
+        '<td style="padding:2.5px;border:1px solid #000;text-align:center;font-weight:bold">' + info.actual + '</td>' +
+        '<td style="padding:2.5px;border:1px solid #000;text-align:center">' + pctDisplay + '</td>' +
+        tierCell +
+        '</tr>';
+    });
+
+    const totMax = data ? data.maxScore : 525;
+    const totActual = data ? data.totalScore : 363;
+    const totPct = data ? data.percent : 69;
+
+    html += '<tr style="font-weight:bold;font-size:10px">' +
+      '<td colspan="2" style="padding:4px 6px;border:1.5px solid #000">Total Score</td>' +
+      '<td style="padding:4px;border:1.5px solid #000;text-align:center">' + totMax + '</td>' +
+      '<td style="padding:4px;border:1.5px solid #000;text-align:center">' + totActual + '</td>' +
+      '<td colspan="2" style="padding:4px;border:1.5px solid #000;text-align:center;background:#c6efce;font-size:11.5px;font-weight:900">' + totPct + '%</td>' +
+      '</tr>';
+
+    html += '</table>';
+    return html;
+  };
+
+  const page1Secs = schema.filter(s => ['A','B','C','D','E','F'].indexOf(s.id) >= 0);
+  const page2Secs = schema.filter(s => ['G','H','I','J','K','L'].indexOf(s.id) >= 0);
+  const secM = schema.find(s => s.id === 'M') || { id: 'M', name: 'Store & Material Management', max: 20, items: [] };
+  const page4Secs = schema.filter(s => ['N','O','P','Q','R'].indexOf(s.id) >= 0);
+
+  let fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<title>Shankar Electricals EHS Audit Checklist - ' + pName + '</title>' +
+    '<style>' +
+    '  @page { size: A4 portrait; margin: 8mm 8mm 8mm 8mm; }' +
+    '  body { font-family: Calibri, Arial, sans-serif; color: #000; margin: 0; padding: 10px; background: #fff; line-height: 1.25; }' +
+    '  .audit-page { page-break-after: always; min-height: 980px; box-sizing: border-box; }' +
+    '  .audit-page:last-child { page-break-after: auto; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    '  th, td { box-sizing: border-box; }' +
+    '  @media print {' +
+    '    body { padding: 0; background: transparent; }' +
+    '    .audit-page { page-break-after: always; min-height: 100vh; }' +
+    '    .no-print { display: none !important; }' +
+    '  }' +
+    '</style>' +
+    '</head><body>';
+
+  // Page 1: Sections A through F
+  fullHtml += '<div class="audit-page">' + renderHeader() + renderSectionTable(page1Secs) + '</div>';
+
+  // Page 2: Sections G through L + Section M (items 1-3)
+  fullHtml += '<div class="audit-page">' + renderHeader() + renderSectionTable(page2Secs.concat([{
+    id: secM.id,
+    name: secM.name,
+    max: secM.max,
+    items: secM.items.slice(0, 3)
+  }])) + '</div>';
+
+  // Page 3: Section M (item 4) and Section Total 20
+  fullHtml += '<div class="audit-page">' + renderHeader() + renderSectionTable([{
+    id: secM.id,
+    name: secM.name + ' (Continued)',
+    max: secM.max,
+    items: secM.items.slice(3)
+  }]) + '</div>';
+
+  // Page 4: Sections N through R
+  fullHtml += '<div class="audit-page">' + renderHeader() + renderSectionTable(page4Secs) + '</div>';
+
+  // Page 5: Executive Grand Summary Scorecard
+  fullHtml += '<div class="audit-page">' + renderSummaryScorecardPage() + '</div>';
+
+  fullHtml += '</body></html>';
+  return fullHtml;
 }

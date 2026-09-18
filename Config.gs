@@ -136,6 +136,333 @@ const AUDIT_SECTIONS = [
   { id: 'R', name: 'PPES', max: 30 }
 ];
 
+const AUDIT_PERFORMANCE_BANDS = [
+  { name: 'Platinum', min: 85, max: 100, color: '#f8fafc', textColor: '#0f172a', desc: '85 - 100 %' },
+  { name: 'Gold', min: 71, max: 84, color: '#fef08a', textColor: '#854d0e', desc: '71 - 84 %' },
+  { name: 'Silver', min: 55, max: 70, color: '#bbf7d0', textColor: '#166534', desc: '55 - 70 %' },
+  { name: 'Blue', min: 0, max: 54, color: '#bfdbfe', textColor: '#1e40af', desc: '< 54 %' }
+];
+
+const AUDIT_CHECKLIST_SCHEMA = [
+  {
+    id: 'A',
+    name: 'GENERAL REQUIREMENTS & POLICY',
+    max: 30,
+    page: 1,
+    items: [
+      { sn: 1, text: 'A Project Specific EHS plan is available ?', defaultScore: 5 },
+      { sn: 2, text: 'Has EHS plan is approved by PMC? and updated?', defaultScore: 5 },
+      { sn: 3, text: 'Is the policy and EHS Plan availabe and explained to all employees, including temporary staff? Records available?', defaultScore: 5 },
+      { sn: 4, text: 'Is statutory documents are available?', defaultScore: 5 },
+      { sn: 5, text: 'Individual EHS responsibilities defined, documented, known and understood?', defaultScore: 5 },
+      { sn: 6, text: 'Safety Committee formed & Meeting MOM available', defaultScore: 5 }
+    ]
+  },
+  {
+    id: 'B',
+    name: 'HAZARDS, RISK MANAGEMENT & SWMS',
+    max: 45,
+    page: 1,
+    items: [
+      { sn: 1, text: 'Are all foreseeable risk assessed?', defaultScore: 3 },
+      { sn: 2, text: 'Is updated risk Assessment register available?', defaultScore: 3 },
+      { sn: 3, text: 'Are such discovered risks fully evaluated & documented?', defaultScore: 3 },
+      { sn: 4, text: 'Are risk assessments and evaluations communicated to all concerned?', defaultScore: 3 },
+      { sn: 5, text: 'Is projects environmental aspect evaluation documented?', defaultScore: 'NA' },
+      { sn: 6, text: 'Do those engaged in high risk activities receive guidance and training on risk mitigation measures?', defaultScore: 3 },
+      { sn: 7, text: 'Have method statements available for all jobs/tasks?', defaultScore: 3 },
+      { sn: 8, text: 'Do they adequately reflect legal standards and requirements?', defaultScore: 3 },
+      { sn: 9, text: 'Are Safe Work Practices (SWMS) reviewed?', defaultScore: 3 },
+      { sn: 10, text: 'Are planned job observations conducted to ensure compliance with safe work practices? Are these observations documented?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'C',
+    name: 'EHS SCREENING, INDUCTION and TRAINING',
+    max: 35,
+    page: 1,
+    items: [
+      { sn: 1, text: 'Has a Induction plan and module available?', defaultScore: 5 },
+      { sn: 2, text: 'Has a Identified Induction area available?', defaultScore: 5 },
+      { sn: 3, text: 'Are the induction details recorded?', defaultScore: 5 },
+      { sn: 4, text: 'Has a training plan been formulated and documented?', defaultScore: 5 },
+      { sn: 5, text: 'Is the progress of actual training monitored against the training plan/matrix?', defaultScore: 3 },
+      { sn: 6, text: 'Are records of actual training achieved, maintained and analyzed? Do training matrix provided for refresher training', defaultScore: 5 },
+      { sn: 7, text: 'Do competency of people ensured?', defaultScore: 5 }
+    ]
+  },
+  {
+    id: 'D',
+    name: 'Documents & Records',
+    max: 35,
+    page: 1,
+    items: [
+      { sn: 1, text: 'Has a program of planned inspections been established?', defaultScore: 3 },
+      { sn: 2, text: 'Do itemized inspection checklists exist and used?', defaultScore: 3 },
+      { sn: 3, text: 'Are EHS inspections, Records of observation & their Compliance status maintained?', defaultScore: 3 },
+      { sn: 4, text: 'Are Checklists implemented and Recorded on daily basis?', defaultScore: 3 },
+      { sn: 5, text: 'Are Implementation of Permit to Work & their effectiveness maintained?', defaultScore: 3 },
+      { sn: 6, text: 'Are EHS Daily, Weekly & Monthly reports maintained?', defaultScore: 3 },
+      { sn: 7, text: 'Is pre health check-ups done for all new labours and certificates are available? And remedial checkups done at least once in a year and records are available?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'E',
+    name: 'EMERGENCY PREPADENESS',
+    max: 25,
+    page: 1,
+    items: [
+      { sn: 1, text: 'Is emergency preparedness and response plan available?', defaultScore: 3 },
+      { sn: 2, text: 'Emergency Rescue team (ERT) is developed and followed?', defaultScore: 3 },
+      { sn: 3, text: 'Emergency Rescue team is identified and effectively communicated?', defaultScore: 3 },
+      { sn: 4, text: 'All potential emergency situations identified, a plan for mock drills developed and followed?', defaultScore: 3 },
+      { sn: 5, text: 'Is Emergency contact Details displayed?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'F',
+    name: 'EHS PERFORMANCE MEASUREMENT & MOTIVATION',
+    max: 10,
+    page: 1,
+    items: [
+      { sn: 1, text: 'Performance monitoring and Evaluation? Result published and Records available?', defaultScore: 3 },
+      { sn: 2, text: 'Is continuing publicity given to EHS objectives and any motivation programs being conducted?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'G',
+    name: 'REPORTING AND INVESTIGATION',
+    max: 30,
+    page: 2,
+    items: [
+      { sn: 1, text: 'Internal audits conducted, recommendations raised, follow up & Close out?', defaultScore: 3 },
+      { sn: 2, text: 'Has an appropriate reporting procedure been established for all Incidents? SESIPL procedure is being ensured?', defaultScore: 3 },
+      { sn: 3, text: 'Is the reporting procedure correctly used?', defaultScore: 3 },
+      { sn: 4, text: 'Are all incidents including unsafe conditions/unsafe acts/near miss occurrences properly investigated to find out route cause?', defaultScore: 3 },
+      { sn: 5, text: 'Is adequate preventative follow up action taken as a result of reports received/ raised?', defaultScore: 3 },
+      { sn: 6, text: 'Is personal injury/property damage/near miss/ Environment Incident data suitably classified? Recorded & communicated?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'H',
+    name: 'Welfare & Health Management',
+    max: 55,
+    page: 2,
+    items: [
+      { sn: 1, text: 'Is the first AID provision available and details desplayed?', defaultScore: 3 },
+      { sn: 2, text: 'Is Qualified First Aider available', defaultScore: 3 },
+      { sn: 3, text: "Are List of First Aid Equipment's & Stock status available at site?", defaultScore: 3 },
+      { sn: 4, text: 'Medical Check-up of workers and staff (Pre & Post)', defaultScore: 3 },
+      { sn: 5, text: 'Is Tie up with near by HOSPITAL is made?', defaultScore: 3 },
+      { sn: 6, text: 'Are the records of first aid treatment / First aid Register available?', defaultScore: 3 },
+      { sn: 7, text: 'Record of accident / incident investigation and their preventive action are available?', defaultScore: 3 },
+      { sn: 8, text: 'Records of first aid training is available?', defaultScore: 3 },
+      { sn: 9, text: 'Is canteen or Lunch area available at site for workers?', defaultScore: 3 },
+      { sn: 10, text: '"Welfare facilities (Power supply, Drinking Water, Toilets in good conditions', defaultScore: 3 },
+      { sn: 11, text: 'Drinking water provided & Test certificate available ?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'I',
+    name: 'Mechanical Management System',
+    max: 25,
+    page: 2,
+    items: [
+      { sn: 1, text: 'Is the List of Plant & Machineries available ?', defaultScore: 3 },
+      { sn: 2, text: 'Are Competency Certificate (Experience and qualification certificate) available at site?', defaultScore: 3 },
+      { sn: 3, text: 'Third Party Inspection Report available', defaultScore: 3 },
+      { sn: 4, text: 'Is the condition of machines and their operation procedures are as per safety system? And in good condition', defaultScore: 3 },
+      { sn: 5, text: 'Are all moving / rotator parts of machinery adequately guarded?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'J',
+    name: 'Electrical Management System',
+    max: 40,
+    page: 2,
+    items: [
+      { sn: 1, text: 'Is only persons having valid company authorization certificate are employed for carrying out electrical work and repair of electrical equipment, installation and maintenance at site?', defaultScore: 3 },
+      { sn: 2, text: 'Is electrical distribution boards are mounted above ground level?', defaultScore: 3 },
+      { sn: 3, text: 'Is cables are kept away from the passage to prevent slip, trip or fall hazard and kept at height wherever possible?', defaultScore: 3 },
+      { sn: 4, text: 'Is LOTO Available at site?', defaultScore: 3 },
+      { sn: 5, text: 'Is the condition of electric cable and connectivity to the board is in acceptable condition?', defaultScore: 3 },
+      { sn: 6, text: '"Is DGs have the folowing Specifications? a)installed is provided with platform approved by PMC. b)Acoustic type DG is provided / DG is protected from rain, etc. c)DG maintained in good condition (Eco Friendly & CEIG Approval)', defaultScore: 'NA' },
+      { sn: 7, text: 'Competency certificate of electrician is available at site?', defaultScore: 3 },
+      { sn: 8, text: 'Nomenclature of electrical earth pit and record of resistance is available?', defaultScore: 3 },
+      { sn: 9, text: 'Is Periodic Electrical Inspection carried out as per schedule?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'K',
+    name: 'Housekeeping Management',
+    max: 15,
+    page: 2,
+    items: [
+      { sn: 1, text: 'Are all the passages, floors, and the stairways free from obstruction?', defaultScore: 3 },
+      { sn: 2, text: 'Is material stacked properly at all site locations?', defaultScore: 3 },
+      { sn: 3, text: 'Is scrap area properly identified?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'L',
+    name: 'Waste Management',
+    max: 10,
+    page: 2,
+    items: [
+      { sn: 1, text: 'Are wastes bin colour coded as per waste disposal?', defaultScore: 3 },
+      { sn: 2, text: 'Sagrigation of waste and scrape', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'M',
+    name: 'Store & Material Management',
+    max: 20,
+    page: 2,
+    items: [
+      { sn: 1, text: 'MSDS of Various chemical available at site?', defaultScore: 3 },
+      { sn: 2, text: 'Status of stacking of materials is in good condition?', defaultScore: 3 },
+      { sn: 3, text: 'Have inflammable materials such as paints, Oil, diesel, petrol, chemicals etc., been stored in separate areas out side the main stores?', defaultScore: 3 },
+      { sn: 4, text: 'Are firefighting equipment is easily accessible, i.e. without any obstruction within 15 ft. of “Fire Points”?', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'N',
+    name: 'Working Platforms and Ladders',
+    max: 20,
+    page: 4,
+    items: [
+      { sn: 1, text: 'Is scaffolding material is free from bends, cuts, rust, coated by antirust paint and Working platform deck & its access is free from all debris and loose materials?', defaultScore: 3 },
+      { sn: 2, text: 'Is working platform has proper and safe access. Scaffolds have the proper guard rails at 1.0 m height with middle rails at 0.5 m height from the platform?', defaultScore: 3 },
+      { sn: 3, text: 'Is tagging system for scaffolds (stating fitness of the scaffolding) is being maintained', defaultScore: 3 },
+      { sn: 4, text: 'Is propper agrement is available', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'O',
+    name: 'FLOOR DB PANELS:',
+    max: 60,
+    page: 4,
+    items: [
+      { sn: 1, text: 'Is sufficient illumination provided in all work areas', defaultScore: 5 },
+      { sn: 2, text: 'Are Floor DB panels are placed in an accessible location', defaultScore: 5 },
+      { sn: 3, text: 'Are Floor DB panels are equipped with RCCB/ELCB', defaultScore: 5 },
+      { sn: 4, text: 'Are the RCCB/ELCB are functioning', defaultScore: 5 },
+      { sn: 5, text: 'Is any ELCB/RCCB Testing has been conducted at site', defaultScore: 5 },
+      { sn: 6, text: 'Is Earth connection available with the DB Panel', defaultScore: 5 },
+      { sn: 7, text: 'Is Rubber mat available', defaultScore: 5 },
+      { sn: 8, text: 'Is CO2/DCP Fire extinguisher has been provided for each DB Panel', defaultScore: 5 },
+      { sn: 9, text: 'Is physical condition of the Panel is good', defaultScore: 5 },
+      { sn: 10, text: 'Are there any emergency contact details displayed on the Panels', defaultScore: 5 },
+      { sn: 11, text: 'Is the temporary cable routing is in a proper manner', defaultScore: 5 },
+      { sn: 12, text: 'Is any weekly/Monthly inspection is being carried & checklist is made available', defaultScore: 5 }
+    ]
+  },
+  {
+    id: 'P',
+    name: 'HOT WORK:',
+    max: 40,
+    page: 4,
+    items: [
+      { sn: 1, text: 'Is any specific fabrication/welding yard identified', defaultScore: 3 },
+      { sn: 2, text: 'Is the area of hot work is free from combustibles', defaultScore: 3 },
+      { sn: 3, text: 'Is required PPEs is being worn by the welder', defaultScore: 3 },
+      { sn: 4, text: 'Is the welding machine is fit for use', defaultScore: 3 },
+      { sn: 5, text: 'Is used welding electrodes are being collected separately', defaultScore: 3 },
+      { sn: 6, text: 'Is there is availability of fire extinguisher near the hot work area', defaultScore: 3 },
+      { sn: 7, text: 'Is there any signage available near hot work area', defaultScore: 3 },
+      { sn: 8, text: 'Are there any training provided for workmen involving in hot work', defaultScore: 3 }
+    ]
+  },
+  {
+    id: 'Q',
+    name: 'SHAFT WORK:',
+    max: 0,
+    page: 4,
+    items: [
+      { sn: 1, text: 'Is there any proper fall arresting system available', defaultScore: 'NA' },
+      { sn: 2, text: 'Is there any safe work platform available', defaultScore: 'NA' },
+      { sn: 3, text: 'Is the method of shaft work could be considered as safe', defaultScore: 'NA' },
+      { sn: 4, text: 'Is the workman entering a shaft has undergone medical checkup prior to employment & is not having vertigo', defaultScore: 'NA' },
+      { sn: 5, text: 'Are special safety precautions are being taken for any hot work being carried inside of the shaft', defaultScore: 'NA' },
+      { sn: 6, text: 'Is there any continuous supervision being provided', defaultScore: 'NA' },
+      { sn: 7, text: 'Are there any training provided for workmen involving in work inside shaft', defaultScore: 'NA' },
+      { sn: 8, text: 'Are all workmen working at height (more than 1.8/2 Mtrs) are working without any fall arresting system', defaultScore: 'NA' },
+      { sn: 9, text: 'Are there any workmen working in an unsafe working platform to support work at height', defaultScore: 'NA' },
+      { sn: 10, text: 'Are the lanyard hooks of the full body harness has been anchored to an secured anchoring point', defaultScore: 'NA' },
+      { sn: 11, text: 'Are there any training provided for workmen involving in height work', defaultScore: 'NA' },
+      { sn: 12, text: 'Is there any proper climbing access & egress on the working platform being used for work at height', defaultScore: 'NA' },
+      { sn: 13, text: 'Is any workmen with vertigo issue has been deployed in height work', defaultScore: 'NA' }
+    ]
+  },
+  {
+    id: 'R',
+    name: 'PPES',
+    max: 30,
+    page: 4,
+    items: [
+      { sn: 1, text: 'Are all workmen are using Job specific PPEs', defaultScore: 3 },
+      { sn: 2, text: 'Are there any workmen found with faulty PPE', defaultScore: 3 },
+      { sn: 3, text: 'Are all full body harness available at site are fit for use', defaultScore: 3 },
+      { sn: 4, text: 'Are the damaged PPEs are being collected back to avoid use of damaged PPEs at site', defaultScore: 3 },
+      { sn: 5, text: 'Is there is any register maintained for the issue of PPEs', defaultScore: 3 },
+      { sn: 6, text: 'Are all critical work activities such as welding, grinding, cutting, chipping, drilling etc. are being carried with job specific PPEs', defaultScore: 3 }
+    ]
+  }
+];
+
+function getDefaultAuditSeedData_(project) {
+  const p = project || { id: 'PRJ001', code: 'BLR-01', name: 'Intuit Bellandur', areaSqft: '2,45,000 sq.ft' };
+  const sectionScores = {};
+  let totalScore = 0;
+  let totalMax = 0;
+
+  AUDIT_CHECKLIST_SCHEMA.forEach(sec => {
+    let secActual = 0;
+    sec.items.forEach(item => {
+      const val = item.defaultScore;
+      if (typeof val === 'number') {
+        secActual += val;
+      }
+    });
+    const pct = sec.max > 0 ? Math.round((secActual / sec.max) * 100) : null;
+    sectionScores[sec.id] = {
+      id: sec.id,
+      name: sec.name,
+      max: sec.max,
+      actual: secActual,
+      percent: pct,
+      percentText: pct !== null ? pct + '%' : '#DIV/0!'
+    };
+    totalScore += secActual;
+    totalMax += sec.max;
+  });
+
+  const overallPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+  let grade = 'Silver';
+  if (overallPercent >= 85) grade = 'Platinum';
+  else if (overallPercent >= 71) grade = 'Gold';
+  else if (overallPercent >= 55) grade = 'Silver';
+  else grade = 'Blue';
+
+  return {
+    id: 'ADT-' + (p.code || 'BLR-01') + '-20260910',
+    projectId: p.id,
+    projectName: p.name || 'Intuit Bellandur',
+    projectLocation: p.areaSqft ? (p.name + ', ' + p.areaSqft) : 'Pritech Park, Bellandur, Bengaluru',
+    auditDate: '2026-09-10',
+    auditor: 'CBRE Lead Auditor',
+    auditorEmail: 'info@shankarelectricals.com',
+    auditorWebsite: 'www.shankarelectricals.com',
+    totalScore: totalScore,
+    maxScore: totalMax,
+    percent: overallPercent,
+    grade: grade,
+    status: 'APPROVED',
+    sectionScores: sectionScores,
+    schema: AUDIT_CHECKLIST_SCHEMA
+  };
+}
+
 const GALLERY_CATEGORIES = ['COMPANY', 'TRAINING', 'MEETING', 'EVENT'];
 
 const PERMIT_DOC_CODES = {

@@ -1415,3 +1415,83 @@ function ensureDemoGallery_(projects) {
   }
   return seeds;
 }
+
+function apiGetEhsAuditData(token, projectId) {
+  const user = userByToken_(token);
+  const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
+  const pid = project ? project.id : (projectId || 'PRJ001');
+
+  let auditRow = rowsToObjects_(SHEETS.AUDITS).find(a => a.projectId === pid);
+  let auditData = null;
+
+  if (auditRow) {
+    const scores = rowsToObjects_(SHEETS.AUDIT_SCORES).filter(s => s.auditId === auditRow.id);
+    const sectionScores = {};
+    scores.forEach(s => {
+      const maxVal = (AUDIT_SECTIONS.find(x => x.id === s.section) || {}).max || 0;
+      const actualVal = Number(s.score || 0);
+      const pct = maxVal > 0 ? Math.round((actualVal / maxVal) * 100) : null;
+      sectionScores[s.section] = {
+        id: s.section,
+        name: (AUDIT_SECTIONS.find(x => x.id === s.section) || {}).name || s.section,
+        max: maxVal,
+        actual: actualVal,
+        percent: pct,
+        percentText: pct !== null ? pct + '%' : '#DIV/0!'
+      };
+    });
+    auditData = {
+      id: auditRow.id,
+      projectId: pid,
+      projectName: project ? project.name : 'SESIPL Site',
+      projectLocation: project ? (project.name + ', ' + (project.areaSqft || 'Bengaluru')) : 'Bengaluru',
+      auditDate: auditRow.auditDate || '2026-09-10',
+      auditor: auditRow.auditor || 'CBRE Lead Auditor',
+      auditorEmail: 'info@shankarelectricals.com',
+      auditorWebsite: 'www.shankarelectricals.com',
+      totalScore: Number(auditRow.totalScore || 363),
+      maxScore: Number(auditRow.maxScore || 525),
+      percent: Number(auditRow.percent || 69),
+      grade: auditRow.grade || 'Silver',
+      status: auditRow.status || 'APPROVED',
+      sectionScores: sectionScores,
+      schema: AUDIT_CHECKLIST_SCHEMA
+    };
+  } else {
+    auditData = getDefaultAuditSeedData_(project);
+  }
+
+  return {
+    ok: true,
+    audit: auditData,
+    project: project,
+    schema: AUDIT_CHECKLIST_SCHEMA,
+    performanceBands: AUDIT_PERFORMANCE_BANDS
+  };
+}
+
+function apiExportEhsAudit(token, projectId) {
+  const user = userByToken_(token);
+  const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
+  const auditRes = apiGetEhsAuditData(token, projectId);
+  const auditData = auditRes.audit;
+
+  const html = buildEhsAuditPdfHtml_(auditData, project, user);
+  const name = (project ? project.code : 'SESIPL') + '-EHS-Audit-Checklist-' + todayIso_();
+  let pdfRes = { url: '', fileId: '' };
+
+  try {
+    const folder = getNamedSubfolder_(project, 'Audits');
+    pdfRes = htmlToPdfFile_(html, name, folder);
+  } catch (err) {
+    Logger.log('apiExportEhsAudit PDF creation notice: ' + err);
+  }
+
+  return {
+    ok: true,
+    url: pdfRes.url || '',
+    name: name + '.pdf',
+    html: html
+  };
+}
+
