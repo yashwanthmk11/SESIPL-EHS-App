@@ -286,6 +286,41 @@ function getFormFields_(formCode) {
       .concat(permitClosingFields);
   };
 
+  const dailyInspectionFields = (items) => {
+    const fields = common.concat([
+      { key: 'equipmentId', label: 'Equipment / Machine No.', type: 'text', required: true },
+      { key: 'make', label: 'Make / Type', type: 'text', required: false },
+      { key: 'contractor', label: 'Contractor Name', type: 'text', required: true }
+    ]);
+    items.forEach((item, index) => {
+      for (let day = 1; day <= 7; day++) {
+        fields.push({ key: 'item' + (index + 1) + 'Day' + day, label: 'Item ' + (index + 1) + ' - Day ' + day + ': ' + item, type: 'select', options: ['Yes', 'No', 'NA'], required: true });
+      }
+    });
+    return fields.concat([
+      { key: 'supervisorSign', label: 'Supervisor Name / Signature', type: 'text', required: true },
+      { key: 'safetyOfficerSign', label: 'Safety Officer Name / Signature', type: 'text', required: true },
+      { key: 'engineerSign', label: 'Electrical / Mechanical Engineer Name / Signature', type: 'text', required: true }
+    ]);
+  };
+
+  const inductionAttendees = [];
+  for (let row = 1; row <= 15; row++) {
+    inductionAttendees.push({ key: 'attendee' + row + 'Id', label: 'Attendee ' + row + ' ID Card No.', type: 'text', required: false });
+    inductionAttendees.push({ key: 'attendee' + row + 'Name', label: 'Attendee ' + row + ' Name', type: 'text', required: false });
+    inductionAttendees.push({ key: 'attendee' + row + 'Designation', label: 'Attendee ' + row + ' Designation', type: 'text', required: false });
+  }
+
+  const attendanceRows = (count, prefix) => {
+    const fields = [];
+    for (let row = 1; row <= count; row++) {
+      fields.push({ key: prefix + row + 'Name', label: 'Participant ' + row + ' Name', type: 'text', required: false });
+      fields.push({ key: prefix + row + 'Designation', label: 'Participant ' + row + ' Designation', type: 'text', required: false });
+      fields.push({ key: prefix + row + 'Company', label: 'Participant ' + row + ' Company / Agency', type: 'text', required: false });
+    }
+    return fields;
+  };
+
   const map = {
     WR_WEEKLY: common.concat([
       { key: 'weekNo', label: 'Week No', type: 'text', required: true },
