@@ -1580,6 +1580,208 @@
     return '<span class="pill ' + cls + '">' + st + "</span>";
   }
 
+  const PERMIT_DOC_CODES = {
+    WP_SHAFT: 'SESIPL-EHS.Blr Prj-06',
+    WP_NIGHT: 'SESIPL-EHS.Blr Prj-07',
+    WP_LIFT: 'SESIPL-EHS.Blr Prj-05',
+    WP_HOT: 'SESIPL-EHS.Blr Prj-03',
+    WP_HEIGHT: 'SESIPL-EHS.Blr Prj-04',
+    WP_GENERAL: 'SESIPL-EHS.Blr Prj-01'
+  };
+
+  function buildWorkPermitFormModalHtml(meta, payload, currentProject, upload) {
+    const p = payload || {};
+    const docCode = PERMIT_DOC_CODES[meta.def.formCode] || 'SESIPL-EHS.Blr PTW';
+    const isNight = meta.def.formCode === 'WP_NIGHT';
+
+    const getVal = (k) => esc(p[k] || "");
+
+    const inp = (key, label, type, req, fullWidth) => {
+      const v = getVal(key);
+      return (
+        '<div class="form-field' + (fullWidth ? ' full' : '') + '" style="' + (fullWidth ? 'grid-column:1/-1' : '') + '">' +
+          '<label style="font-weight:700;font-size:12px;color:#334155;display:block;margin-bottom:4px">' +
+            esc(label) + (req ? ' <span style="color:#ef4444">*</span>' : '') +
+          '</label>' +
+          (type === "textarea"
+            ? '<textarea name="' + key + '" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px;box-sizing:border-box" placeholder="Enter ' + esc(label.toLowerCase()) + '" ' + (req ? 'required' : '') + '>' + v + '</textarea>'
+            : '<input name="' + key + '" type="' + type + '" value="' + v + '" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:13px;box-sizing:border-box" placeholder="Enter ' + esc(label.toLowerCase()) + '" ' + (req ? 'required' : '') + '>') +
+        '</div>'
+      );
+    };
+
+    const questions = meta.fields.filter((f) => 
+      f.key.startsWith('shaft_q') || f.key.startsWith('night_q') || f.key.startsWith('lift_q') || f.key.startsWith('hot_q') || f.key.startsWith('height_q')
+    );
+
+    let qTableRows = '';
+    if (isNight) {
+      qTableRows = questions.map((q, idx) => {
+        const selVal = p[q.key] || 'Yes';
+        return (
+          '<tr>' +
+            '<td style="text-align:center;padding:8px;border:1px solid #cbd5e1;font-weight:700">' + (idx + 1) + '</td>' +
+            '<td style="padding:8px 12px;border:1px solid #cbd5e1;font-size:12.5px;color:#1e293b">' + esc(q.label.replace(/^\d+\.\s*/, '')) + '</td>' +
+            '<td style="text-align:center;padding:8px;border:1px solid #cbd5e1">' +
+              '<select name="' + q.key + '" style="border:1px solid #cbd5e1;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px;background:#fff">' +
+                ['Yes', 'NO', 'NA'].map((opt) => '<option value="' + opt + '"' + (selVal === opt ? ' selected' : '') + '>' + opt + '</option>').join('') +
+              '</select>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join('');
+    } else {
+      qTableRows = questions.map((q, idx) => {
+        const selVal = p[q.key] || 'Yes';
+        return (
+          '<tr>' +
+            '<td style="text-align:center;padding:8px;border:1px solid #cbd5e1;font-weight:700">' + (idx + 1) + '</td>' +
+            '<td style="padding:8px 12px;border:1px solid #cbd5e1;font-size:12.5px;color:#1e293b">' + esc(q.label.replace(/^\d+\.\s*/, '')) + '</td>' +
+            '<td style="text-align:center;padding:8px;border:1px solid #cbd5e1">' +
+              '<select name="' + q.key + '" style="border:1px solid #cbd5e1;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px;background:#fff">' +
+                ['Yes', 'Not Required'].map((opt) => '<option value="' + opt + '"' + (selVal === opt ? ' selected' : '') + '>' + opt + '</option>').join('') +
+              '</select>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join('');
+    }
+
+    const specialField = 
+      meta.fields.find((f) => f.key === 'workmenNames')
+        ? inp('workmenNames', 'Names of workmen entering shaft', 'textarea', true, true)
+        : meta.fields.find((f) => f.key === 'night_remarks')
+          ? inp('night_remarks', 'Night Shift Precautions Remarks', 'textarea', false, true)
+          : meta.fields.find((f) => f.key === 'lift_other')
+            ? inp('lift_other', '15. Other Precautions / Notes', 'text', false, true)
+            : meta.fields.find((f) => f.key === 'hot_other')
+              ? inp('hot_other', '16. Other Precautions / Notes', 'text', false, true)
+              : '';
+
+    return (
+      '<div class="permit-form-container" style="max-width:840px;margin:0 auto;text-align:left">' +
+        '<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+          '<div style="display:flex;align-items:center;gap:12px">' +
+            '<img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" alt="SESIPL" style="height:36px;object-fit:contain" onerror="this.onerror=null;this.src=\'https://sesipl.com/sites/default/files/sesipl-logo.png\'">' +
+            '<div>' +
+              '<div style="font-size:11px;font-weight:800;color:#0f766e;letter-spacing:0.5px">SAFETY WORK CLEARANCE</div>' +
+              '<h2 style="margin:0;font-size:18px;color:#0f172a;font-weight:900">' + esc(meta.def.title) + '</h2>' +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:right">' +
+            '<span class="pill" style="font-size:11px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">' + esc(docCode) + '</span>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:4px">Site: <b>' + esc(currentProject.name) + '</b></div>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="dyn-form">' +
+          '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px">' +
+            '<div style="font-size:13px;font-weight:800;color:#0f766e;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:6px">📋 1. Permit Clearance & Contact Information</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px">' +
+              inp('contractorName', 'Contractor Name', 'text', true) +
+              inp('permitNo', 'Permit No', 'text', true) +
+              inp('emergencyContact1', 'Emergency Contact No. 1', 'text', true) +
+              inp('emergencyContact2', 'Emergency Contact No. 2', 'text', false) +
+            '</div>' +
+          '</div>' +
+
+          '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px">' +
+            '<div style="font-size:13px;font-weight:800;color:#0f766e;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:6px">📍 2. Work Location & Requesting Authority</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px">' +
+              inp('area', 'Area', 'text', true) +
+              inp('location', 'Location', 'text', true) +
+              inp('date', 'Date', 'date', true) +
+              inp('time', 'Time', 'time', true) +
+              inp('siteEngineer', 'Site Engineer (Requesting Authority)', 'text', true) +
+              inp('siteEngineerSign', 'Site Engineer Sign / Ack', 'text', false) +
+              inp('safetyOfficer', 'Name of Safety Officer', 'text', true) +
+              inp('safetyOfficerSign', 'Safety Officer Sign / Ack', 'text', false) +
+              inp('contractorInCharge', 'Contractor Site In-charge', 'text', true) +
+              inp('contactNumber', 'Contact Number', 'text', true) +
+            '</div>' +
+            '<div style="margin-top:12px">' +
+              inp('workDescription', 'Description of work', 'textarea', true, true) +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-top:12px">' +
+              inp('workExecutionDate', 'Work Execution Date', 'date', true) +
+              inp('validFrom', 'Valid From', 'datetime-local', true) +
+              inp('validTo', 'Valid To', 'datetime-local', true) +
+            '</div>' +
+            '<div style="margin-top:12px;background:#f0fdfa;border:1px solid #ccfbf1;border-radius:8px;padding:10px 14px;font-size:12px;color:#0f766e;font-style:italic">' +
+              '🛡️ The above signing person will be responsible to ensure that the above described work will be done under all the safety precaution mentioned on the PTW and required by the Project.' +
+            '</div>' +
+          '</div>' +
+
+          (questions.length ? 
+            '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px">' +
+              '<div style="font-size:13px;font-weight:800;color:#0f766e;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:6px">⚠️ 3. Precautions Checklist (Mandatory Safety Verification)</div>' +
+              '<div style="overflow-x:auto">' +
+                '<table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:12px">' +
+                  '<thead>' +
+                    '<tr style="background:#f8fafc">' +
+                      '<th style="width:6%;padding:8px;border:1px solid #cbd5e1;text-align:center">No</th>' +
+                      '<th style="width:72%;padding:8px 12px;border:1px solid #cbd5e1;text-align:left">Item Description</th>' +
+                      '<th style="width:22%;padding:8px;border:1px solid #cbd5e1;text-align:center">Verification Status</th>' +
+                    '</tr>' +
+                  '</thead>' +
+                  '<tbody>' +
+                    qTableRows +
+                  '</tbody>' +
+                '</table>' +
+              '</div>' +
+              (specialField ? '<div style="margin-top:12px">' + specialField + '</div>' : '') +
+              '<div style="margin-top:8px;font-size:11px;color:#64748b"><b>Notes:</b> a) Work permit is valid for the prescribed date, time and in prescribed location only.</div>' +
+            '</div>' : '') +
+
+          '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px">' +
+            '<div style="font-size:13px;font-weight:800;color:#0f766e;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:6px">✍️ 4. Reviewed & Approved By (Permit Issuing Authority)</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px">' +
+              inp('approvalEhsName', 'EHS Name', 'text', false) +
+              inp('approvalEhsSign', 'EHS Sign', 'text', false) +
+              inp('approvalEhsDate', 'Approval Date', 'date', false) +
+              inp('approvalEhsTime', 'Approval Time', 'time', false) +
+              inp('approvalSiteEngineerName', 'Site Engineer Name', 'text', false) +
+              inp('approvalSiteEngineerSign', 'Site Engineer Sign', 'text', false) +
+              inp('approvalSiteEngineerDate', 'Approval Date', 'date', false) +
+              inp('approvalSiteEngineerTime', 'Approval Time', 'time', false) +
+            '</div>' +
+            '<div style="margin-top:10px;font-size:11.5px;color:#64748b;font-style:italic">' +
+              'I understand the precaution to be taken as described above and as per Project requirement & hereby confirm that Work will be executed under my supervision by following all precaution & Safety Rules.' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="background:#ffffff;border:1px solid #fee2e2;border-radius:10px;padding:16px;margin-bottom:16px">' +
+            '<div style="font-size:13px;font-weight:800;color:#dc2626;margin-bottom:8px;border-bottom:1px solid #fecdd3;padding-bottom:6px">🛑 5. Permit Closing / Cancellation</div>' +
+            '<div style="font-size:11.5px;color:#991b1b;font-style:italic;margin-bottom:12px">' +
+              'I hereby declare that the work is completed / suspended, all workers under my control have been withdrawn and the site restored to a safe tidy condition.' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px">' +
+              inp('closingSiteEngName', 'Closing Site Engineer (Requesting Authority)', 'text', false) +
+              inp('closingSiteEngSign', 'Sign', 'text', false) +
+              inp('closingSiteEngDate', 'Date', 'date', false) +
+              inp('closingSiteEngTime', 'Time', 'time', false) +
+              inp('closingSafetyOfficerName', 'Closing Safety Officer', 'text', false) +
+              inp('closingSafetyOfficerSign', 'Sign', 'text', false) +
+              inp('closingSafetyOfficerDate', 'Date', 'date', false) +
+              inp('closingSafetyOfficerTime', 'Time', 'time', false) +
+              inp('closingPmcSiteEngName', 'Closing PMC Site Engineer (Issuing Authority)', 'text', false) +
+              inp('closingPmcSiteEngSign', 'Sign', 'text', false) +
+              inp('closingPmcSiteEngDate', 'Date', 'date', false) +
+              inp('closingPmcSiteEngTime', 'Time', 'time', false) +
+            '</div>' +
+          '</div>' +
+
+          (upload ? '<div class="full" style="margin-bottom:16px"><label style="font-weight:700">Attach Document / Scan</label><input type="file" id="up-file"></div>' : '') +
+
+          '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid #e2e8f0">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button class="btn small" type="submit" style="background:#0f766e;color:#fff;font-weight:700">Submit Work Permit</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
   async function openForm(formCode, submissionId) {
     if (!currentProjectId()) {
       alert("Select a project first.");
@@ -1593,78 +1795,86 @@
       prev && prev.payload && typeof prev.payload === "object"
         ? prev.payload
         : {};
-    const fields = meta.fields
-      .map((f) => {
-        const val = payload[f.key] || "";
-        let ctrl = "";
-        if (f.type === "textarea")
-          ctrl =
-            '<textarea name="' +
-            f.key +
-            '" placeholder="Enter ' +
-            esc(f.label.toLowerCase()) +
-            '" ' +
-            (f.required ? "required" : "") +
-            ">" +
-            esc(val) +
-            "</textarea>";
-        else if (f.type === "select")
-          ctrl =
-            '<select name="' +
-            f.key +
-            '" ' +
-            (f.required ? "required" : "") +
-            ">" +
-            (f.options || [])
-              .map(
-                (o) =>
-                  "<option " +
-                  (o === val ? "selected" : "") +
-                  ">" +
-                  o +
-                  "</option>",
-              )
-              .join("") +
-            "</select>";
-        else
-          ctrl =
-            '<input name="' +
-            f.key +
-            '" type="' +
-            (f.type || "text") +
-            '" lang="en-GB' +
-            '" value="' +
-            esc(val) +
-            '" placeholder="Enter ' +
-            esc(f.label.toLowerCase()) +
-            '" ' +
-            (f.required ? "required" : "") +
-            ">";
-        return (
-          '<div class="' +
-          (f.type === "textarea" ? "full" : "") +
-          '"><label>' +
-          esc(f.label) +
-          "</label>" +
-          ctrl +
-          "</div>"
-        );
-      })
-      .join("");
+
     const upload = meta.def.entryType === "UPLOAD";
-    showModal(
-      "<h3>" +
-        esc(meta.def.title) +
-        '</h3><p class="muted">' +
-        esc(currentProject().name) +
-        "</p>" +
-        '<form id="dyn-form" class="form-grid">' +
-        fields +
-        (upload
-          ? '<div class="full"><label>File</label><input type="file" id="up-file"></div>'
-          : "") +
-        '<div class="full" style="display:flex;gap:8px"><button class="btn small" type="submit">Submit for approval</button><button type="button" class="ghost" onclick="hideModal()">Cancel</button></div></form>',
-    );
+    const isPermit = formCode.startsWith("WP_");
+
+    if (isPermit) {
+      showModal(buildWorkPermitFormModalHtml(meta, payload, currentProject(), upload));
+    } else {
+      const fields = meta.fields
+        .map((f) => {
+          const val = payload[f.key] || "";
+          let ctrl = "";
+          if (f.type === "textarea")
+            ctrl =
+              '<textarea name="' +
+              f.key +
+              '" placeholder="Enter ' +
+              esc(f.label.toLowerCase()) +
+              '" ' +
+              (f.required ? "required" : "") +
+              ">" +
+              esc(val) +
+              "</textarea>";
+          else if (f.type === "select")
+            ctrl =
+              '<select name="' +
+              f.key +
+              '" ' +
+              (f.required ? "required" : "") +
+              ">" +
+              (f.options || [])
+                .map(
+                  (o) =>
+                    "<option " +
+                    (o === val ? "selected" : "") +
+                    ">" +
+                    o +
+                    "</option>",
+                )
+                .join("") +
+              "</select>";
+          else
+            ctrl =
+              '<input name="' +
+              f.key +
+              '" type="' +
+              (f.type || "text") +
+              '" lang="en-GB' +
+              '" value="' +
+              esc(val) +
+              '" placeholder="Enter ' +
+              esc(f.label.toLowerCase()) +
+              '" ' +
+              (f.required ? "required" : "") +
+              ">";
+          return (
+            '<div class="' +
+            (f.type === "textarea" ? "full" : "") +
+            '"><label>' +
+            esc(f.label) +
+            "</label>" +
+            ctrl +
+            "</div>"
+          );
+        })
+        .join("");
+
+      showModal(
+        "<h3>" +
+          esc(meta.def.title) +
+          '</h3><p class="muted">' +
+          esc(currentProject().name) +
+          "</p>" +
+          '<form id="dyn-form" class="form-grid">' +
+          fields +
+          (upload
+            ? '<div class="full"><label>File</label><input type="file" id="up-file"></div>'
+            : "") +
+          '<div class="full" style="display:flex;gap:8px"><button class="btn small" type="submit">Submit for approval</button><button type="button" class="ghost" onclick="hideModal()">Cancel</button></div></form>',
+      );
+    }
     $("dyn-form").onsubmit = async function (ev) {
       ev.preventDefault();
       const fd = new FormData(this);
