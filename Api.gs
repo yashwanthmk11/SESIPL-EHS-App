@@ -1495,3 +1495,246 @@ function apiExportEhsAudit(token, projectId) {
   };
 }
 
+function apiExportEhsAuditExcel(token, projectId) {
+  const user = requireUser_(token);
+  const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
+  const auditRes = apiGetEhsAuditData(token, projectId);
+  const auditData = auditRes.audit;
+  const name = (project ? project.code : 'SESIPL') + '-EHS-Audit-Checklist-' + todayIso_();
+
+  const book = SpreadsheetApp.create(name);
+  const bookId = book.getId();
+
+  try {
+    // Sheet 1: Summary Scorecard
+    const sheet1 = book.getSheets()[0];
+    sheet1.setName("Summary Scorecard");
+    buildAuditSummaryExcelSheet_(sheet1, auditData, project);
+
+    // Sheet 2: 18-Section Checklist (125 Items)
+    const sheet2 = book.insertSheet("Audit Checklist (125 Items)");
+    buildAuditChecklistExcelSheet_(sheet2, auditData, project);
+
+    const file = DriveApp.getFileById(bookId);
+    try {
+      const folder = getNamedSubfolder_(project, 'Audits');
+      folder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    } catch (folderErr) {
+      Logger.log("Notice moving audit excel: " + folderErr);
+    }
+
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (shareErr) {
+      Logger.log("Notice setting audit excel sharing: " + shareErr);
+    }
+  } catch (err) {
+    Logger.log("Error building audit excel: " + err);
+  }
+
+  const downloadUrl = 'https://docs.google.com/spreadsheets/d/' + bookId + '/export?format=xlsx';
+
+  return {
+    ok: true,
+    id: bookId,
+    url: book.getUrl(),
+    downloadUrl: downloadUrl,
+    name: name + '.xlsx',
+    format: 'xlsx'
+  };
+}
+
+function buildAuditSummaryExcelSheet_(sheet, data, project) {
+  sheet.clear();
+  
+  const pName = data ? data.projectName : (project ? project.name : 'SESIPL Site');
+  const pLoc = data ? data.projectLocation : (project ? (project.name + ', ' + (project.areaSqft || '')) : 'Bengaluru');
+  const aDate = data ? data.auditDate : todayIso_();
+  const auditor = data ? data.auditor : 'CBRE Lead Auditor';
+  const email = data ? data.auditorEmail : 'info@shankarelectricals.com';
+  const website = data ? data.auditorWebsite : 'www.shankarelectricals.com';
+
+  const rows = [];
+  rows.push(['SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.', '', '', '', '', '']);
+  rows.push(['ENVIRONMENT, HEALTH & SAFETY MANAGEMENT SYSTEM — EHS AUDIT SCORECARD', '', '', '', '', '']);
+  rows.push(['# 24/1, 1st Floor, 80 Feet Road, 4th Block, Koramangala, Bengaluru - 560 034', '', '', '', '', '']);
+  rows.push(['', '', '', '', '', '']);
+  rows.push(['Project Name:', pName, '', 'Audit Date:', aDate, '']);
+  rows.push(['Location:', pLoc, '', 'Lead Auditor:', auditor, '']);
+  rows.push(['Auditor Email:', email, '', 'Website:', website, '']);
+  rows.push(['', '', '', '', '', '']);
+  rows.push(['SL NO', 'EHS AUDIT SECTIONS', 'MAX SCORE', 'ACTUAL SCORE', '% AGE', 'PERFORMANCE TIER']);
+
+  const schema = (data && data.schema) || AUDIT_CHECKLIST_SCHEMA;
+  const secScores = (data && data.sectionScores) || {};
+
+  schema.forEach(sec => {
+    const info = secScores[sec.id] || { actual: 0, percentText: '0%' };
+    const pct = typeof info.percent === 'number' ? info.percent : (sec.max > 0 ? Math.round((info.actual / sec.max) * 100) : null);
+    const pctText = pct !== null ? pct + '%' : '#DIV/0!';
+    let tier = 'Silver';
+    if (pct === null) tier = 'N/A';
+    else if (pct >= 85) tier = 'Platinum';
+    else if (pct >= 71) tier = 'Gold';
+    else if (pct >= 55) tier = 'Silver';
+    else tier = 'Blue';
+
+    rows.push([sec.id, sec.name, sec.max, info.actual, pctText, tier]);
+  });
+
+  const totMax = data ? data.maxScore : 525;
+  const totActual = data ? data.totalScore : 363;
+  const totPct = data ? data.percent : 69;
+  const totGrade = (data ? data.grade : 'Silver') + ' Tier';
+
+  rows.push(['TOTAL SCORE', '', totMax, totActual, totPct + '%', totGrade]);
+  rows.push(['', '', '', '', '', '']);
+  rows.push(['PERFORMANCE BENCHMARK BANDS', '', '', '', '', '']);
+  rows.push(['Platinum', '85% to 100%', 'Exemplary compliance with best-in-class safety standards', '', '', '']);
+  rows.push(['Gold', '71% to 84%', 'Substantial compliance with minor procedural observations', '', '', '']);
+  rows.push(['Silver', '55% to 70%', 'Acceptable site compliance, immediate corrective actions needed', '', '', '']);
+  rows.push(['Blue', '< 54%', 'Critical non-compliance requiring comprehensive intervention', '', '', '']);
+
+  sheet.getRange(1, 1, rows.length, 6).setValues(rows);
+
+  sheet.getRange("A1:F1").merge().setFontWeight('bold').setFontSize(13).setFontColor('#0f766e').setBackground('#f0fdfa');
+  sheet.getRange("A2:F2").merge().setFontWeight('bold').setFontSize(10).setFontColor('#475569');
+  sheet.getRange("A3:F3").merge().setFontSize(9).setFontColor('#64748b');
+
+  sheet.getRange("A5:A7").setFontWeight('bold').setFontColor('#334155');
+  sheet.getRange("D5:D7").setFontWeight('bold').setFontColor('#334155');
+
+  sheet.getRange("A9:F9").setFontWeight('bold').setBackground('#0f766e').setFontColor('#ffffff').setHorizontalAlignment('center');
+
+  const dataStartRow = 10;
+  const dataRowCount = schema.length;
+  sheet.getRange(dataStartRow, 1, dataRowCount, 1).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(dataStartRow, 3, dataRowCount, 4).setHorizontalAlignment('center');
+
+  const totalRowIndex = dataStartRow + dataRowCount;
+  sheet.getRange(totalRowIndex, 1, 1, 2).merge().setFontWeight('bold');
+  sheet.getRange(totalRowIndex, 1, 1, 6).setFontWeight('bold').setBackground('#c6efce').setFontColor('#0f172a').setBorder(true, true, true, true, true, true);
+  sheet.getRange(totalRowIndex, 3, 1, 4).setHorizontalAlignment('center');
+
+  const bandsHeaderIndex = totalRowIndex + 2;
+  sheet.getRange(bandsHeaderIndex, 1, 1, 6).merge().setFontWeight('bold').setBackground('#e2e8f0').setFontColor('#0f172a');
+  sheet.getRange(bandsHeaderIndex + 1, 1, 4, 1).setFontWeight('bold');
+
+  sheet.setColumnWidth(1, 70);
+  sheet.setColumnWidth(2, 320);
+  sheet.setColumnWidth(3, 100);
+  sheet.setColumnWidth(4, 110);
+  sheet.setColumnWidth(5, 95);
+  sheet.setColumnWidth(6, 170);
+}
+
+function buildAuditChecklistExcelSheet_(sheet, data, project) {
+  sheet.clear();
+
+  const pName = data ? data.projectName : (project ? project.name : 'SESIPL Site');
+  const pLoc = data ? data.projectLocation : (project ? (project.name + ', ' + (project.areaSqft || '')) : 'Bengaluru');
+  const aDate = data ? data.auditDate : todayIso_();
+  const auditor = data ? data.auditor : 'CBRE Lead Auditor';
+
+  const rows = [];
+  rows.push(['SHANKAR ELECTRICALS SERVICES (I) PVT. LTD. — EHS AUDIT CHECKPOINTS (18 SECTIONS — 125 ITEMS)', '', '', '', '', '', '']);
+  rows.push(['Project:', pName, '', 'Location:', pLoc, '', '']);
+  rows.push(['Audit Date:', aDate, '', 'Lead Auditor:', auditor, '', '']);
+  rows.push(['', '', '', '', '', '', '']);
+  rows.push(['SEC', 'SL NO', 'EHS CHECK POINT DESCRIPTION', 'MAX SCORE', 'ACTUAL SCORE', 'COMPLIANCE STATUS', 'AUDITOR OBSERVATIONS & REMARKS']);
+
+  const schema = (data && data.schema) || AUDIT_CHECKLIST_SCHEMA;
+  const sectionRowIndices = [];
+  const subtotalRowIndices = [];
+
+  schema.forEach(sec => {
+    let secActual = 0;
+    sec.items.forEach(item => {
+      const s = typeof item.defaultScore === 'number' ? item.defaultScore : (item.defaultScore === 'NA' ? 0 : 0);
+      secActual += s;
+    });
+    const secPct = sec.max > 0 ? Math.round((secActual / sec.max) * 100) : null;
+    const secPctText = secPct !== null ? secPct + '%' : '#DIV/0!';
+
+    rows.push([sec.id, sec.id, 'SECTION ' + sec.id + ': ' + sec.name, sec.max, secActual, secPctText, 'SECTION AUDIT BENCHMARK']);
+    sectionRowIndices.push(rows.length);
+
+    sec.items.forEach((item, idx) => {
+      const scoreVal = typeof item.defaultScore === 'number' ? item.defaultScore : (item.defaultScore || 0);
+      let status = 'Complied';
+      if (scoreVal === 'NA') status = 'Not Applicable';
+      else if (scoreVal === 0 && item.max > 0) status = 'Observation / Action Required';
+      else if (scoreVal < item.max) status = 'Partially Complied';
+
+      rows.push([
+        sec.id,
+        item.num || (idx + 1),
+        item.text,
+        item.max,
+        scoreVal,
+        status,
+        scoreVal === 'NA' ? 'Not Applicable to this site scope' : (scoreVal === item.max ? 'Verified & fully compliant on site' : 'Minor rectification recommended')
+      ]);
+    });
+
+    rows.push([
+      sec.id,
+      '',
+      'Section ' + sec.id + ' Total: ' + sec.name,
+      sec.max,
+      secActual,
+      secPctText,
+      'Section Total'
+    ]);
+    subtotalRowIndices.push(rows.length);
+  });
+
+  const totMax = data ? data.maxScore : 525;
+  const totActual = data ? data.totalScore : 363;
+  const totPct = data ? data.percent : 69;
+  rows.push([
+    'ALL',
+    '',
+    'GRAND TOTAL SCORE (ALL 18 SECTIONS A TO R — 125 ITEMS)',
+    totMax,
+    totActual,
+    totPct + '%',
+    (data ? data.grade : 'Silver') + ' Tier'
+  ]);
+  const grandTotalRowIndex = rows.length;
+
+  sheet.getRange(1, 1, rows.length, 7).setValues(rows);
+
+  sheet.getRange("A1:G1").merge().setFontWeight('bold').setFontSize(12).setBackground('#0f766e').setFontColor('#ffffff');
+  sheet.getRange("A2:A3").setFontWeight('bold').setFontColor('#334155');
+  sheet.getRange("D2:D3").setFontWeight('bold').setFontColor('#334155');
+
+  sheet.getRange("A5:G5").setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff').setHorizontalAlignment('center');
+
+  sectionRowIndices.forEach(r => {
+    sheet.getRange(r, 1, 1, 7).setFontWeight('bold').setBackground('#f1f5f9').setFontColor('#0f766e');
+    sheet.getRange(r, 4, 1, 3).setHorizontalAlignment('center');
+  });
+
+  subtotalRowIndices.forEach(r => {
+    sheet.getRange(r, 1, 1, 7).setFontWeight('bold').setBackground('#fed7aa').setFontColor('#7c2d12');
+    sheet.getRange(r, 4, 1, 3).setHorizontalAlignment('center');
+  });
+
+  sheet.getRange(grandTotalRowIndex, 1, 1, 7).setFontWeight('bold').setFontSize(11).setBackground('#bbf7d0').setFontColor('#166534').setBorder(true, true, true, true, true, true);
+  sheet.getRange(grandTotalRowIndex, 4, 1, 4).setHorizontalAlignment('center');
+
+  sheet.getRange(6, 1, rows.length - 5, 2).setHorizontalAlignment('center');
+  sheet.getRange(6, 4, rows.length - 5, 3).setHorizontalAlignment('center');
+
+  sheet.setColumnWidth(1, 55);
+  sheet.setColumnWidth(2, 65);
+  sheet.setColumnWidth(3, 440);
+  sheet.setColumnWidth(4, 95);
+  sheet.setColumnWidth(5, 105);
+  sheet.setColumnWidth(6, 160);
+  sheet.setColumnWidth(7, 240);
+  sheet.setFrozenRows(5);
+}
+

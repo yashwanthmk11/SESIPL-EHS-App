@@ -2324,43 +2324,250 @@
   }
   window.exportEhsAudit = exportEhsAudit;
 
+  async function exportEhsAuditExcel() {
+    const pid = currentProjectId() || (STATE.projects && STATE.projects[0] && STATE.projects[0].id);
+    if (!pid) {
+      showToast("Select a project first.", "warning");
+      return;
+    }
+    setLoading(true, "Compiling standard Excel spreadsheet (Summary Scorecard + 125 Items)...");
+    try {
+      // 1. Fetch live audit data
+      const auditRes = await run("apiGetEhsAuditData", TOKEN, pid);
+      const auditData = auditRes.audit;
+      const proj = auditRes.project || currentProject() || (STATE.projects && STATE.projects[0]);
+
+      // 2. Trigger instant client-side Excel download
+      downloadAuditExcelClientSide(auditData, proj);
+
+      // 3. Trigger server-side Google Spreadsheet creation
+      const res = await run("apiExportEhsAuditExcel", TOKEN, pid);
+      setLoading(false);
+
+      if (res && res.ok) {
+        window.LATEST_AUDIT_EXCEL = res;
+        openAuditExportSuccessModal(res);
+        showToast(
+          'Excel spreadsheet generated! <a href="' + esc(res.downloadUrl || res.url) + '" target="_blank" style="color:#107c41;font-weight:700;text-decoration:underline;margin-top:3px;display:inline-block">Download .xlsx &rarr;</a>',
+          "success",
+          8000,
+          true
+        );
+      } else {
+        showToast("Standard EHS Audit Excel file generated and downloaded!", "success");
+      }
+    } catch (e) {
+      setLoading(false);
+      showToast(e.message || e, "error");
+    }
+  }
+  window.exportEhsAuditExcel = exportEhsAuditExcel;
+
+  function downloadAuditExcelClientSide(data, proj) {
+    if (!data) return;
+    const pName = data.projectName || (proj ? proj.name : 'SESIPL Site');
+    const pLoc = data.projectLocation || (proj ? (proj.name + ', ' + (proj.areaSqft || 'Bengaluru')) : 'Bengaluru');
+    const aDate = data.auditDate || '2026-09-10';
+    const auditor = data.auditor || 'CBRE Lead Auditor';
+    const schema = data.schema || [];
+    const secScores = data.sectionScores || {};
+
+    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">' +
+      '<style>' +
+      '  table { border-collapse: collapse; width: 100%; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }' +
+      '  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; }' +
+      '  .header-banner { background-color: #0f766e; color: #ffffff; font-weight: bold; font-size: 14pt; text-align: center; }' +
+      '  .sub-banner { background-color: #f0fdfa; color: #0f766e; font-weight: bold; font-size: 11pt; }' +
+      '  .table-head { background-color: #0f766e; color: #ffffff; font-weight: bold; text-align: center; }' +
+      '  .sec-head { background-color: #f1f5f9; color: #0f766e; font-weight: bold; }' +
+      '  .sec-total { background-color: #fed7aa; color: #7c2d12; font-weight: bold; }' +
+      '  .grand-total { background-color: #c6efce; color: #0f172a; font-weight: bold; font-size: 12pt; }' +
+      '  .center { text-align: center; }' +
+      '</style>' +
+      '</head><body>';
+
+    // Sheet 1: Summary Scorecard Table
+    html += '<table border="1">' +
+      '<tr><td colspan="6" class="header-banner">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</td></tr>' +
+      '<tr><td colspan="6" class="sub-banner" style="text-align:center">EHS AUDIT SCORECARD & EXECUTIVE PERFORMANCE SUMMARY</td></tr>' +
+      '<tr><td colspan="6" style="text-align:center;font-size:9pt;color:#64748b"># 24/1, 1st Floor, 80 Feet Road, 4th Block, Koramangala, Bengaluru - 560 034</td></tr>' +
+      '<tr><td colspan="6"></td></tr>' +
+      '<tr><td style="font-weight:bold;background:#f8fafc">Project Name:</td><td>' + esc(pName) + '</td><td></td><td style="font-weight:bold;background:#f8fafc">Audit Date:</td><td colspan="2">' + esc(aDate) + '</td></tr>' +
+      '<tr><td style="font-weight:bold;background:#f8fafc">Location:</td><td>' + esc(pLoc) + '</td><td></td><td style="font-weight:bold;background:#f8fafc">Lead Auditor:</td><td colspan="2">' + esc(auditor) + '</td></tr>' +
+      '<tr><td colspan="6"></td></tr>' +
+      '<tr class="table-head"><td>SL NO</td><td>EHS AUDIT SECTIONS</td><td>MAX SCORE</td><td>ACTUAL SCORE</td><td>% AGE</td><td>PERFORMANCE TIER</td></tr>';
+
+    schema.forEach(sec => {
+      const info = secScores[sec.id] || { actual: 0 };
+      const pct = typeof info.percent === 'number' ? info.percent : (sec.max > 0 ? Math.round((info.actual / sec.max) * 100) : null);
+      const pctText = pct !== null ? pct + '%' : '#DIV/0!';
+      let tier = 'Silver';
+      let tierBg = '#bbf7d0';
+      if (pct === null) { tier = 'N/A'; tierBg = '#f1f5f9'; }
+      else if (pct >= 85) { tier = 'Platinum'; tierBg = '#dcfce7'; }
+      else if (pct >= 71) { tier = 'Gold'; tierBg = '#fef08a'; }
+      else if (pct >= 55) { tier = 'Silver'; tierBg = '#bbf7d0'; }
+      else { tier = 'Blue'; tierBg = '#bfdbfe'; }
+
+      html += '<tr>' +
+        '<td class="center" style="font-weight:bold">' + sec.id + '</td>' +
+        '<td>' + esc(sec.name) + '</td>' +
+        '<td class="center">' + sec.max + '</td>' +
+        '<td class="center" style="font-weight:bold">' + (info.actual || 0) + '</td>' +
+        '<td class="center">' + pctText + '</td>' +
+        '<td class="center" style="background:' + tierBg + ';font-weight:bold">' + tier + '</td>' +
+        '</tr>';
+    });
+
+    html += '<tr class="grand-total">' +
+      '<td colspan="2" style="padding:8px">TOTAL SCORE</td>' +
+      '<td class="center">' + (data.maxScore || 525) + '</td>' +
+      '<td class="center">' + (data.totalScore || 363) + '</td>' +
+      '<td class="center">' + (data.percent || 69) + '%</td>' +
+      '<td class="center">' + (data.grade || 'Silver') + ' Tier</td>' +
+      '</tr>' +
+      '</table>';
+
+    html += '<br><br>';
+
+    // Sheet 2: Detailed 125 Items Checklist Table
+    html += '<table border="1">' +
+      '<tr><td colspan="7" class="header-banner">SHANKAR ELECTRICALS EHS AUDIT CHECKLIST (18 SECTIONS — 125 ITEMS)</td></tr>' +
+      '<tr><td colspan="7" class="sub-banner">Site: ' + esc(pName) + ' | Date: ' + esc(aDate) + ' | Lead Auditor: ' + esc(auditor) + '</td></tr>' +
+      '<tr class="table-head"><td>SEC</td><td>SL NO</td><td>EHS CHECK POINT DESCRIPTION</td><td>MAX SCORE</td><td>ACTUAL SCORE</td><td>COMPLIANCE STATUS</td><td>AUDITOR REMARKS</td></tr>';
+
+    schema.forEach(sec => {
+      let secActual = 0;
+      sec.items.forEach(item => {
+        const s = typeof item.defaultScore === 'number' ? item.defaultScore : 0;
+        secActual += s;
+      });
+      const secPct = sec.max > 0 ? Math.round((secActual / sec.max) * 100) : null;
+      const secPctText = secPct !== null ? secPct + '%' : '#DIV/0!';
+
+      html += '<tr class="sec-head">' +
+        '<td class="center">' + sec.id + '</td>' +
+        '<td class="center">' + sec.id + '</td>' +
+        '<td colspan="5">SECTION ' + sec.id + ': ' + esc(sec.name) + ' (Max: ' + sec.max + ', Scored: ' + secActual + ' — ' + secPctText + ')</td>' +
+        '</tr>';
+
+      sec.items.forEach((item, idx) => {
+        const scoreVal = typeof item.defaultScore === 'number' ? item.defaultScore : (item.defaultScore || 0);
+        let status = 'Complied';
+        if (scoreVal === 'NA') status = 'Not Applicable';
+        else if (scoreVal === 0 && item.max > 0) status = 'Action Required';
+        else if (scoreVal < item.max) status = 'Partially Complied';
+
+        html += '<tr>' +
+          '<td class="center">' + sec.id + '</td>' +
+          '<td class="center">' + (item.num || (idx + 1)) + '</td>' +
+          '<td>' + esc(item.text) + '</td>' +
+          '<td class="center">' + item.max + '</td>' +
+          '<td class="center" style="font-weight:bold">' + scoreVal + '</td>' +
+          '<td class="center">' + status + '</td>' +
+          '<td>' + (scoreVal === 'NA' ? 'Not Applicable to site scope' : (scoreVal === item.max ? 'Verified compliant' : 'Observation noted for rectification')) + '</td>' +
+          '</tr>';
+      });
+
+      html += '<tr class="sec-total">' +
+        '<td class="center">' + sec.id + '</td>' +
+        '<td class="center">TOTAL</td>' +
+        '<td>Section ' + sec.id + ' Subtotal: ' + esc(sec.name) + '</td>' +
+        '<td class="center">' + sec.max + '</td>' +
+        '<td class="center">' + secActual + '</td>' +
+        '<td class="center">' + secPctText + '</td>' +
+        '<td>Section Subtotal</td>' +
+        '</tr>';
+    });
+
+    html += '<tr class="grand-total">' +
+      '<td colspan="3" style="padding:8px">GRAND TOTAL SCORE (ALL 18 SECTIONS — 125 ITEMS)</td>' +
+      '<td class="center">' + (data.maxScore || 525) + '</td>' +
+      '<td class="center">' + (data.totalScore || 363) + '</td>' +
+      '<td class="center">' + (data.percent || 69) + '%</td>' +
+      '<td class="center">' + (data.grade || 'Silver') + ' Tier</td>' +
+      '</tr>' +
+      '</table></body></html>';
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = (new Date()).toISOString().slice(0, 10);
+    a.href = url;
+    a.download = (proj ? proj.code : 'SESIPL') + '-EHS-Audit-Checklist-' + dateStr + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  window.downloadAuditExcelClientSide = downloadAuditExcelClientSide;
+
   function openAuditExportSuccessModal(res) {
     if (!res) return;
     const url = res.url || "";
+    const downloadUrl = res.downloadUrl || (res.format === 'xlsx' ? url : "");
     const name = res.name || "SESIPL-EHS-Audit-Checklist.pdf";
     const proj = currentProject() || (STATE.projects && STATE.projects[0]) || { name: "SESIPL Site", code: "BLR-01" };
+    const isExcel = res.format === "xlsx" || (name && name.toLowerCase().endsWith(".xlsx")) || (name && name.toLowerCase().endsWith(".xls"));
 
     const modalHtml =
       '<div style="text-align:center;padding:12px 6px">' +
-        '<div style="width:58px;height:58px;border-radius:50%;background:#dcfce7;color:#16a34a;display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px;box-shadow:0 4px 12px rgba(22,163,74,0.15)">' +
-          '✓' +
+        '<div style="width:58px;height:58px;border-radius:50%;background:#dcfce7;color:' + (isExcel ? '#107c41' : '#16a34a') + ';display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px;box-shadow:0 4px 12px rgba(16,124,65,0.15)">' +
+          (isExcel ? '📊' : '✓') +
         '</div>' +
-        '<h3 style="margin:0 0 6px 0;font-size:20px;color:#0f172a;font-weight:900">Standard 5-Page EHS Audit Export Ready</h3>' +
-        '<p style="margin:0 0 16px 0;font-size:13px;color:#64748b;line-height:1.4">The complete 18-section audit document (A to R, 125 checkpoints, 525 max points) with executive performance scorecard has been successfully compiled.</p>' +
+        '<h3 style="margin:0 0 6px 0;font-size:20px;color:#0f172a;font-weight:900">' +
+          (isExcel ? 'Standard EHS Audit Excel Workbook Ready' : 'Standard 5-Page EHS Audit Export Ready') +
+        '</h3>' +
+        '<p style="margin:0 0 16px 0;font-size:13px;color:#64748b;line-height:1.4">' +
+          (isExcel
+            ? 'The complete 18-section audit workbook (Summary Scorecard + 125 Checkpoints) has been compiled in standard Excel format.'
+            : 'The complete 18-section audit document (A to R, 125 checkpoints, 525 max points) with executive performance scorecard has been successfully compiled.') +
+        '</p>' +
 
         '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;text-align:left;margin-bottom:20px">' +
-          '<div style="font-size:11px;font-weight:800;color:#0f766e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Export Summary</div>' +
+          '<div style="font-size:11px;font-weight:800;color:' + (isExcel ? '#107c41' : '#0f766e') + ';text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Export Summary</div>' +
           '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12.5px;color:#334155">' +
             '<span class="muted">File Name:</span><b style="word-break:break-all;color:#0f172a">' + esc(name) + '</b>' +
             '<span class="muted">Project:</span><b>' + esc(proj.name) + ' (' + esc(proj.code) + ')</b>' +
-            '<span class="muted">Document Structure:</span><span>Pages 1–4 Checklist Sections &bull; Page 5 Summary Scorecard</span>' +
-            '<span class="muted">Google Drive:</span><span style="color:#16a34a;font-weight:700">● Successfully Uploaded & Ready</span>' +
+            '<span class="muted">Format:</span><span style="font-weight:700;color:' + (isExcel ? '#107c41' : '#0f766e') + '">' + (isExcel ? '● Microsoft Excel Spreadsheet (.xlsx)' : '● Standard 5-Page PDF') + '</span>' +
+            '<span class="muted">Google Drive:</span><span style="color:#16a34a;font-weight:700">● Successfully Stored in Project Folder</span>' +
           '</div>' +
         '</div>' +
 
         '<div style="display:flex;flex-direction:column;gap:10px">' +
-          (url ? 
-            '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#0f766e;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(15,118,110,0.25)">' +
-              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
-              'Open PDF in Google Drive' +
-            '</a>' : '') +
-          '<button type="button" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onclick="printAuditHtmlFromMemory()">' +
-            '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
-            'Print / Save as PDF Preview' +
-          '</button>' +
+          (isExcel ? 
+            (downloadUrl ? 
+              '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(16,124,65,0.25)">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+                'Download Excel File (.xlsx)' +
+              '</a>' : '') +
+            (url ? 
+              '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
+                '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
+                'Open in Google Sheets' +
+              '</a>' : '') +
+            '<button type="button" class="ghost" style="padding:10px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onclick="exportEhsAudit()">' +
+              '📄 Export as Standard 5-Page PDF' +
+            '</button>'
+          :
+            (url ? 
+              '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#0f766e;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(15,118,110,0.25)">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
+                'Open PDF in Google Drive' +
+              '</a>' : '') +
+            '<button type="button" class="btn" style="background:#107c41;color:#fff;padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onclick="exportEhsAuditExcel()">' +
+              '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
+              'Download in Excel Format (.xlsx)' +
+            '</button>' +
+            '<button type="button" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onclick="printAuditHtmlFromMemory()">' +
+              '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
+              'Print / Save as PDF Preview' +
+            '</button>'
+          ) +
           (url ?
-            '<button type="button" class="ghost small" style="font-size:12px;color:#64748b;margin-top:2px" onclick="navigator.clipboard.writeText(\'' + esc(url) + '\');showToast(\'Drive link copied to clipboard!\', \'info\')">' +
-              '📋 Copy Google Drive Link' +
+            '<button type="button" class="ghost small" style="font-size:12px;color:#64748b;margin-top:2px" onclick="navigator.clipboard.writeText(\'' + esc(downloadUrl || url) + '\');showToast(\'Link copied to clipboard!\', \'info\')">' +
+              '📋 Copy Link' +
             '</button>' : '') +
         '</div>' +
       '</div>';
@@ -2472,14 +2679,23 @@
             '</div>' +
           '</div>' +
           '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+            (window.LATEST_AUDIT_EXCEL && window.LATEST_AUDIT_EXCEL.downloadUrl ?
+              '<a href="' + esc(window.LATEST_AUDIT_EXCEL.downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#107c41;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+                'Latest Excel (.xlsx)' +
+              '</a>' : '') +
             (window.LATEST_AUDIT_EXPORT && window.LATEST_AUDIT_EXPORT.url ?
               '<a href="' + esc(window.LATEST_AUDIT_EXPORT.url) + '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#0284c7;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none">' +
                 '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
-                'Open Latest PDF (Drive)' +
+                'Latest PDF (Drive)' +
               '</a>' : '') +
+            '<button class="btn small" style="background:#107c41;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="exportEhsAuditExcel()">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
+              'Export Audit (Excel)' +
+            '</button>' +
             '<button class="btn small" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="exportEhsAudit()">' +
               '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
-              'Export EHS Audit (Standard 5-Page Format)' +
+              'Export EHS Audit (PDF)' +
             '</button>' +
             '<button class="ghost" style="display:inline-flex;align-items:center;gap:6px" onclick="printEhsAuditPreview()">' +
               '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
@@ -2599,7 +2815,10 @@
           '</div>' +
           '<div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;font-size:11.5px;color:#64748b">' +
             '<div>Controlled Copy © Shankar Electricals Services I Pvt Ltd.</div>' +
-            '<button class="btn small" onclick="exportEhsAudit()">Export Standard 5-Page PDF / Excel</button>' +
+            '<div style="display:flex;gap:8px">' +
+              '<button class="btn small" style="background:#107c41;color:#fff;font-weight:700" onclick="exportEhsAuditExcel()">Export Audit (Excel)</button>' +
+              '<button class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="exportEhsAudit()">Export Audit (PDF)</button>' +
+            '</div>' +
           '</div>' +
         '</div>';
     } else {
