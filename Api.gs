@@ -1417,7 +1417,7 @@ function ensureDemoGallery_(projects) {
 }
 
 function apiGetEhsAuditData(token, projectId) {
-  const user = userByToken_(token);
+  const user = requireUser_(token);
   const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
   const pid = project ? project.id : (projectId || 'PRJ001');
 
@@ -1471,7 +1471,7 @@ function apiGetEhsAuditData(token, projectId) {
 }
 
 function apiExportEhsAudit(token, projectId) {
-  const user = userByToken_(token);
+  const user = requireUser_(token);
   const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
   const auditRes = apiGetEhsAuditData(token, projectId);
   const auditData = auditRes.audit;
