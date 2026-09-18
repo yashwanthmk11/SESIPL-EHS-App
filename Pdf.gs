@@ -19,6 +19,11 @@ function htmlToPdfFile_(html, name, folder) {
     const blob = Utilities.newBlob(html, 'text/html', name + '.html');
     const pdfBlob = blob.getAs('application/pdf').setName(name + '.pdf');
     const pdfFile = folder.createFile(pdfBlob);
+    try {
+      pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (shareErr) {
+      Logger.log("Notice: setSharing ANYONE_WITH_LINK: " + shareErr);
+    }
     return { fileId: pdfFile.getId(), docId: '', url: pdfFile.getUrl() };
   } catch (err) {
     const doc = DocumentApp.create(name);
@@ -32,6 +37,11 @@ function htmlToPdfFile_(html, name, folder) {
     const docFile = DriveApp.getFileById(doc.getId());
     const pdfBlob = docFile.getAs(MimeType.PDF).setName(name + '.pdf');
     const pdfFile = folder.createFile(pdfBlob);
+    try {
+      pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (shareErr) {
+      Logger.log("Notice: setSharing ANYONE_WITH_LINK: " + shareErr);
+    }
     folder.addFile(docFile);
     DriveApp.getRootFolder().removeFile(docFile);
     return { fileId: pdfFile.getId(), docId: doc.getId(), url: pdfFile.getUrl() };
