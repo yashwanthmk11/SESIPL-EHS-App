@@ -4852,7 +4852,7 @@
     ];
 
     const cannedHtml = cannedChips.map(chip => 
-      '<button type="button" class="comment-canned-chip" onclick="insertCannedComment(' + JSON.stringify(chip) + ')">' + esc(chip) + '</button>'
+      '<button type="button" class="comment-canned-chip" data-canned="' + esc(chip) + '" onclick="insertCannedComment(this.getAttribute(\'data-canned\'))">' + esc(chip) + '</button>'
     ).join('');
 
     const html = 
@@ -4907,14 +4907,18 @@
   window.openComments = openComments;
 
   window.insertCannedComment = function(text) {
+    if (!text) return;
     const ta = $('new-comment-textarea');
     if (!ta) return;
     if (ta.value.trim()) {
-      ta.value = ta.value.trim() + " \n" + text;
+      ta.value = ta.value.trim() + "\n" + text;
     } else {
       ta.value = text;
     }
     ta.focus();
+    try {
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (_) {}
   };
 
   window.handleCommentKeydown = function(e, entityType, entityId, projectId) {
@@ -5046,7 +5050,7 @@
         "📋 Incomplete safety checklist observations or rectifications"
       ];
       const presetHtml = rejectionPresets.map(p => 
-        '<button type="button" class="review-reason-pill" onclick="selectReviewPreset(' + JSON.stringify(p) + ')">' + esc(p) + '</button>'
+        '<button type="button" class="review-reason-pill" data-preset="' + esc(p) + '" onclick="selectReviewPreset(this.getAttribute(\'data-preset\'))">' + esc(p) + '</button>'
       ).join('');
 
       return (
@@ -5098,10 +5102,18 @@
     };
 
     window.selectReviewPreset = function(preset) {
+      if (!preset) return;
       const ta = $('review-comment-input');
       if (ta) {
-        ta.value = preset;
+        if (ta.value.trim()) {
+          ta.value = ta.value.trim() + "\n" + preset;
+        } else {
+          ta.value = preset;
+        }
         ta.focus();
+        try {
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        } catch (_) {}
       }
     };
 

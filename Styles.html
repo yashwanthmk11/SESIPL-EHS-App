@@ -1737,11 +1737,10 @@
   /* Quick Canned Responses Bar */
   .comment-canned-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    overflow-x: auto;
-    padding: 8px 2px;
+    padding: 8px 0;
     border-top: 1px solid #f1f5f9;
-    scrollbar-width: thin;
   }
   .comment-canned-chip {
     flex-shrink: 0;
@@ -1749,18 +1748,19 @@
     border: 1px solid #cbd5e1;
     color: #334155;
     border-radius: 14px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     font-size: 11.5px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
     user-select: none;
   }
-  .comment-canned-chip:hover {
+  .comment-canned-chip:hover, .comment-canned-chip:active, .comment-canned-chip:focus {
     background: #f0fdfa;
-    border-color: #5eead4;
+    border-color: #0f766e;
     color: #0f766e;
     transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(15, 118, 110, 0.15);
   }
 
   /* Composer */
