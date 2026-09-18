@@ -2332,30 +2332,33 @@
     }
     setLoading(true, "Compiling standard Excel spreadsheet (Summary Scorecard + 125 Items)...");
     try {
-      // 1. Fetch live audit data
-      const auditRes = await run("apiGetEhsAuditData", TOKEN, pid);
-      const auditData = auditRes.audit;
-      const proj = auditRes.project || currentProject() || (STATE.projects && STATE.projects[0]);
-
-      // 2. Trigger instant client-side Excel download
-      downloadAuditExcelClientSide(auditData, proj);
-
-      // 3. Trigger server-side Google Spreadsheet creation
       const res = await run("apiExportEhsAuditExcel", TOKEN, pid);
       setLoading(false);
 
-      if (res && res.ok) {
-        window.LATEST_AUDIT_EXCEL = res;
-        openAuditExportSuccessModal(res);
-        showToast(
-          'Excel spreadsheet generated! <a href="' + esc(res.downloadUrl || res.url) + '" target="_blank" style="color:#107c41;font-weight:700;text-decoration:underline;margin-top:3px;display:inline-block">Download .xlsx &rarr;</a>',
-          "success",
-          8000,
-          true
-        );
-      } else {
-        showToast("Standard EHS Audit Excel file generated and downloaded!", "success");
+      if (!res || !res.ok) {
+        throw new Error((res && res.error) || "Failed to generate Excel export.");
       }
+
+      window.LATEST_AUDIT_EXCEL = res;
+      openAuditExportSuccessModal(res);
+
+      if (res.downloadUrl) {
+        try {
+          const a = document.createElement("a");
+          a.href = res.downloadUrl;
+          a.target = "_blank";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (_) {}
+      }
+
+      showToast(
+        'Excel spreadsheet generated! <a href="' + esc(res.downloadUrl || res.url) + '" target="_blank" style="color:#107c41;font-weight:700;text-decoration:underline;margin-top:3px;display:inline-block">Download .xlsx &rarr;</a>',
+        "success",
+        8000,
+        true
+      );
     } catch (e) {
       setLoading(false);
       showToast(e.message || e, "error");

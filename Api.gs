@@ -1421,11 +1421,22 @@ function apiGetEhsAuditData(token, projectId) {
   const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
   const pid = project ? project.id : (projectId || 'PRJ001');
 
-  let auditRow = rowsToObjects_(SHEETS.AUDITS).find(a => a.projectId === pid);
+  let auditRow = null;
+  try {
+    auditRow = rowsToObjects_(SHEETS.AUDITS).find(a => a.projectId === pid);
+  } catch (err) {
+    Logger.log("Notice: sheet Audits lookup: " + err);
+  }
+
   let auditData = null;
 
   if (auditRow) {
-    const scores = rowsToObjects_(SHEETS.AUDIT_SCORES).filter(s => s.auditId === auditRow.id);
+    let scores = [];
+    try {
+      scores = rowsToObjects_(SHEETS.AUDIT_SCORES).filter(s => s.auditId === auditRow.id);
+    } catch (err) {
+      Logger.log("Notice: sheet AuditScores lookup: " + err);
+    }
     const sectionScores = {};
     scores.forEach(s => {
       const maxVal = (AUDIT_SECTIONS.find(x => x.id === s.section) || {}).max || 0;
@@ -1454,8 +1465,7 @@ function apiGetEhsAuditData(token, projectId) {
       percent: Number(auditRow.percent || 69),
       grade: auditRow.grade || 'Silver',
       status: auditRow.status || 'APPROVED',
-      sectionScores: sectionScores,
-      schema: AUDIT_CHECKLIST_SCHEMA
+      sectionScores: sectionScores
     };
   } else {
     auditData = getDefaultAuditSeedData_(project);
@@ -1463,9 +1473,23 @@ function apiGetEhsAuditData(token, projectId) {
 
   return {
     ok: true,
-    audit: auditData,
-    project: project,
-    schema: AUDIT_CHECKLIST_SCHEMA,
+    audit: {
+      id: auditData.id,
+      projectId: auditData.projectId,
+      projectName: auditData.projectName,
+      projectLocation: auditData.projectLocation,
+      auditDate: auditData.auditDate,
+      auditor: auditData.auditor,
+      auditorEmail: auditData.auditorEmail,
+      auditorWebsite: auditData.auditorWebsite,
+      totalScore: auditData.totalScore,
+      maxScore: auditData.maxScore,
+      percent: auditData.percent,
+      grade: auditData.grade,
+      status: auditData.status,
+      sectionScores: auditData.sectionScores
+    },
+    project: project ? { id: project.id, code: project.code, name: project.name, areaSqft: project.areaSqft } : null,
     performanceBands: AUDIT_PERFORMANCE_BANDS
   };
 }
@@ -1475,6 +1499,7 @@ function apiExportEhsAudit(token, projectId) {
   const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
   const auditRes = apiGetEhsAuditData(token, projectId);
   const auditData = auditRes.audit;
+  auditData.schema = AUDIT_CHECKLIST_SCHEMA;
 
   const html = buildEhsAuditPdfHtml_(auditData, project, user);
   const name = (project ? project.code : 'SESIPL') + '-EHS-Audit-Checklist-' + todayIso_();
@@ -1500,6 +1525,7 @@ function apiExportEhsAuditExcel(token, projectId) {
   const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
   const auditRes = apiGetEhsAuditData(token, projectId);
   const auditData = auditRes.audit;
+  auditData.schema = AUDIT_CHECKLIST_SCHEMA;
   const name = (project ? project.code : 'SESIPL') + '-EHS-Audit-Checklist-' + todayIso_();
 
   const book = SpreadsheetApp.create(name);
