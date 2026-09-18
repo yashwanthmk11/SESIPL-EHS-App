@@ -2372,124 +2372,194 @@
     const pLoc = data.projectLocation || (proj ? (proj.name + ', ' + (proj.areaSqft || 'Bengaluru')) : 'Bengaluru');
     const aDate = data.auditDate || '2026-09-10';
     const auditor = data.auditor || 'CBRE Lead Auditor';
-    const schema = data.schema || [];
+    const email = data.auditorEmail || 'info@shankarelectricals.com';
+    const website = data.auditorWebsite || 'www.shankarelectricals.com';
+    const schema = data.schema || (typeof AUDIT_CHECKLIST_SCHEMA !== 'undefined' ? AUDIT_CHECKLIST_SCHEMA : []);
     const secScores = data.sectionScores || {};
 
     let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
       '<head><meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">' +
       '<style>' +
-      '  table { border-collapse: collapse; width: 100%; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }' +
-      '  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; }' +
-      '  .header-banner { background-color: #0f766e; color: #ffffff; font-weight: bold; font-size: 14pt; text-align: center; }' +
-      '  .sub-banner { background-color: #f0fdfa; color: #0f766e; font-weight: bold; font-size: 11pt; }' +
-      '  .table-head { background-color: #0f766e; color: #ffffff; font-weight: bold; text-align: center; }' +
-      '  .sec-head { background-color: #f1f5f9; color: #0f766e; font-weight: bold; }' +
-      '  .sec-total { background-color: #fed7aa; color: #7c2d12; font-weight: bold; }' +
-      '  .grand-total { background-color: #c6efce; color: #0f172a; font-weight: bold; font-size: 12pt; }' +
+      '  table { border-collapse: collapse; width: 100%; font-family: Calibri, Arial, sans-serif; font-size: 10pt; }' +
+      '  td, th { border: 1px solid #000000; padding: 4px 6px; }' +
+      '  .hdr-banner { background-color: #c6efce; font-weight: bold; font-size: 13pt; text-align: center; }' +
+      '  .sec-hdr { background-color: #d9d9d9; font-weight: bold; color: #000000; }' +
+      '  .sec-tot-label { font-weight: bold; text-align: right; border-right: 1px solid #000000; }' +
+      '  .sec-tot-val { background-color: #ed7d31; color: #000000; font-weight: bold; text-align: center; font-size: 10.5pt; }' +
+      '  .legend-row { color: #ff0000; font-weight: bold; text-align: center; font-size: 10pt; border-top: 2.5px solid #002060; border-bottom: 2.5px solid #002060; background: #ffffff; }' +
+      '  .sc-hdr { background-color: #ffc000; color: #000000; font-weight: bold; text-align: center; font-size: 10pt; }' +
       '  .center { text-align: center; }' +
+      '  .bold { font-weight: bold; }' +
+      '  .platinum { background-color: #ffffff; color: #000000; font-weight: bold; text-align: center; vertical-align: middle; }' +
+      '  .gold { background-color: #ffc000; color: #000000; font-weight: bold; text-align: center; vertical-align: middle; }' +
+      '  .silver { background-color: #c6efce; color: #000000; font-weight: bold; text-align: center; vertical-align: middle; }' +
+      '  .blue { background-color: #0070c0; color: #ffffff; font-weight: bold; text-align: center; vertical-align: middle; }' +
+      '  .total-score-row { font-weight: bold; font-size: 11pt; border: 2px solid #002060; }' +
+      '  .total-score-pct { background-color: #c6efce; font-size: 12pt; font-weight: bold; text-align: center; border: 2px solid #002060; }' +
       '</style>' +
       '</head><body>';
 
-    // Sheet 1: Summary Scorecard Table
     html += '<table border="1">' +
-      '<tr><td colspan="6" class="header-banner">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</td></tr>' +
-      '<tr><td colspan="6" class="sub-banner" style="text-align:center">EHS AUDIT SCORECARD & EXECUTIVE PERFORMANCE SUMMARY</td></tr>' +
-      '<tr><td colspan="6" style="text-align:center;font-size:9pt;color:#64748b"># 24/1, 1st Floor, 80 Feet Road, 4th Block, Koramangala, Bengaluru - 560 034</td></tr>' +
-      '<tr><td colspan="6"></td></tr>' +
-      '<tr><td style="font-weight:bold;background:#f8fafc">Project Name:</td><td>' + esc(pName) + '</td><td></td><td style="font-weight:bold;background:#f8fafc">Audit Date:</td><td colspan="2">' + esc(aDate) + '</td></tr>' +
-      '<tr><td style="font-weight:bold;background:#f8fafc">Location:</td><td>' + esc(pLoc) + '</td><td></td><td style="font-weight:bold;background:#f8fafc">Lead Auditor:</td><td colspan="2">' + esc(auditor) + '</td></tr>' +
-      '<tr><td colspan="6"></td></tr>' +
-      '<tr class="table-head"><td>SL NO</td><td>EHS AUDIT SECTIONS</td><td>MAX SCORE</td><td>ACTUAL SCORE</td><td>% AGE</td><td>PERFORMANCE TIER</td></tr>';
-
-    schema.forEach(sec => {
-      const info = secScores[sec.id] || { actual: 0 };
-      const pct = typeof info.percent === 'number' ? info.percent : (sec.max > 0 ? Math.round((info.actual / sec.max) * 100) : null);
-      const pctText = pct !== null ? pct + '%' : '#DIV/0!';
-      let tier = 'Silver';
-      let tierBg = '#bbf7d0';
-      if (pct === null) { tier = 'N/A'; tierBg = '#f1f5f9'; }
-      else if (pct >= 85) { tier = 'Platinum'; tierBg = '#dcfce7'; }
-      else if (pct >= 71) { tier = 'Gold'; tierBg = '#fef08a'; }
-      else if (pct >= 55) { tier = 'Silver'; tierBg = '#bbf7d0'; }
-      else { tier = 'Blue'; tierBg = '#bfdbfe'; }
-
-      html += '<tr>' +
-        '<td class="center" style="font-weight:bold">' + sec.id + '</td>' +
-        '<td>' + esc(sec.name) + '</td>' +
-        '<td class="center">' + sec.max + '</td>' +
-        '<td class="center" style="font-weight:bold">' + (info.actual || 0) + '</td>' +
-        '<td class="center">' + pctText + '</td>' +
-        '<td class="center" style="background:' + tierBg + ';font-weight:bold">' + tier + '</td>' +
-        '</tr>';
-    });
-
-    html += '<tr class="grand-total">' +
-      '<td colspan="2" style="padding:8px">TOTAL SCORE</td>' +
-      '<td class="center">' + (data.maxScore || 525) + '</td>' +
-      '<td class="center">' + (data.totalScore || 363) + '</td>' +
-      '<td class="center">' + (data.percent || 69) + '%</td>' +
-      '<td class="center">' + (data.grade || 'Silver') + ' Tier</td>' +
+      '<colgroup>' +
+      '  <col style="width:45px">' +
+      '  <col style="width:480px">' +
+      '  <col style="width:30px">' +
+      '  <col style="width:30px">' +
+      '  <col style="width:30px">' +
+      '  <col style="width:30px">' +
+      '  <col style="width:30px">' +
+      '  <col style="width:30px">' +
+      '  <col style="width:38px">' +
+      '  <col style="width:140px">' +
+      '</colgroup>' +
+      // Row 1: Logo & Title
+      '<tr>' +
+      '  <td style="font-weight:bold;font-size:13pt;color:#0369a1;text-align:center;vertical-align:middle">SESIPL</td>' +
+      '  <td colspan="7" class="hdr-banner">Shankar Electricals Services (I) Pvt. Ltd.</td>' +
+      '  <td colspan="2" style="font-style:italic;font-size:8pt;text-align:right;vertical-align:middle">"Sree Devi Arcade"</td>' +
       '</tr>' +
-      '</table>';
+      // Row 2: Subtitle & Address
+      '<tr>' +
+      '  <td></td>' +
+      '  <td colspan="7" style="font-weight:bold;font-size:10pt;text-align:center">ENVIRONMENT, HEALTH & SAFETY MANAGEMENT SYSTEM — AUDIT CHECKLIST</td>' +
+      '  <td colspan="2" style="font-size:8pt;text-align:right;color:#475569">668/A, 2nd Floor, 17th C Main, 6th Block, Koramangala, Bengaluru - 560095</td>' +
+      '</tr>' +
+      // Row 3: Blank
+      '<tr><td colspan="10" style="border:none">&nbsp;</td></tr>' +
+      // Row 4: Project Info 1
+      '<tr>' +
+      '  <td style="font-weight:bold;background:#f8fafc">Project Name:</td>' +
+      '  <td colspan="5">' + esc(pName) + '</td>' +
+      '  <td colspan="2" style="font-weight:bold;text-align:right;background:#f8fafc">Audit Date:</td>' +
+      '  <td colspan="2">' + esc(aDate) + '</td>' +
+      '</tr>' +
+      // Row 5: Project Info 2
+      '<tr>' +
+      '  <td style="font-weight:bold;background:#f8fafc">Location:</td>' +
+      '  <td colspan="5">' + esc(pLoc) + '</td>' +
+      '  <td colspan="2" style="font-weight:bold;text-align:right;background:#f8fafc">Auditor:</td>' +
+      '  <td colspan="2">' + esc(auditor) + '</td>' +
+      '</tr>' +
+      // Row 6: Contact Info
+      '<tr>' +
+      '  <td style="font-weight:bold;background:#f8fafc">Contact:</td>' +
+      '  <td colspan="5">' + esc(email) + ' | ' + esc(website) + '</td>' +
+      '  <td colspan="4"></td>' +
+      '</tr>' +
+      // Row 7: Blank
+      '<tr><td colspan="10" style="border:none">&nbsp;</td></tr>';
 
-    html += '<br><br>';
-
-    // Sheet 2: Detailed 125 Items Checklist Table
-    html += '<table border="1">' +
-      '<tr><td colspan="7" class="header-banner">SHANKAR ELECTRICALS EHS AUDIT CHECKLIST (18 SECTIONS — 125 ITEMS)</td></tr>' +
-      '<tr><td colspan="7" class="sub-banner">Site: ' + esc(pName) + ' | Date: ' + esc(aDate) + ' | Lead Auditor: ' + esc(auditor) + '</td></tr>' +
-      '<tr class="table-head"><td>SEC</td><td>SL NO</td><td>EHS CHECK POINT DESCRIPTION</td><td>MAX SCORE</td><td>ACTUAL SCORE</td><td>COMPLIANCE STATUS</td><td>AUDITOR REMARKS</td></tr>';
-
+    // Rows 8 to 163: 18 Sections A to R
     schema.forEach(sec => {
       let secActual = 0;
       sec.items.forEach(item => {
-        const s = typeof item.defaultScore === 'number' ? item.defaultScore : 0;
+        const s = (typeof item.defaultScore === 'number') ? item.defaultScore : 0;
         secActual += s;
       });
-      const secPct = sec.max > 0 ? Math.round((secActual / sec.max) * 100) : null;
-      const secPctText = secPct !== null ? secPct + '%' : '#DIV/0!';
 
-      html += '<tr class="sec-head">' +
+      // Section Header row
+      html += '<tr class="sec-hdr">' +
         '<td class="center">' + sec.id + '</td>' +
-        '<td class="center">' + sec.id + '</td>' +
-        '<td colspan="5">SECTION ' + sec.id + ': ' + esc(sec.name) + ' (Max: ' + sec.max + ', Scored: ' + secActual + ' — ' + secPctText + ')</td>' +
+        '<td>' + esc(sec.name) + '</td>' +
+        '<td class="center">0</td>' +
+        '<td class="center">1</td>' +
+        '<td class="center">2</td>' +
+        '<td class="center">3</td>' +
+        '<td class="center">4</td>' +
+        '<td class="center">5</td>' +
+        '<td class="center">NA</td>' +
+        '<td></td>' +
         '</tr>';
 
+      // Checkpoint Item rows
       sec.items.forEach((item, idx) => {
-        const scoreVal = typeof item.defaultScore === 'number' ? item.defaultScore : (item.defaultScore || 0);
-        let status = 'Complied';
-        if (scoreVal === 'NA') status = 'Not Applicable';
-        else if (scoreVal === 0 && item.max > 0) status = 'Action Required';
-        else if (scoreVal < item.max) status = 'Partially Complied';
+        const scoreVal = (typeof item.defaultScore !== 'undefined') ? item.defaultScore : 3;
+        const mark = (val) => ((scoreVal === val || (val === 'NA' && (scoreVal === 'NA' || scoreVal === 'N/A'))) ? '·' : '');
 
         html += '<tr>' +
-          '<td class="center">' + sec.id + '</td>' +
-          '<td class="center">' + (item.num || (idx + 1)) + '</td>' +
+          '<td class="center">' + (item.sn || (idx + 1)) + '</td>' +
           '<td>' + esc(item.text) + '</td>' +
-          '<td class="center">' + item.max + '</td>' +
-          '<td class="center" style="font-weight:bold">' + scoreVal + '</td>' +
-          '<td class="center">' + status + '</td>' +
-          '<td>' + (scoreVal === 'NA' ? 'Not Applicable to site scope' : (scoreVal === item.max ? 'Verified compliant' : 'Observation noted for rectification')) + '</td>' +
+          '<td class="center bold">' + mark(0) + '</td>' +
+          '<td class="center bold">' + mark(1) + '</td>' +
+          '<td class="center bold">' + mark(2) + '</td>' +
+          '<td class="center bold">' + mark(3) + '</td>' +
+          '<td class="center bold">' + mark(4) + '</td>' +
+          '<td class="center bold">' + mark(5) + '</td>' +
+          '<td class="center bold">' + mark('NA') + '</td>' +
+          '<td></td>' +
           '</tr>';
       });
 
-      html += '<tr class="sec-total">' +
-        '<td class="center">' + sec.id + '</td>' +
-        '<td class="center">TOTAL</td>' +
-        '<td>Section ' + sec.id + ' Subtotal: ' + esc(sec.name) + '</td>' +
-        '<td class="center">' + sec.max + '</td>' +
-        '<td class="center">' + secActual + '</td>' +
-        '<td class="center">' + secPctText + '</td>' +
-        '<td>Section Subtotal</td>' +
+      // Section Total row
+      html += '<tr>' +
+        '<td></td>' +
+        '<td class="sec-tot-label">Section Total ' + sec.max + '</td>' +
+        '<td></td><td></td><td></td>' +
+        '<td colspan="4" class="sec-tot-val">' + secActual + '</td>' +
+        '<td></td>' +
         '</tr>';
     });
 
-    html += '<tr class="grand-total">' +
-      '<td colspan="3" style="padding:8px">GRAND TOTAL SCORE (ALL 18 SECTIONS — 125 ITEMS)</td>' +
-      '<td class="center">' + (data.maxScore || 525) + '</td>' +
-      '<td class="center">' + (data.totalScore || 363) + '</td>' +
-      '<td class="center">' + (data.percent || 69) + '%</td>' +
-      '<td class="center">' + (data.grade || 'Silver') + ' Tier</td>' +
+    // Row 164: Legend line
+    html += '<tr>' +
+      '<td colspan="10" class="legend-row">0 - Major NC; 1 - Minor NC; 2 - Partial Compliance; 3 - Full Compliance; NA - Not Applicable</td>' +
+      '</tr>';
+
+    // Row 165: Summary Scorecard Header
+    html += '<tr class="sc-hdr">' +
+      '<td>SN</td>' +
+      '<td colspan="5">Item</td>' +
+      '<td>Max</td>' +
+      '<td>Actual</td>' +
+      '<td>%</td>' +
+      '<td>Performance</td>' +
+      '</tr>';
+
+    // Rows 166 to 183: 18 Sections A to R
+    schema.forEach((sec, idx) => {
+      const info = secScores[sec.id] || {};
+      let actual = typeof info.actual === 'number' ? info.actual : 0;
+      if (typeof info.actual === 'undefined') {
+        actual = sec.items.reduce((acc, it) => typeof it.defaultScore === 'number' ? acc + it.defaultScore : acc, 0);
+      }
+      let pctText = '0%';
+      if (sec.max > 0) {
+        pctText = Math.round((actual / sec.max) * 100) + '%';
+      } else {
+        pctText = '####';
+      }
+
+      let tierCell = '';
+      if (idx === 0) {
+        tierCell = '<td rowspan="5" class="platinum">Platinum<br>85 -100 %</td>';
+      } else if (idx === 5) {
+        tierCell = '<td rowspan="5" class="gold">Gold<br>71 - 84 %</td>';
+      } else if (idx === 10) {
+        tierCell = '<td rowspan="4" class="silver">Silver<br>55 - 70 %</td>';
+      } else if (idx === 14) {
+        tierCell = '<td rowspan="4" class="blue">Blue<br>&lt; 54 %</td>';
+      }
+
+      html += '<tr>' +
+        '<td class="center bold">' + sec.id + '</td>' +
+        '<td colspan="5" class="bold">' + esc(sec.name) + '</td>' +
+        '<td class="center">' + sec.max + '</td>' +
+        '<td class="center bold">' + actual + '</td>' +
+        '<td class="center">' + pctText + '</td>' +
+        tierCell +
+        '</tr>';
+    });
+
+    // Row 184: Total Score row
+    const totMax = (data && data.maxScore) || 525;
+    const totActual = (data && data.totalScore) || 363;
+    const totPct = (data && data.percent) || 69;
+
+    html += '<tr class="total-score-row">' +
+      '<td colspan="6" style="padding:6px 8px">Total Score</td>' +
+      '<td class="center">' + totMax + '</td>' +
+      '<td class="center">' + totActual + '</td>' +
+      '<td colspan="2" class="total-score-pct">' + totPct + '%</td>' +
       '</tr>' +
       '</table></body></html>';
 

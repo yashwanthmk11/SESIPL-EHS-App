@@ -1532,14 +1532,9 @@ function apiExportEhsAuditExcel(token, projectId) {
   const bookId = book.getId();
 
   try {
-    // Sheet 1: Summary Scorecard
-    const sheet1 = book.getSheets()[0];
-    sheet1.setName("Summary Scorecard");
-    buildAuditSummaryExcelSheet_(sheet1, auditData, project);
-
-    // Sheet 2: 18-Section Checklist (125 Items)
-    const sheet2 = book.insertSheet("Audit Checklist (125 Items)");
-    buildAuditChecklistExcelSheet_(sheet2, auditData, project);
+    const sheet = book.getSheets()[0];
+    sheet.setName("EHS Audit Checklist");
+    buildAuditSingleSheetExcel_(sheet, auditData, project);
 
     const file = DriveApp.getFileById(bookId);
     try {
@@ -1571,196 +1566,240 @@ function apiExportEhsAuditExcel(token, projectId) {
   };
 }
 
-function buildAuditSummaryExcelSheet_(sheet, data, project) {
+function buildAuditSingleSheetExcel_(sheet, data, project) {
   sheet.clear();
-  
+
   const pName = data ? data.projectName : (project ? project.name : 'SESIPL Site');
   const pLoc = data ? data.projectLocation : (project ? (project.name + ', ' + (project.areaSqft || '')) : 'Bengaluru');
   const aDate = data ? data.auditDate : todayIso_();
   const auditor = data ? data.auditor : 'CBRE Lead Auditor';
   const email = data ? data.auditorEmail : 'info@shankarelectricals.com';
   const website = data ? data.auditorWebsite : 'www.shankarelectricals.com';
-
-  const rows = [];
-  rows.push(['SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.', '', '', '', '', '']);
-  rows.push(['ENVIRONMENT, HEALTH & SAFETY MANAGEMENT SYSTEM — EHS AUDIT SCORECARD', '', '', '', '', '']);
-  rows.push(['# 24/1, 1st Floor, 80 Feet Road, 4th Block, Koramangala, Bengaluru - 560 034', '', '', '', '', '']);
-  rows.push(['', '', '', '', '', '']);
-  rows.push(['Project Name:', pName, '', 'Audit Date:', aDate, '']);
-  rows.push(['Location:', pLoc, '', 'Lead Auditor:', auditor, '']);
-  rows.push(['Auditor Email:', email, '', 'Website:', website, '']);
-  rows.push(['', '', '', '', '', '']);
-  rows.push(['SL NO', 'EHS AUDIT SECTIONS', 'MAX SCORE', 'ACTUAL SCORE', '% AGE', 'PERFORMANCE TIER']);
-
   const schema = (data && data.schema) || AUDIT_CHECKLIST_SCHEMA;
   const secScores = (data && data.sectionScores) || {};
 
-  schema.forEach(sec => {
-    const info = secScores[sec.id] || { actual: 0, percentText: '0%' };
-    const pct = typeof info.percent === 'number' ? info.percent : (sec.max > 0 ? Math.round((info.actual / sec.max) * 100) : null);
-    const pctText = pct !== null ? pct + '%' : '#DIV/0!';
-    let tier = 'Silver';
-    if (pct === null) tier = 'N/A';
-    else if (pct >= 85) tier = 'Platinum';
-    else if (pct >= 71) tier = 'Gold';
-    else if (pct >= 55) tier = 'Silver';
-    else tier = 'Blue';
-
-    rows.push([sec.id, sec.name, sec.max, info.actual, pctText, tier]);
-  });
-
-  const totMax = data ? data.maxScore : 525;
-  const totActual = data ? data.totalScore : 363;
-  const totPct = data ? data.percent : 69;
-  const totGrade = (data ? data.grade : 'Silver') + ' Tier';
-
-  rows.push(['TOTAL SCORE', '', totMax, totActual, totPct + '%', totGrade]);
-  rows.push(['', '', '', '', '', '']);
-  rows.push(['PERFORMANCE BENCHMARK BANDS', '', '', '', '', '']);
-  rows.push(['Platinum', '85% to 100%', 'Exemplary compliance with best-in-class safety standards', '', '', '']);
-  rows.push(['Gold', '71% to 84%', 'Substantial compliance with minor procedural observations', '', '', '']);
-  rows.push(['Silver', '55% to 70%', 'Acceptable site compliance, immediate corrective actions needed', '', '', '']);
-  rows.push(['Blue', '< 54%', 'Critical non-compliance requiring comprehensive intervention', '', '', '']);
-
-  sheet.getRange(1, 1, rows.length, 6).setValues(rows);
-
-  sheet.getRange("A1:F1").merge().setFontWeight('bold').setFontSize(13).setFontColor('#0f766e').setBackground('#f0fdfa');
-  sheet.getRange("A2:F2").merge().setFontWeight('bold').setFontSize(10).setFontColor('#475569');
-  sheet.getRange("A3:F3").merge().setFontSize(9).setFontColor('#64748b');
-
-  sheet.getRange("A5:A7").setFontWeight('bold').setFontColor('#334155');
-  sheet.getRange("D5:D7").setFontWeight('bold').setFontColor('#334155');
-
-  sheet.getRange("A9:F9").setFontWeight('bold').setBackground('#0f766e').setFontColor('#ffffff').setHorizontalAlignment('center');
-
-  const dataStartRow = 10;
-  const dataRowCount = schema.length;
-  sheet.getRange(dataStartRow, 1, dataRowCount, 1).setHorizontalAlignment('center').setFontWeight('bold');
-  sheet.getRange(dataStartRow, 3, dataRowCount, 4).setHorizontalAlignment('center');
-
-  const totalRowIndex = dataStartRow + dataRowCount;
-  sheet.getRange(totalRowIndex, 1, 1, 2).merge().setFontWeight('bold');
-  sheet.getRange(totalRowIndex, 1, 1, 6).setFontWeight('bold').setBackground('#c6efce').setFontColor('#0f172a').setBorder(true, true, true, true, true, true);
-  sheet.getRange(totalRowIndex, 3, 1, 4).setHorizontalAlignment('center');
-
-  const bandsHeaderIndex = totalRowIndex + 2;
-  sheet.getRange(bandsHeaderIndex, 1, 1, 6).merge().setFontWeight('bold').setBackground('#e2e8f0').setFontColor('#0f172a');
-  sheet.getRange(bandsHeaderIndex + 1, 1, 4, 1).setFontWeight('bold');
-
-  sheet.setColumnWidth(1, 70);
-  sheet.setColumnWidth(2, 320);
-  sheet.setColumnWidth(3, 100);
-  sheet.setColumnWidth(4, 110);
-  sheet.setColumnWidth(5, 95);
-  sheet.setColumnWidth(6, 170);
-}
-
-function buildAuditChecklistExcelSheet_(sheet, data, project) {
-  sheet.clear();
-
-  const pName = data ? data.projectName : (project ? project.name : 'SESIPL Site');
-  const pLoc = data ? data.projectLocation : (project ? (project.name + ', ' + (project.areaSqft || '')) : 'Bengaluru');
-  const aDate = data ? data.auditDate : todayIso_();
-  const auditor = data ? data.auditor : 'CBRE Lead Auditor';
-
   const rows = [];
-  rows.push(['SHANKAR ELECTRICALS SERVICES (I) PVT. LTD. — EHS AUDIT CHECKPOINTS (18 SECTIONS — 125 ITEMS)', '', '', '', '', '', '']);
-  rows.push(['Project:', pName, '', 'Location:', pLoc, '', '']);
-  rows.push(['Audit Date:', aDate, '', 'Lead Auditor:', auditor, '', '']);
-  rows.push(['', '', '', '', '', '', '']);
-  rows.push(['SEC', 'SL NO', 'EHS CHECK POINT DESCRIPTION', 'MAX SCORE', 'ACTUAL SCORE', 'COMPLIANCE STATUS', 'AUDITOR OBSERVATIONS & REMARKS']);
 
-  const schema = (data && data.schema) || AUDIT_CHECKLIST_SCHEMA;
-  const sectionRowIndices = [];
-  const subtotalRowIndices = [];
+  // Row 1: Company Logo / Name Header
+  rows.push(['SESIPL', 'Shankar Electricals Services (I) Pvt. Ltd.', '', '', '', '', '', '', '"Sree Devi Arcade"', '']);
+  // Row 2: Sub-Banner / Address
+  rows.push(['', 'ENVIRONMENT, HEALTH & SAFETY MANAGEMENT SYSTEM — AUDIT CHECKLIST', '', '', '', '', '', '', '668/A, 2nd Floor, 17th C Main, 6th Block, Koramangala, Bengaluru - 560095', '']);
+  // Row 3: Spacing
+  rows.push(['', '', '', '', '', '', '', '', '', '']);
+  // Row 4: Project Info Row 1
+  rows.push(['Project Name:', pName, '', '', '', '', 'Audit Date:', '', aDate, '']);
+  // Row 5: Project Info Row 2
+  rows.push(['Location:', pLoc, '', '', '', '', 'Auditor:', '', auditor, '']);
+  // Row 6: Contact Info
+  rows.push(['Contact:', email + ' | ' + website, '', '', '', '', '', '', '', '']);
+  // Row 7: Spacing before checklist
+  rows.push(['', '', '', '', '', '', '', '', '', '']);
+
+  // Rows 8 to 163: 18 Sections A to R (120 checkpoints + 18 headers + 18 subtotals = 156 rows)
+  const sectionHeaderRows = [];
+  const sectionTotalRows = [];
+  const dotChar = '·';
 
   schema.forEach(sec => {
+    // Section Header row (Col A: ID, Col B: Name, Cols C-I: 0 1 2 3 4 5 NA)
+    const secHeaderRowIndex = rows.length + 1;
+    sectionHeaderRows.push(secHeaderRowIndex);
+    rows.push([sec.id, sec.name, '0', '1', '2', '3', '4', '5', 'NA', '']);
+
     let secActual = 0;
-    sec.items.forEach(item => {
-      const s = typeof item.defaultScore === 'number' ? item.defaultScore : (item.defaultScore === 'NA' ? 0 : 0);
-      secActual += s;
-    });
-    const secPct = sec.max > 0 ? Math.round((secActual / sec.max) * 100) : null;
-    const secPctText = secPct !== null ? secPct + '%' : '#DIV/0!';
-
-    rows.push([sec.id, sec.id, 'SECTION ' + sec.id + ': ' + sec.name, sec.max, secActual, secPctText, 'SECTION AUDIT BENCHMARK']);
-    sectionRowIndices.push(rows.length);
-
     sec.items.forEach((item, idx) => {
-      const scoreVal = typeof item.defaultScore === 'number' ? item.defaultScore : (item.defaultScore || 0);
-      let status = 'Complied';
-      if (scoreVal === 'NA') status = 'Not Applicable';
-      else if (scoreVal === 0 && item.max > 0) status = 'Observation / Action Required';
-      else if (scoreVal < item.max) status = 'Partially Complied';
+      const scoreVal = (typeof item.defaultScore !== 'undefined') ? item.defaultScore : 3;
+      if (typeof scoreVal === 'number') {
+        secActual += scoreVal;
+      }
 
-      rows.push([
-        sec.id,
-        item.num || (idx + 1),
+      const itemRow = [
+        item.sn || (idx + 1),
         item.text,
-        item.max,
-        scoreVal,
-        status,
-        scoreVal === 'NA' ? 'Not Applicable to this site scope' : (scoreVal === item.max ? 'Verified & fully compliant on site' : 'Minor rectification recommended')
-      ]);
+        scoreVal === 0 ? dotChar : '',
+        scoreVal === 1 ? dotChar : '',
+        scoreVal === 2 ? dotChar : '',
+        scoreVal === 3 ? dotChar : '',
+        scoreVal === 4 ? dotChar : '',
+        scoreVal === 5 ? dotChar : '',
+        (scoreVal === 'NA' || scoreVal === 'N/A') ? dotChar : '',
+        ''
+      ];
+      rows.push(itemRow);
     });
 
-    rows.push([
-      sec.id,
-      '',
-      'Section ' + sec.id + ' Total: ' + sec.name,
-      sec.max,
-      secActual,
-      secPctText,
-      'Section Total'
-    ]);
-    subtotalRowIndices.push(rows.length);
+    // Section Total row
+    const secTotalRowIndex = rows.length + 1;
+    sectionTotalRows.push({ row: secTotalRowIndex, actual: secActual, max: sec.max });
+    rows.push(['', 'Section Total ' + sec.max, '', '', '', secActual, '', '', '', '']);
   });
 
-  const totMax = data ? data.maxScore : 525;
-  const totActual = data ? data.totalScore : 363;
-  const totPct = data ? data.percent : 69;
-  rows.push([
-    'ALL',
-    '',
-    'GRAND TOTAL SCORE (ALL 18 SECTIONS A TO R — 125 ITEMS)',
-    totMax,
-    totActual,
-    totPct + '%',
-    (data ? data.grade : 'Silver') + ' Tier'
-  ]);
-  const grandTotalRowIndex = rows.length;
+  // Row 164: Legend line
+  const legendRowIndex = rows.length + 1;
+  rows.push(['0 - Major NC; 1 - Minor NC; 2 - Partial Compliance; 3 - Full Compliance; NA - Not Applicable', '', '', '', '', '', '', '', '', '']);
 
-  sheet.getRange(1, 1, rows.length, 7).setValues(rows);
+  // Row 165: Summary Scorecard header
+  const scHeaderRowIndex = rows.length + 1;
+  rows.push(['SN', 'Item', '', '', '', '', 'Max', 'Actual', '%', 'Performance']);
 
-  sheet.getRange("A1:G1").merge().setFontWeight('bold').setFontSize(12).setBackground('#0f766e').setFontColor('#ffffff');
-  sheet.getRange("A2:A3").setFontWeight('bold').setFontColor('#334155');
-  sheet.getRange("D2:D3").setFontWeight('bold').setFontColor('#334155');
+  // Rows 166 to 183: 18 Section Scorecard Rows (A through R)
+  const scSectionStartRow = rows.length + 1;
+  schema.forEach(sec => {
+    const info = secScores[sec.id] || {};
+    let actual = typeof info.actual === 'number' ? info.actual : 0;
+    if (typeof info.actual === 'undefined') {
+      actual = sec.items.reduce((acc, it) => typeof it.defaultScore === 'number' ? acc + it.defaultScore : acc, 0);
+    }
+    let pctText = '0%';
+    if (sec.max > 0) {
+      pctText = Math.round((actual / sec.max) * 100) + '%';
+    } else {
+      pctText = '####';
+    }
 
-  sheet.getRange("A5:G5").setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff').setHorizontalAlignment('center');
-
-  sectionRowIndices.forEach(r => {
-    sheet.getRange(r, 1, 1, 7).setFontWeight('bold').setBackground('#f1f5f9').setFontColor('#0f766e');
-    sheet.getRange(r, 4, 1, 3).setHorizontalAlignment('center');
+    rows.push([sec.id, sec.name, '', '', '', '', sec.max, actual, pctText, '']);
   });
 
-  subtotalRowIndices.forEach(r => {
-    sheet.getRange(r, 1, 1, 7).setFontWeight('bold').setBackground('#fed7aa').setFontColor('#7c2d12');
-    sheet.getRange(r, 4, 1, 3).setHorizontalAlignment('center');
+  // Row 184: Total Score row
+  const totMax = (data && data.maxScore) || 525;
+  const totActual = (data && data.totalScore) || 363;
+  const totPct = (data && data.percent) || 69;
+  const totalRowIndex = rows.length + 1;
+  rows.push(['Total Score', '', '', '', '', '', totMax, totActual, totPct + '%', '']);
+
+  // Write all rows in a single batch
+  sheet.getRange(1, 1, rows.length, 10).setValues(rows);
+
+  // Column widths
+  sheet.setColumnWidth(1, 45);   // A: SN / Sec
+  sheet.setColumnWidth(2, 480);  // B: Description
+  sheet.setColumnWidth(3, 30);   // C: 0
+  sheet.setColumnWidth(4, 30);   // D: 1
+  sheet.setColumnWidth(5, 30);   // E: 2
+  sheet.setColumnWidth(6, 30);   // F: 3
+  sheet.setColumnWidth(7, 30);   // G: 4
+  sheet.setColumnWidth(8, 30);   // H: 5
+  sheet.setColumnWidth(9, 38);   // I: NA
+  sheet.setColumnWidth(10, 140); // J: Performance Tier
+
+  // Format Header Rows 1 to 7
+  sheet.getRange("A1").setFontWeight('bold').setFontSize(13).setFontColor('#0369a1').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange("B1:H1").merge().setFontWeight('bold').setFontSize(14).setBackground('#c6efce').setFontColor('#000000').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange("I1:J1").merge().setFontSize(8.5).setFontStyle('italic').setHorizontalAlignment('right').setVerticalAlignment('middle');
+
+  sheet.getRange("B2:H2").merge().setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange("I2:J2").merge().setFontSize(8).setFontColor('#475569').setHorizontalAlignment('right').setVerticalAlignment('middle');
+
+  sheet.getRange("A4:A6").setFontWeight('bold').setFontColor('#334155');
+  sheet.getRange("B4:F4").merge();
+  sheet.getRange("B5:F5").merge();
+  sheet.getRange("B6:F6").merge();
+  sheet.getRange("G4:H4").merge().setFontWeight('bold').setHorizontalAlignment('right');
+  sheet.getRange("G5:H5").merge().setFontWeight('bold').setHorizontalAlignment('right');
+  sheet.getRange("I4:J4").merge();
+  sheet.getRange("I5:J5").merge();
+
+  // Section Headers formatting (Rows 8, 16, 28, etc.)
+  sectionHeaderRows.forEach(r => {
+    sheet.getRange(r, 1, 1, 9).setFontWeight('bold').setBackground('#d9d9d9').setFontColor('#000000');
+    sheet.getRange(r, 1).setHorizontalAlignment('center');
+    sheet.getRange(r, 2).setHorizontalAlignment('left');
+    sheet.getRange(r, 3, 1, 7).setHorizontalAlignment('center');
   });
 
-  sheet.getRange(grandTotalRowIndex, 1, 1, 7).setFontWeight('bold').setFontSize(11).setBackground('#bbf7d0').setFontColor('#166534').setBorder(true, true, true, true, true, true);
-  sheet.getRange(grandTotalRowIndex, 4, 1, 4).setHorizontalAlignment('center');
+  // Section Totals formatting (orange badge for score)
+  sectionTotalRows.forEach(st => {
+    sheet.getRange(st.row, 2).setFontWeight('bold').setHorizontalAlignment('right');
+    sheet.getRange(st.row, 6, 1, 4).merge().setFontWeight('bold').setBackground('#ed7d31').setFontColor('#000000').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  });
 
-  sheet.getRange(6, 1, rows.length - 5, 2).setHorizontalAlignment('center');
-  sheet.getRange(6, 4, rows.length - 5, 3).setHorizontalAlignment('center');
+  // Checklist items range formatting (alignment & wrap text)
+  sheet.getRange(8, 1, 156, 1).setHorizontalAlignment('center');
+  sheet.getRange(8, 2, 156, 1).setWrap(true);
+  sheet.getRange(8, 3, 156, 7).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(8, 1, 156, 9).setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
 
-  sheet.setColumnWidth(1, 55);
-  sheet.setColumnWidth(2, 65);
-  sheet.setColumnWidth(3, 440);
-  sheet.setColumnWidth(4, 95);
-  sheet.setColumnWidth(5, 105);
-  sheet.setColumnWidth(6, 160);
-  sheet.setColumnWidth(7, 240);
-  sheet.setFrozenRows(5);
+  // Row 164: Legend line formatting
+  sheet.getRange(legendRowIndex, 1, 1, 10).merge()
+    .setFontWeight('bold')
+    .setFontColor('#ff0000')
+    .setFontSize(10)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setBackground('#ffffff');
+  sheet.setRowHeight(legendRowIndex, 24);
+
+  // Row 165: Scorecard header formatting
+  sheet.getRange(scHeaderRowIndex, 2, 1, 5).merge();
+  sheet.getRange(scHeaderRowIndex, 1, 1, 10)
+    .setBackground('#ffc000')
+    .setFontWeight('bold')
+    .setFontColor('#000000')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sheet.setRowHeight(scHeaderRowIndex, 24);
+
+  // Rows 166 to 183: Scorecard Section rows
+  for (let r = scSectionStartRow; r < scSectionStartRow + 18; r++) {
+    sheet.getRange(r, 2, 1, 5).merge();
+    sheet.getRange(r, 1).setHorizontalAlignment('center').setFontWeight('bold');
+    sheet.getRange(r, 2).setHorizontalAlignment('left').setFontWeight('bold');
+    sheet.getRange(r, 7, 1, 3).setHorizontalAlignment('center');
+    sheet.getRange(r, 8).setFontWeight('bold');
+  }
+
+  // Merged Performance blocks in Col J:
+  // J166:J170 (A to E) -> Platinum
+  sheet.getRange(166, 10, 5, 1).merge()
+    .setValue("Platinum\n85 -100 %")
+    .setFontWeight('bold')
+    .setBackground('#ffffff')
+    .setFontColor('#000000')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // J171:J175 (F to J) -> Gold
+  sheet.getRange(171, 10, 5, 1).merge()
+    .setValue("Gold\n71 - 84 %")
+    .setFontWeight('bold')
+    .setBackground('#ffc000')
+    .setFontColor('#000000')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // J176:J179 (K to N) -> Silver
+  sheet.getRange(176, 10, 4, 1).merge()
+    .setValue("Silver\n55 - 70 %")
+    .setFontWeight('bold')
+    .setBackground('#c6efce')
+    .setFontColor('#000000')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // J180:J183 (O to R) -> Blue
+  sheet.getRange(180, 10, 4, 1).merge()
+    .setValue("Blue\n< 54 %")
+    .setFontWeight('bold')
+    .setBackground('#0070c0')
+    .setFontColor('#ffffff')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // Row 184: Total Score row formatting
+  sheet.getRange(totalRowIndex, 1, 1, 6).merge().setFontWeight('bold').setFontSize(11).setHorizontalAlignment('left').setVerticalAlignment('middle');
+  sheet.getRange(totalRowIndex, 7).setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange(totalRowIndex, 8).setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange(totalRowIndex, 9, 1, 2).merge().setFontWeight('bold').setFontSize(12).setBackground('#c6efce').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(totalRowIndex, 26);
+
+  // Scorecard grid borders
+  sheet.getRange(scHeaderRowIndex, 1, 20, 10).setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Scorecard outer thick blue border (around rows 164 to 184)
+  sheet.getRange(legendRowIndex, 1, 21, 10).setBorder(true, true, true, true, null, null, '#002060', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.getRange(legendRowIndex, 1, 1, 10).setBorder(true, true, true, true, null, null, '#002060', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+  // Blue vertical line along right edge of Col J
+  sheet.getRange(1, 10, totalRowIndex, 1).setBorder(null, null, null, true, null, null, '#002060', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 }
 
