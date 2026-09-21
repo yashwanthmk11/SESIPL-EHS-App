@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   const TOKEN_KEY = "sesipl_ehs_token";
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
   let USER = null;
@@ -3956,8 +3956,14 @@
         showModal(modalHtml);
       } else if (res.source === "HTML_FALLBACK" && res.html) {
         CURRENT_PERMIT_PREVIEW_STATE = { html: res.html, title: res.title };
+        const docWarn = res.docError
+          ? '<div style="background:#fffbeb;border:1.5px solid #f59e0b;color:#92400e;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;line-height:1.5">' +
+            '  <strong>⚠️ Notice on Google Docs Template:</strong> ' + esc(res.docError) +
+            '</div>'
+          : (res.templateDocId ? '' : '<div style="background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:11.5px">ℹ️ No Google Docs template configured for this form yet. Displaying standard format preview.</div>');
         const modalHtml =
           '<div style="max-width:920px;margin:0 auto;text-align:left">' +
+            docWarn +
             '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
               '<div>' +
                 '<span class="badge" style="background:#f8fafc;color:#475569;font-size:11px;font-weight:800;border:1px solid #cbd5e1">DOCUMENT PDF PREVIEW</span>' +

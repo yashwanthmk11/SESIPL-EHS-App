@@ -310,7 +310,7 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
   // Create working copy in designated folder
   const folder = getEhsGeneratedPdfFolder_(project);
   const copyTitle = (title || 'EHS_Document') + '_' + new Date().getTime();
-  const docCopy = templateFile.makeCopy(copyTitle, folder);
+  const docCopy = folder ? templateFile.makeCopy(copyTitle, folder) : templateFile.makeCopy(copyTitle);
 
   // Retry opening the copied document with backoff to handle Google Drive indexing propagation
   let doc = null;
@@ -340,7 +340,7 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
 
     // Convert populated doc copy to PDF
     const pdfBlob = docCopy.getAs('application/pdf').setName((title || 'EHS_Document') + '.pdf');
-    const pdfFile = folder.createFile(pdfBlob);
+    const pdfFile = folder ? folder.createFile(pdfBlob) : DriveApp.createFile(pdfBlob);
 
     try {
       pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -454,6 +454,7 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
 
   const templateDocId = getDocTemplateId_(sub.formCode);
 
+  let docErrorMsg = '';
   // 1. If a Google Docs template ID is configured for this form:
   if (templateDocId && templateDocId.trim() !== '') {
     try {
@@ -480,7 +481,8 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
         downloadUrl: docResult.downloadUrl
       };
     } catch (docErr) {
-      Logger.log("Notice: Error generating PDF from Docs template (" + sub.formCode + "): " + docErr + ". Falling back to HTML generator.");
+      docErrorMsg = docErr && docErr.message ? docErr.message : String(docErr);
+      Logger.log("Notice: Error generating PDF from Docs template (" + sub.formCode + "): " + docErrorMsg + ". Falling back to HTML generator.");
     }
   }
 
@@ -495,6 +497,8 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
     source: 'HTML_FALLBACK',
     title: def.title,
     submission: sub,
-    html: html
+    html: html,
+    docError: docErrorMsg,
+    templateDocId: templateDocId
   };
 }
