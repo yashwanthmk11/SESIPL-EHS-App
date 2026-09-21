@@ -3111,6 +3111,12 @@
     }
     $("dyn-form").onsubmit = async function (ev) {
       ev.preventDefault();
+      const submitBtn = this.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "⏳ Submitting...";
+      }
+      setLoading(true, "Submitting form & compiling official document...");
       const fd = new FormData(this);
       const obj = {};
       fd.forEach((v, k) => (obj[k] = v));
@@ -3204,10 +3210,18 @@
           requestId: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "REQ_" + Date.now() + "_" + Math.random().toString(36).slice(2),
         });
         hideModal();
+        setLoading(false);
         alert("Submitted. PDF generated and sent up the approval chain.");
         await refresh();
       } catch (err) {
+        setLoading(false);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = "Submit for approval";
+        }
         alert(err.message || err);
+      } finally {
+        setLoading(false);
       }
     };
   }

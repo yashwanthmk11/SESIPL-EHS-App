@@ -315,9 +315,11 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
   // Retry opening the copied document with backoff to handle Google Drive indexing propagation
   let doc = null;
   let lastErr = null;
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      Utilities.sleep(attempt === 1 ? 500 : 1200);
+      if (attempt > 1) {
+        Utilities.sleep(600);
+      }
       doc = DocumentApp.openById(docCopy.getId());
       if (doc) break;
     } catch (e) {
@@ -369,41 +371,42 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
  * Replaces {{placeholder}} tokens across doc body, header, footer, and tables.
  */
 function replacePlaceholdersInDoc_(doc, placeholderMap) {
-  const replaceInElement = (element) => {
-    if (!element) return;
-    for (const key in placeholderMap) {
+  const body = doc.getBody();
+  if (!body) return;
+
+  const header = doc.getHeader();
+  const footer = doc.getFooter();
+
+  // Combine text to quickly filter only placeholders present in this document
+  let fullDocText = body.getText() || '';
+  if (header) fullDocText += ' ' + (header.getText() || '');
+  if (footer) fullDocText += ' ' + (footer.getText() || '');
+  const fullDocTextLower = fullDocText.toLowerCase();
+
+  // Only perform replaceText for keys that actually appear in the document
+  const activeKeys = [];
+  for (const key in placeholderMap) {
+    if (fullDocTextLower.indexOf(key.toLowerCase()) !== -1) {
+      activeKeys.push(key);
+    }
+  }
+
+  const replaceInContainer = (container) => {
+    if (!container) return;
+    for (let i = 0; i < activeKeys.length; i++) {
+      const key = activeKeys[i];
       const val = placeholderMap[key] != null ? String(placeholderMap[key]) : '';
       const regexPattern = '\\{\\{\\s*' + escapeRegex_(key) + '\\s*\\}\\}';
       try {
-        element.replaceText(regexPattern, val);
-      } catch (e) {
-        // Continue
-      }
+        container.replaceText(regexPattern, val);
+      } catch (e) {}
     }
   };
 
-  replaceInElement(doc.getBody());
-  if (doc.getHeader()) replaceInElement(doc.getHeader());
-  if (doc.getFooter()) replaceInElement(doc.getFooter());
-
-  // Explicitly traverse all tables in the body to guarantee all cells are updated
-  try {
-    const tables = doc.getBody().getTables();
-    for (let t = 0; t < tables.length; t++) {
-      const table = tables[t];
-      const numRows = table.getNumRows();
-      for (let r = 0; r < numRows; r++) {
-        const row = table.getRow(r);
-        const numCells = row.getNumCells();
-        for (let c = 0; c < numCells; c++) {
-          const cell = row.getCell(c);
-          replaceInElement(cell);
-        }
-      }
-    }
-  } catch (tableErr) {
-    Logger.log("Notice: Table traversal in replacePlaceholdersInDoc_: " + tableErr);
-  }
+  // Single-pass replacement: Body.replaceText natively updates all paragraphs, tables, and cells!
+  replaceInContainer(body);
+  if (header) replaceInContainer(header);
+  if (footer) replaceInContainer(footer);
 }
 
 function escapeRegex_(str) {
