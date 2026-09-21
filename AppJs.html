@@ -3958,9 +3958,9 @@
         CURRENT_PERMIT_PREVIEW_STATE = { html: res.html, title: res.title };
         const docWarn = res.docError
           ? '<div style="background:#fffbeb;border:1.5px solid #f59e0b;color:#92400e;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;line-height:1.5">' +
-            '  <strong>⚠️ Notice on Google Docs Template:</strong> ' + esc(res.docError) +
+            '  <strong>⚠️ Notice on Google Docs Template (' + esc(res.title || 'Form') + '):</strong> ' + esc(res.docError) +
             '</div>'
-          : (res.templateDocId ? '' : '<div style="background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:11.5px">ℹ️ No Google Docs template configured for this form yet. Displaying standard format preview.</div>');
+          : (res.templateDocId ? '' : '<div style="background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:11.5px">ℹ️ No Google Docs template configured for ' + esc(res.title || 'this form') + ' yet. Displaying standard format preview.</div>');
         const modalHtml =
           '<div style="max-width:920px;margin:0 auto;text-align:left">' +
             docWarn +
