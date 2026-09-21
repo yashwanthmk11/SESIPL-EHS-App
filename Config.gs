@@ -607,6 +607,16 @@ function getFormFields_(formCode) {
     { key: 'height_q10', label: '10. Employees aware about hazards and safe working practices while working at height.', type: 'select', options: ['Yes', 'Not Required'], required: true }
   ];
 
+  const generalPrecautions = [
+    { key: 'gen_q1', label: '1. Area inspected and free from obvious hazards', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q2', label: '2. Personnel briefed, inducted and wearing required PPE', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q3', label: '3. Hand tools, electrical equipment and machinery checked prior to use', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q4', label: '4. Safe access, emergency exit and walkways marked without obstruction', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q5', label: '5. Adequate ventilation and illumination provided at workplace', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q6', label: '6. Housekeeping done & unwanted combustible materials removed', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q7', label: '7. Caution signboards provided and emergency numbers posted', type: 'select', options: ['Yes', 'Not Required'], required: true }
+  ];
+
   const assemblePermit = (precautions) => {
     return permitHeaderFields
       .concat(precautions)
@@ -674,7 +684,7 @@ function getFormFields_(formCode) {
     WP_LIFT: assemblePermit(liftPrecautions),
     WP_HOT: assemblePermit(hotPrecautions),
     WP_HEIGHT: assemblePermit(heightPrecautions),
-    WP_GENERAL: assemblePermit([]),
+    WP_GENERAL: assemblePermit(generalPrecautions),
     OBS_DAILY: [
       { key: 'date', label: 'Date', type: 'date', required: true },
       { key: 'reportNo', label: 'Report No', type: 'text', required: true },

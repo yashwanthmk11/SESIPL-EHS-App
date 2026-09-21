@@ -89,105 +89,147 @@ function buildFormPdfHtml_(project, def, fields, user, version) {
     '</body></html>';
 }
 
-function buildWorkPermitPdfHtml_(project, def, fields, user, version) {
-  const docCode = (typeof PERMIT_DOC_CODES !== 'undefined' && PERMIT_DOC_CODES[def.formCode])
-    ? PERMIT_DOC_CODES[def.formCode]
+function buildWorkPermitPdfHtml_(project, def, fields, user, version, options) {
+  const isTagMode = options && options.usePlaceholders;
+  const f = fields || {};
+  const formCode = (def && def.formCode) || 'WP_HEIGHT';
+  const docCode = (typeof PERMIT_DOC_CODES !== 'undefined' && PERMIT_DOC_CODES[formCode])
+    ? PERMIT_DOC_CODES[formCode]
     : 'SESIPL-EHS.Blr PTW';
-  const contractor = fields.contractorName || fields.contractor || project.client || 'Shankar Electricals Services (I) Pvt Ltd';
-  const em1 = fields.emergencyContact1 || '—';
-  const em2 = fields.emergencyContact2 || '—';
-  const pNo = fields.permitNo || (project.code + '-' + def.formCode + '-' + (fields.date || todayIso_()).replace(/-/g, ''));
-  const area = fields.area || '—';
-  const loc = fields.location || '—';
-  const dt = displayDate_(fields.date || nowIso_());
-  const tm = fields.time || '—';
-  const siteEng = fields.siteEngineer || user.name || '—';
-  const siteEngSign = fields.siteEngineerSign || siteEng;
-  const safetyOff = fields.safetyOfficer || '—';
-  const safetyOffSign = fields.safetyOfficerSign || safetyOff;
-  const contIncharge = fields.contractorInCharge || '—';
-  const contPhone = fields.contactNumber || '—';
-  const workDesc = fields.workDescription || '—';
-  const execDate = displayDate_(fields.workExecutionDate || fields.date || nowIso_());
-  const validFrom = fields.validFrom ? displayDate_(fields.validFrom).replace('T', ' ') : '—';
-  const validTo = fields.validTo ? displayDate_(fields.validTo).replace('T', ' ') : '—';
+
+  const contractor = f.contractorName || f.contractor || '';
+  const em1 = f.emergencyContact1 || '';
+  const em2 = f.emergencyContact2 || '';
+  const pNo = f.permitNo || '';
+  const area = f.area || '';
+  const loc = f.location || '';
+  const dt = f.date ? displayDate_(f.date) : '';
+  const tm = f.time || '';
+  const siteEng = f.siteEngineer || '';
+  const siteEngSign = f.siteEngineerSign || (f.siteEngineer ? 'Signed' : '');
+  const safetyOff = f.safetyOfficer || '';
+  const safetyOffSign = f.safetyOfficerSign || (f.safetyOfficer ? 'Signed' : '');
+  const contIncharge = f.contractorInCharge || '';
+  const contPhone = f.contactNumber || '';
+  const workDesc = f.workDescription || '';
+  const execDate = f.workExecutionDate ? displayDate_(f.workExecutionDate) : (f.date ? displayDate_(f.date) : '');
+  const validFrom = f.validFrom ? displayDate_(f.validFrom).replace('T', ' ') : '';
+  const validTo = f.validTo ? displayDate_(f.validTo).replace('T', ' ') : '';
+
+  function renderLine_(val, placeholderTag, minWidth, fullWidth) {
+    if (val && String(val).trim() && String(val).trim() !== '—') {
+      return '<span style="border-bottom:1.5px solid #000;font-weight:bold;padding:0 6px;color:#0f172a;display:inline-block;' + (fullWidth ? 'width:calc(100% - 150px);vertical-align:bottom;' : ('min-width:' + minWidth + ';')) + '">' + escapeHtml_(val) + '</span>';
+    }
+    if (isTagMode && placeholderTag) {
+      return '<span style="border-bottom:1.5px solid #000;font-family:monospace;color:#0369a1;font-weight:bold;padding:0 4px;display:inline-block;' + (fullWidth ? 'width:calc(100% - 150px);' : ('min-width:' + minWidth + ';')) + '">{{' + placeholderTag + '}}</span>';
+    }
+    return '<span style="border-bottom:1.5px solid #000;display:inline-block;' + (fullWidth ? 'width:calc(100% - 150px);' : ('min-width:' + minWidth + ';')) + '">&nbsp;</span>';
+  }
+
+  function renderDateLine_(val, placeholderTag) {
+    if (val && String(val).trim() && String(val).trim() !== '—') {
+      return '<span style="border-bottom:1.5px solid #000;font-weight:bold;padding:0 6px;color:#0f172a;display:inline-block;min-width:100px;text-align:center">' + escapeHtml_(val) + '</span>';
+    }
+    if (isTagMode && placeholderTag) {
+      return '<span style="border-bottom:1.5px solid #000;font-family:monospace;color:#0369a1;font-weight:bold;padding:0 4px;display:inline-block;min-width:100px;text-align:center">{{' + placeholderTag + '}}</span>';
+    }
+    return '<span style="border-bottom:1.5px solid #000;display:inline-block;min-width:100px;text-align:center">&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp;</span>';
+  }
 
   let precautions = [];
-  const isNight = def.formCode === 'WP_NIGHT';
+  const isNight = formCode === 'WP_NIGHT';
 
-  if (def.formCode === 'WP_SHAFT') {
+  if (formCode === 'WP_SHAFT') {
     precautions = [
-      [1, "Proper Access/ Exit available", fields.shaft_q1],
-      [2, "Proper ventilation and / or lighting provided", fields.shaft_q2],
-      [3, "Proper & Safe platform provided", fields.shaft_q3],
-      [4, "Workers have been briefed about hazardous", fields.shaft_q4],
-      [5, "All Electrical Tools and machinery checked prior to use.", fields.shaft_q5],
-      [6, "Shaft area Properly barricaded.", fields.shaft_q6],
-      [7, "Conducted JST for all workers who are all engaging to shaft work.", fields.shaft_q7]
+      [1, "Proper Access/ Exit available", f.shaft_q1],
+      [2, "Proper ventilation and / or lighting provided", f.shaft_q2],
+      [3, "Proper & Safe platform provided", f.shaft_q3],
+      [4, "Workers have been briefed about hazardous", f.shaft_q4],
+      [5, "All Electrical Tools and machinery checked prior to use.", f.shaft_q5],
+      [6, "Shaft area Properly barricaded.", f.shaft_q6],
+      [7, "Conducted JST for all workers who are all engaging to shaft work.", f.shaft_q7]
     ];
-  } else if (def.formCode === 'WP_NIGHT') {
+  } else if (formCode === 'WP_NIGHT') {
     precautions = [
-      [1, "Is dedicated Night shift in charge available?", fields.night_q1],
-      [2, "Is supervisor available in night shift to supervise the task?", fields.night_q2],
-      [3, "Is First aider available?", fields.night_q3],
-      [4, "Is Ambulance available for emergency?", fields.night_q4],
-      [5, "Are the workers working continuously for last 12 hours?", fields.night_q5],
-      [6, "Is the work area safe for work?", fields.night_q6],
-      [7, "Is there proper illumination provided at the work area?", fields.night_q7],
-      [8, "Are the hazards related with the work identified and assessed at workplace?", fields.night_q8],
-      [9, "Is toolbox talk / pre-start briefing carried out prior to start night shift?", fields.night_q9],
-      [10, "Are the workers having specific PPE’s according to the requirement of the task?", fields.night_q10],
-      [11, "Is there any high-risk activity like working at height, work in penetration and shafts, electrical testing and commissioning, hot work, Mechanical lifting operation, excavation etc. to be carried out in night shift?", fields.night_q11]
+      [1, "Is dedicated Night shift in charge available?", f.night_q1],
+      [2, "Is supervisor available in night shift to supervise the task?", f.night_q2],
+      [3, "Is First aider available?", f.night_q3],
+      [4, "Is Ambulance available for emergency?", f.night_q4],
+      [5, "Are the workers working continuously for last 12 hours?", f.night_q5],
+      [6, "Is the work area safe for work?", f.night_q6],
+      [7, "Is there proper illumination provided at the work area?", f.night_q7],
+      [8, "Are the hazards related with the work identified and assessed at workplace?", f.night_q8],
+      [9, "Is toolbox talk / pre-start briefing carried out prior to start night shift?", f.night_q9],
+      [10, "Are the workers having specific PPE’s according to the requirement of the task?", f.night_q10],
+      [11, "Is there any high-risk activity like working at height, work in penetration and shafts, electrical testing and commissioning, hot work, Mechanical lifting operation, excavation etc. to be carried out in night shift?", f.night_q11]
     ];
-  } else if (def.formCode === 'WP_LIFT') {
+  } else if (formCode === 'WP_LIFT') {
     precautions = [
-      [1, "Crane used for lifting activity tested, certified and approved for rated lifting works.", fields.lift_q1],
-      [2, "All lifting tackles, gears/ appliances are tested and certified for lifting works.", fields.lift_q2],
-      [3, "Crane operator is trained and competent for lifting operation.", fields.lift_q3],
-      [4, "Lifting belt protected against sharp edge of jobs to be lifted.", fields.lift_q4],
-      [5, "Access and exist marked and without obstruction.", fields.lift_q5],
-      [6, "Lighting arrangement adequate.", fields.lift_q6],
-      [7, "Unwanted and rubbish material removed from working platform.", fields.lift_q7],
-      [8, "Guidelines has provided for balancing & guiding jobs to be lifted.", fields.lift_q8],
-      [9, "Periphery area of crane booms as well lifting job is barricaded .", fields.lift_q9],
-      [10, "Rigger and signal man is trained and competent for lifting work.", fields.lift_q10],
-      [11, "No lifting activity to be carried during lightening, heavy wind /rain.", fields.lift_q11],
-      [12, "If scaffolding to be used during lift , Scaffolding with valid tag available for use", fields.lift_q12],
-      [13, "Double lanyards Safety Harness/belt checked and in working condition", fields.lift_q13],
-      [14, "Safety shoes (nonslip), Helmet with chin strip available with employees.", fields.lift_q14],
-      [15, "Other: " + (fields.lift_other || "—"), fields.lift_other ? 'Yes' : 'Not Required']
+      [1, "Crane used for lifting activity tested, certified and approved for rated lifting works.", f.lift_q1],
+      [2, "All lifting tackles, gears/ appliances are tested and certified for lifting works.", f.lift_q2],
+      [3, "Crane operator is trained and competent for lifting operation.", f.lift_q3],
+      [4, "Lifting belt protected against sharp edge of jobs to be lifted.", f.lift_q4],
+      [5, "Access and exist marked and without obstruction.", f.lift_q5],
+      [6, "Lighting arrangement adequate.", f.lift_q6],
+      [7, "Unwanted and rubbish material removed from working platform.", f.lift_q7],
+      [8, "Guidelines has provided for balancing & guiding jobs to be lifted.", f.lift_q8],
+      [9, "Periphery area of crane booms as well lifting job is barricaded .", f.lift_q9],
+      [10, "Rigger and signal man is trained and competent for lifting work.", f.lift_q10],
+      [11, "No lifting activity to be carried during lightening, heavy wind /rain.", f.lift_q11],
+      [12, "If scaffolding to be used during lift , Scaffolding with valid tag available for use", f.lift_q12],
+      [13, "Double lanyards Safety Harness/belt checked and in working condition", f.lift_q13],
+      [14, "Safety shoes (nonslip), Helmet with chin strip available with employees.", f.lift_q14],
+      [15, "Other: " + (f.lift_other || ""), f.lift_other ? 'Yes' : '']
     ];
-  } else if (def.formCode === 'WP_HOT') {
+  } else if (formCode === 'WP_HOT') {
     precautions = [
-      [1, "Proper Access/ Exit available", fields.hot_q1],
-      [2, "Proper ventilation and / or lighting provided", fields.hot_q2],
-      [3, "Proper & Safe scaffolding, platform, ladder provided", fields.hot_q3],
-      [4, "Welding machine located in a clean and dry area", fields.hot_q4],
-      [5, "Welding machine grounded at the equipment & proper leakage current protection device (ELCB) provided for welding machine.", fields.hot_q5],
-      [6, "Competent and Trained personnel deployed to carry the work.", fields.hot_q6],
-      [7, "Welding machine, Input / Output Cables, welding holder and weld return clamp (Holder ) insulated & in good condition", fields.hot_q7],
-      [8, "Welder and fitter trained to connect ground / work return clamps (Holder) to the work piece prior to energization of Welding machine.", fields.hot_q8],
-      [9, "Gas Cylinders stacked vertically and not below the welding/cutting area. Regulator Key is available with cylinders.", fields.hot_q9],
-      [10, "Work Area Isolated with barricading and caution sign", fields.hot_q10],
-      [11, "Personal Protective Equipment. Minimum applicable - Safety helmet, safety goggles, welding helmet, safety shoes, leather gloves, long sleeve and nose mask provided.", fields.hot_q11],
-      [12, "In case of pits, water removed from the pit & wood /rubber insulation provided.", fields.hot_q12],
-      [13, "Adequate & suitable nos. of fire fighting extinguisher provided.", fields.hot_q13],
-      [14, "Near by combustible material removed. Housekeeping Done.", fields.hot_q14],
-      [15, "Fire watch as standby is in place.", fields.hot_q15],
-      [16, "Other: " + (fields.hot_other || "—"), fields.hot_other ? 'Yes' : 'Not Required']
+      [1, "Proper Access/ Exit available", f.hot_q1],
+      [2, "Proper ventilation and / or lighting provided", f.hot_q2],
+      [3, "Proper & Safe scaffolding, platform, ladder provided", f.hot_q3],
+      [4, "Welding machine located in a clean and dry area", f.hot_q4],
+      [5, "Welding machine grounded at the equipment & proper leakage current protection device (ELCB) provided for welding machine.", f.hot_q5],
+      [6, "Competent and Trained personnel deployed to carry the work.", f.hot_q6],
+      [7, "Welding machine, Input / Output Cables, welding holder and weld return clamp (Holder ) insulated & in good condition", f.hot_q7],
+      [8, "Welder and fitter trained to connect ground / work return clamps (Holder) to the work piece prior to energization of Welding machine.", f.hot_q8],
+      [9, "Gas Cylinders stacked vertically and not below the welding/cutting area. Regulator Key is available with cylinders.", f.hot_q9],
+      [10, "Work Area Isolated with barricading and caution sign", f.hot_q10],
+      [11, "Personal Protective Equipment. Minimum applicable - Safety helmet, safety goggles, welding helmet, safety shoes, leather gloves, long sleeve and nose mask provided.", f.hot_q11],
+      [12, "In case of pits, water removed from the pit & wood /rubber insulation provided.", f.hot_q12],
+      [13, "Adequate & suitable nos. of fire fighting extinguisher provided.", f.hot_q13],
+      [14, "Near by combustible material removed. Housekeeping Done.", f.hot_q14],
+      [15, "Fire watch as standby is in place.", f.hot_q15],
+      [16, "Other: " + (f.hot_other || ""), f.hot_other ? 'Yes' : '']
     ];
-  } else if (def.formCode === 'WP_HEIGHT') {
+  } else if (formCode === 'WP_HEIGHT') {
     precautions = [
-      [1, "Scaffolding with valid tag available for use", fields.height_q1],
-      [2, "Conducted JST/TBT conducted", fields.height_q2],
-      [3, "Safety shoes (nonslip), Helmet with chin strip available with employees.", fields.height_q3],
-      [4, "All tightening tools, hand tools /equipment checked and in good condition.", fields.height_q4],
-      [5, "Access and exist marked and without obstruction.", fields.height_q5],
-      [6, "Lighting arrangement adequate.", fields.height_q6],
-      [7, "Unwanted and rubbish material removed from working platform.", fields.height_q7],
-      [8, "Electrical cable in good condition", fields.height_q8],
-      [9, "Signboards provided", fields.height_q9],
-      [10, "Employees aware about hazards and safe working practices while working at height.", fields.height_q10]
+      [1, "Scaffolding with valid tag available for use", f.height_q1],
+      [2, "Conducted JST/TBT conducted", f.height_q2],
+      [3, "Safety shoes (nonslip), Helmet with chin strip available with employees.", f.height_q3],
+      [4, "All tightening tools, hand tools /equipment checked and in good condition.", f.height_q4],
+      [5, "Access and exist marked and without obstruction.", f.height_q5],
+      [6, "Lighting arrangement adequate.", f.height_q6],
+      [7, "Unwanted and rubbish material removed from working platform.", f.height_q7],
+      [8, "Electrical cable in good condition", f.height_q8],
+      [9, "Signboards provided", f.height_q9],
+      [10, "Employees aware about hazards and safe working practices while working at height.", f.height_q10],
+      [11, "", ""],
+      [12, "", ""],
+      [13, "", ""],
+      [14, "", ""]
+    ];
+  } else {
+    // WP_GENERAL
+    precautions = [
+      [1, "Area inspected and free from obvious hazards", f.gen_q1],
+      [2, "Personnel briefed, inducted and wearing required PPE", f.gen_q2],
+      [3, "Hand tools, electrical equipment and machinery checked prior to use", f.gen_q3],
+      [4, "Safe access, emergency exit and walkways marked without obstruction", f.gen_q4],
+      [5, "Adequate ventilation and illumination provided at workplace", f.gen_q5],
+      [6, "Housekeeping done & unwanted combustible materials removed", f.gen_q6],
+      [7, "Caution signboards provided and emergency numbers posted", f.gen_q7],
+      [8, "", ""],
+      [9, "", ""],
+      [10, "", ""]
     ];
   }
 
@@ -195,172 +237,216 @@ function buildWorkPermitPdfHtml_(project, def, fields, user, version) {
   let tableRows = '';
 
   if (isNight) {
-    tableHeader = '<tr><th style="width:6%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">No</th>' +
-      '<th style="width:58%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:left">ITEM</th>' +
-      '<th style="width:8%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">Yes</th>' +
-      '<th style="width:8%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">NO</th>' +
-      '<th style="width:8%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">NA</th>' +
-      '<th style="width:12%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">REMARKS</th></tr>';
+    tableHeader = '<tr>' +
+      '<th style="width:6%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">No</th>' +
+      '<th style="width:58%;padding:4px 8px;border:1.5px solid #000;background:#f8fafc;text-align:left">ITEM</th>' +
+      '<th style="width:8%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">Yes</th>' +
+      '<th style="width:8%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">NO</th>' +
+      '<th style="width:8%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">NA</th>' +
+      '<th style="width:12%;padding:4px 4px;border:1.5px solid #000;background:#f8fafc;text-align:center">REMARKS</th>' +
+    '</tr>';
 
     tableRows = precautions.map(p => {
-      const v = String(p[2] || '').toUpperCase();
+      const v = String(p[2] || '').trim().toUpperCase();
+      const isYes = v === 'YES';
+      const isNo = v === 'NO';
+      const isNa = v === 'NA';
       return '<tr>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155">' + p[0] + '</td>' +
-        '<td style="padding:5px;border:1px solid #334155">' + escapeHtml_(p[1]) + '</td>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155;font-weight:bold">' + (v === 'YES' ? '✓' : '') + '</td>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155;font-weight:bold">' + (v === 'NO' ? '✓' : '') + '</td>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155;font-weight:bold">' + (v === 'NA' ? '✓' : '') + '</td>' +
-        '<td style="padding:5px;border:1px solid #334155">' + (p[0] === 11 ? escapeHtml_(fields.night_remarks || '') : '') + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold">' + p[0] + '</td>' +
+        '<td style="padding:4px 8px;border:1px solid #000">' + escapeHtml_(p[1]) + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold;font-size:12px">' + (isYes ? '✓' : (isTagMode ? '{{q' + p[0] + '_yes}}' : '')) + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold;font-size:12px">' + (isNo ? '✓' : (isTagMode ? '{{q' + p[0] + '_no}}' : '')) + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold;font-size:12px">' + (isNa ? '✓' : (isTagMode ? '{{q' + p[0] + '_na}}' : '')) + '</td>' +
+        '<td style="padding:4px 6px;border:1px solid #000;font-size:10px">' + (p[0] === 11 ? escapeHtml_(f.night_remarks || '') : '') + '</td>' +
       '</tr>';
     }).join('');
   } else {
-    tableHeader = '<tr><th style="width:6%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">No</th>' +
-      '<th style="width:72%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:left">Item</th>' +
-      '<th style="width:11%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">Yes</th>' +
-      '<th style="width:11%;padding:6px;border:1.5px solid #0f172a;background:#f1f5f9;text-align:center">Not Required</th></tr>';
+    tableHeader = '<tr>' +
+      '<th style="width:6%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">No</th>' +
+      '<th style="width:72%;padding:4px 8px;border:1.5px solid #000;background:#f8fafc;text-align:center">Item</th>' +
+      '<th style="width:11%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">Yes</th>' +
+      '<th style="width:11%;padding:4px 2px;border:1.5px solid #000;background:#f8fafc;text-align:center">Not Required</th>' +
+    '</tr>';
 
     tableRows = precautions.map(p => {
-      const v = String(p[2] || '').toLowerCase();
-      const isYes = v.includes('yes');
-      const isNot = v.includes('not');
+      const v = String(p[2] || '').trim().toLowerCase();
+      const isYes = v === 'yes';
+      const isNot = v.includes('not') || v === 'no';
       return '<tr>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155">' + p[0] + '</td>' +
-        '<td style="padding:5px;border:1px solid #334155">' + escapeHtml_(p[1]) + '</td>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155;font-weight:bold">' + (isYes ? '✓' : '') + '</td>' +
-        '<td style="text-align:center;padding:5px;border:1px solid #334155;font-weight:bold">' + (isNot ? '✓' : '') + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold">' + (p[0] || '') + '</td>' +
+        '<td style="padding:4px 8px;border:1px solid #000">' + (p[1] ? escapeHtml_(p[1]) : '&nbsp;') + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold;font-size:12px">' + (isYes ? '✓' : (isTagMode && p[0] ? '{{q' + p[0] + '_yes}}' : '')) + '</td>' +
+        '<td style="text-align:center;padding:4px 2px;border:1px solid #000;font-weight:bold;font-size:12px">' + (isNot ? '✓' : (isTagMode && p[0] ? '{{q' + p[0] + '_nr}}' : '')) + '</td>' +
       '</tr>';
     }).join('');
   }
 
-  const workmenBlock = (def.formCode === 'WP_SHAFT' && fields.workmenNames) ?
-    '<div style="margin-top:10px;font-size:11.5px"><b>Names of workmen entering shaft:</b> ' + escapeHtml_(fields.workmenNames) + '</div>' : '';
+  const workmenBlock = (formCode === 'WP_SHAFT' && (f.workmenNames || isTagMode)) ?
+    '<div style="margin:6px 0 10px;font-size:11px"><b>Names of workmen entering shaft:</b> ' + renderLine_(f.workmenNames, 'workmenNames', '300px') + '</div>' : '';
 
-  return '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#0f172a;padding:24px;line-height:1.4;font-size:11px">' +
-    '<table style="width:100%;border-collapse:collapse;border:1.5px solid #0f172a;margin-bottom:14px">' +
+  const permitTitle = (def && def.title) ? def.title : (
+    formCode === 'WP_HEIGHT' ? 'WORKING AT HEIGHT PERMIT' :
+    formCode === 'WP_HOT' ? 'HOT WORK PERMIT' :
+    formCode === 'WP_NIGHT' ? 'NIGHT WORK CHECKLIST PERMIT' :
+    formCode === 'WP_SHAFT' ? 'SHAFT WORK & CONFINED SPACE PERMIT' :
+    formCode === 'WP_LIFT' ? 'LIFTING WORK PERMIT' : 'GENERAL WORK CLEARANCE PERMIT'
+  );
+
+  return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<title>' + escapeHtml_(permitTitle) + '</title>' +
+    '<style>' +
+    '  @page { size: A4 portrait; margin: 8mm 10mm 8mm 10mm; }' +
+    '  body { font-family: Arial, Helvetica, sans-serif; color: #000; padding: 14px 18px; line-height: 1.35; font-size: 11px; background: #fff; max-width: 820px; margin: 0 auto; box-sizing: border-box; }' +
+    '  table { border-collapse: collapse; }' +
+    '  @media print { body { padding: 0 !important; margin: 0 !important; max-width: 100% !important; } .no-print { display: none !important; } }' +
+    '</style></head><body>' +
+
+    '<!-- 1. Header Table (1:1 Paper Twin) -->' +
+    '<table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:10px">' +
     '  <tr>' +
-    '    <td style="width:34%;padding:8px 12px;border-right:1.5px solid #0f172a;vertical-align:middle">' +
-    '      <div style="font-size:10px;font-weight:bold;color:#475569">Contractor Name:</div>' +
-    '      <div style="font-size:12px;font-weight:bold;color:#0f172a;margin-top:2px">' + escapeHtml_(contractor) + '</div>' +
-    '      <div style="margin-top:6px;font-size:10.5px;font-weight:bold;color:#0f766e">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '    <td style="width:34%;border-right:2px solid #000;padding:6px 10px;vertical-align:top">' +
+    '      <div style="font-size:11px;font-weight:normal;margin-bottom:2px">Contractor Name:</div>' +
+    '      <div style="text-align:center;margin-top:2px">' +
+    '        <img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" alt="SESIPL Logo" style="height:30px;max-width:160px;object-fit:contain;margin-bottom:2px" onerror="this.onerror=null;this.src=\'https://sesipl.com/sites/default/files/sesipl-logo.png\'">' +
+    '        <div style="font-size:10.5px;font-weight:900;color:#003399;letter-spacing:0.3px;line-height:1.2">SHANKAR ELECTRICALS</div>' +
+    '        <div style="font-size:8px;font-weight:700;color:#003399;letter-spacing:0.2px;line-height:1.2">SERVICES (I) PRIVATE LIMITED</div>' +
+    (contractor ? '<div style="font-size:10px;font-weight:bold;margin-top:3px;color:#0f172a">Agency: ' + escapeHtml_(contractor) + '</div>' : (isTagMode ? '<div style="font-size:10px;font-family:monospace;color:#0284c7;margin-top:2px">{{contractorName}}</div>' : '')) +
+    '      </div>' +
     '    </td>' +
-    '    <td style="width:34%;padding:8px 12px;border-right:1.5px solid #0f172a;text-align:center;vertical-align:middle">' +
-    '      <div style="font-size:11px;font-weight:bold;color:#475569">TITLE :</div>' +
-    '      <div style="font-size:13px;font-weight:800;letter-spacing:0.5px;color:#0f172a;margin-top:3px">SAFETY WORK CLEARANCE</div>' +
+    '    <td style="width:34%;border-right:2px solid #000;padding:6px 10px;text-align:center;vertical-align:middle">' +
+    '      <div style="font-size:11px;font-weight:bold;margin-bottom:4px">TITLE :</div>' +
+    '      <div style="font-size:13px;font-weight:900;letter-spacing:0.5px;color:#000">SAFETY WORK CLEARANCE</div>' +
     '    </td>' +
-    '    <td style="width:32%;padding:8px 12px;vertical-align:middle;font-size:10.5px">' +
-    '      <div><b>Emergency Contact No:</b></div>' +
-    '      <div>1) ' + escapeHtml_(em1) + '</div>' +
-    '      <div>2) ' + escapeHtml_(em2) + '</div>' +
-    '      <div style="margin-top:4px"><b>Permit No:-</b> <span style="font-weight:bold;color:#0f766e">' + escapeHtml_(pNo) + '</span></div>' +
+    '    <td style="width:32%;padding:0;vertical-align:top">' +
+    '      <table style="width:100%;height:100%;border-collapse:collapse">' +
+    '        <tr>' +
+    '          <td style="width:55%;padding:4px 6px;border-bottom:2px solid #000;border-right:1.5px solid #000;font-size:10px;vertical-align:middle">' +
+    '            <b>Emergency Contact No.</b>' +
+    '          </td>' +
+    '          <td style="width:45%;padding:4px 6px;border-bottom:2px solid #000;font-size:9.5px;vertical-align:middle;line-height:1.3">' +
+    '            1) ' + renderLine_(em1, 'emergencyContact1', '70px') + '<br>' +
+    '            2) ' + renderLine_(em2, 'emergencyContact2', '70px') +
+    '          </td>' +
+    '        </tr>' +
+    '        <tr>' +
+    '          <td colspan="2" style="padding:5px 6px;font-size:10.5px;vertical-align:middle">' +
+    '            <b>Permit No:-</b> ' + renderLine_(pNo, 'permitNo', '120px') +
+    '          </td>' +
+    '        </tr>' +
+    '      </table>' +
     '    </td>' +
     '  </tr>' +
     '</table>' +
 
-    '<div style="text-align:center;margin-bottom:12px">' +
-    '  <h1 style="margin:0;font-size:17px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;color:#0f172a">' + escapeHtml_(def.title) + '</h1>' +
+    '<!-- 2. Centered Permit Title -->' +
+    '<div style="text-align:center;margin:8px 0 10px">' +
+    '  <h2 style="margin:0;font-size:15px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;color:#000">' + escapeHtml_(permitTitle) + '</h2>' +
     '</div>' +
 
-    '<div style="border:1px solid #cbd5e1;background:#f8fafc;padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:11px">' +
-    '  <table style="width:100%;border-collapse:collapse">' +
-    '    <tr>' +
-    '      <td style="width:40%;padding:3px 0"><b>Area:-</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;min-width:140px">' + escapeHtml_(area) + '</span></td>' +
-    '      <td style="width:35%;padding:3px 0"><b>location:</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;min-width:130px">' + escapeHtml_(loc) + '</span></td>' +
-    '      <td style="width:25%;padding:3px 0"><b>Date:</b> ' + escapeHtml_(dt) + ' &nbsp; <b>Time:-</b> ' + escapeHtml_(tm) + '</td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td colspan="2" style="padding:3px 0"><b>Name of Site Engineer (Permit Requesting Authority):</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;min-width:180px">' + escapeHtml_(siteEng) + '</span></td>' +
-    '      <td style="padding:3px 0"><b>Sign:</b> <span style="font-style:italic;color:#0f766e">' + escapeHtml_(siteEngSign) + '</span></td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td colspan="2" style="padding:3px 0"><b>Name of Safety Officer:</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;min-width:220px">' + escapeHtml_(safetyOff) + '</span></td>' +
-    '      <td style="padding:3px 0"><b>Sign:</b> <span style="font-style:italic;color:#0f766e">' + escapeHtml_(safetyOffSign) + '</span></td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td colspan="2" style="padding:3px 0"><b>Name of Contractor Site In charge:</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;min-width:180px">' + escapeHtml_(contIncharge) + '</span></td>' +
-    '      <td style="padding:3px 0"><b>Contact Number:</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;min-width:110px">' + escapeHtml_(contPhone) + '</span></td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td colspan="3" style="padding:3px 0"><b>Description of work:</b> <span style="border-bottom:1px solid #0f172a;display:inline-block;width:80%">' + escapeHtml_(workDesc) + '</span></td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td colspan="3" style="padding:3px 0"><b>Work Execution Date:</b> ' + escapeHtml_(execDate) + ' &nbsp;&nbsp;&nbsp;&nbsp; <b>Valid From:-</b> ' + escapeHtml_(validFrom) + ' &nbsp;&nbsp;&nbsp;&nbsp; <b>To:-</b> ' + escapeHtml_(validTo) + '</td>' +
-    '    </tr>' +
-    '  </table>' +
+    '<!-- 3. Work Details & Location with Underline Placeholders -->' +
+    '<div style="font-size:10.5px;line-height:1.8;margin-bottom:6px">' +
+    '  <div>' +
+    '    <b>Area:-</b> ' + renderLine_(area, 'area', '170px') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>location</b> ' + renderLine_(loc, 'location', '170px') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>Date:</b> ' + renderDateLine_(dt, 'date') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>Time:-</b> ' + renderLine_(tm, 'time', '75px') +
+    '  </div>' +
+    '  <div>' +
+    '    <b>Name of Site Engineer (Permit Requesting Authority):</b> ' + renderLine_(siteEng, 'siteEngineer', '230px') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>Sign:</b> ' + renderLine_(siteEngSign, 'siteEngineerSign', '120px') +
+    '  </div>' +
+    '  <div>' +
+    '    <b>Name of Safety Officer:</b> ' + renderLine_(safetyOff, 'safetyOfficer', '250px') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>Sign:</b> ' + renderLine_(safetyOffSign, 'safetyOfficerSign', '140px') +
+    '  </div>' +
+    '  <div>' +
+    '    <b>Name of Contractor Site In charge:</b> ' + renderLine_(contIncharge, 'contractorInCharge', '220px') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>Contact Number:</b> ' + renderLine_(contPhone, 'contactNumber', '130px') +
+    '  </div>' +
+    '  <div>' +
+    '    <b>Description of work:</b> ' + renderLine_(workDesc, 'workDescription', '80%', true) +
+    '  </div>' +
+    '  <div>' +
+    '    <b>Work Execution Date:</b> ' + renderDateLine_(execDate, 'workExecutionDate') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>Valid From:-</b> ' + renderLine_(validFrom, 'validFrom', '130px') +
+    '    &nbsp;&nbsp;&nbsp;&nbsp;<b>To:-</b> ' + renderLine_(validTo, 'validTo', '130px') +
+    '  </div>' +
     '</div>' +
 
-    '<p style="font-size:10px;font-style:italic;margin:4px 0 8px;color:#334155">' +
+    '<!-- Declaration Paragraph -->' +
+    '<p style="font-size:9.5px;margin:4px 0 3px;color:#111;line-height:1.35">' +
     '  The above signing person will be responsible to ensure that the above described work will be done under all the safety precaution mentioned on the PTW and required by the Project.' +
     '</p>' +
+    '<div style="font-size:10px;margin-bottom:5px">The following precautions are to be taken:-</div>' +
 
-    '<div style="font-size:11px;font-weight:bold;margin-bottom:5px">The following precautions are to be taken:-</div>' +
-
-    '<table style="width:100%;border-collapse:collapse;border:1.5px solid #0f172a;font-size:10.5px;margin-bottom:8px">' +
+    '<!-- 4. Precautions Checklist Table -->' +
+    '<table style="width:100%;border-collapse:collapse;border:2px solid #000;font-size:9.5px;margin-bottom:8px">' +
+    '  <thead>' +
     tableHeader +
+    '  </thead>' +
+    '  <tbody>' +
     tableRows +
+    '  </tbody>' +
     '</table>' +
 
     workmenBlock +
 
-    '<div style="margin-top:6px;font-size:10px;color:#475569"><b>Notes:</b> a) Work permit is valid for the prescribed date, time and in prescribed location only</div>' +
-
-    '<div style="margin-top:10px;border:1px solid #cbd5e1;padding:6px 10px;border-radius:6px;background:#f8fafc">' +
-    '  <div style="font-weight:bold;font-size:11.5px;margin-bottom:4px;color:#0f172a">Reviewed & Approved By (Permit Issuing Authority):</div>' +
-    '  <table style="width:100%;border-collapse:collapse;font-size:10.5px">' +
-    '    <tr>' +
-    '      <td style="width:50%;padding:3px 0"><b>EHS:</b> ' + escapeHtml_(fields.approvalEhsName || '—') + ' &nbsp;&nbsp; <b>Sign:</b> <span style="font-style:italic;color:#0f766e">' + escapeHtml_(fields.approvalEhsSign || fields.approvalEhsName || 'Acknowledged') + '</span></td>' +
-    '      <td style="width:50%;padding:3px 0"><b>Date:</b> ' + escapeHtml_(displayDate_(fields.approvalEhsDate || fields.date)) + ' &nbsp;&nbsp; <b>Time:</b> ' + escapeHtml_(fields.approvalEhsTime || fields.time || '—') + '</td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td style="width:50%;padding:3px 0"><b>Site Engineer:</b> ' + escapeHtml_(fields.approvalSiteEngineerName || '—') + ' &nbsp;&nbsp; <b>Sign:</b> <span style="font-style:italic;color:#0f766e">' + escapeHtml_(fields.approvalSiteEngineerSign || fields.approvalSiteEngineerName || 'Verified') + '</span></td>' +
-    '      <td style="width:50%;padding:3px 0"><b>Date:</b> ' + escapeHtml_(displayDate_(fields.approvalSiteEngineerDate || fields.date)) + ' &nbsp;&nbsp; <b>Time:</b> ' + escapeHtml_(fields.approvalSiteEngineerTime || fields.time || '—') + '</td>' +
-    '    </tr>' +
-    '  </table>' +
-    '  <div style="font-size:9.5px;font-style:italic;color:#475569;margin-top:4px">' +
-    '    I understand the precaution to be taken as described above and as per Project requirement & hereby confirm that Work will be executed under my supervision by following all precaution & Safety Rules.' +
+    '<!-- 5. Reviewed & Approved By -->' +
+    '<div style="margin-top:6px;font-size:10px">' +
+    '  <div style="font-weight:bold;margin-bottom:3px">Reviewed &amp; Approved By(Permit Issuing Authority):</div>' +
+    '  <div style="margin-bottom:3px">' +
+    '    <b>EHS:</b> ' + renderLine_(f.approvalEhsName, 'approvalEhsName', '210px') +
+    '    &nbsp;&nbsp;<b>Sign:</b> ' + renderLine_(f.approvalEhsSign || (f.approvalEhsName ? 'Signed' : ''), 'approvalEhsSign', '100px') +
+    '    &nbsp;&nbsp;<b>Date:</b> ' + renderDateLine_(f.approvalEhsDate ? displayDate_(f.approvalEhsDate) : '', 'approvalEhsDate') +
+    '    &nbsp;&nbsp;<b>Time</b> ' + renderLine_(f.approvalEhsTime, 'approvalEhsTime', '65px') +
     '  </div>' +
+    '  <div style="margin-bottom:3px">' +
+    '    <b>Site Engineer:</b> ' + renderLine_(f.approvalSiteEngineerName, 'approvalSiteEngineerName', '170px') +
+    '    &nbsp;&nbsp;<b>Sign :</b> ' + renderLine_(f.approvalSiteEngineerSign || (f.approvalSiteEngineerName ? 'Signed' : ''), 'approvalSiteEngineerSign', '100px') +
+    '    &nbsp;&nbsp;<b>Date:</b> ' + renderDateLine_(f.approvalSiteEngineerDate ? displayDate_(f.approvalSiteEngineerDate) : '', 'approvalSiteEngineerDate') +
+    '    &nbsp;&nbsp;<b>Time</b> ' + renderLine_(f.approvalSiteEngineerTime, 'approvalSiteEngineerTime', '65px') +
+    '  </div>' +
+    '  <p style="font-size:9px;margin:2px 0 6px;color:#222;line-height:1.25">' +
+    '    I understand the precaution to be taken as described above and as per Project requirement &amp; here by confirm that Work will be executed under my supervision by following all precaution &amp; Safety Rules.' +
+    '  </p>' +
     '</div>' +
 
-    '<div style="margin-top:10px;border:1px solid #cbd5e1;padding:6px 10px;border-radius:6px">' +
-    '  <div style="font-weight:bold;font-size:11.5px;margin-bottom:3px;color:#991b1b">Permit Closing / Cancellation:-</div>' +
-    '  <div style="font-size:9.5px;font-style:italic;color:#475569;margin-bottom:6px">' +
+    '<!-- 6. Permit Closing / Cancellation -->' +
+    '<div style="margin-top:4px;font-size:10px">' +
+    '  <div style="font-weight:bold;margin-bottom:2px">Permit Closing / Cancellation:-</div>' +
+    '  <p style="font-size:9px;margin:1px 0 4px;color:#222;line-height:1.25">' +
     '    I hereby declare that the work is completed / suspended, all workers under my control have been withdrawn and the site restored to a safe tidy condition.' +
+    '  </p>' +
+    '  <div style="margin-bottom:3px">' +
+    '    <b>Name of Site Engineer (Permit Requesting Authority)</b> ' + renderLine_(f.closingSiteEngName, 'closingSiteEngName', '160px') +
+    '    &nbsp;&nbsp;<b>Sign</b> ' + renderLine_(f.closingSiteEngSign || (f.closingSiteEngName ? 'Signed' : ''), 'closingSiteEngSign', '85px') +
+    '    &nbsp;&nbsp;<b>Date</b> ' + renderDateLine_(f.closingSiteEngDate ? displayDate_(f.closingSiteEngDate) : '', 'closingSiteEngDate') +
+    '    &nbsp;&nbsp;<b>Time</b> ' + renderLine_(f.closingSiteEngTime, 'closingSiteEngTime', '65px') +
     '  </div>' +
-    '  <table style="width:100%;border-collapse:collapse;font-size:10.5px">' +
-    '    <tr>' +
-    '      <td style="width:55%;padding:2px 0"><b>Name of Site Engineer (Permit Requesting Authority):</b> ' + escapeHtml_(fields.closingSiteEngName || '—') + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Sign:</b> ' + escapeHtml_(fields.closingSiteEngSign || '—') + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Date:</b> ' + escapeHtml_(displayDate_(fields.closingSiteEngDate || '')) + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Time:</b> ' + escapeHtml_(fields.closingSiteEngTime || '—') + '</td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td style="width:55%;padding:2px 0"><b>Name of Safety Officer:</b> ' + escapeHtml_(fields.closingSafetyOfficerName || '—') + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Sign:</b> ' + escapeHtml_(fields.closingSafetyOfficerSign || '—') + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Date:</b> ' + escapeHtml_(displayDate_(fields.closingSafetyOfficerDate || '')) + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Time:</b> ' + escapeHtml_(fields.closingSafetyOfficerTime || '—') + '</td>' +
-    '    </tr>' +
-    '    <tr>' +
-    '      <td style="width:55%;padding:2px 0"><b>Name of PMC Site Engineer (Permit Issuing Authority):</b> ' + escapeHtml_(fields.closingPmcSiteEngName || '—') + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Sign:</b> ' + escapeHtml_(fields.closingPmcSiteEngSign || '—') + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Date:</b> ' + escapeHtml_(displayDate_(fields.closingPmcSiteEngDate || '')) + '</td>' +
-    '      <td style="width:15%;padding:2px 0"><b>Time:</b> ' + escapeHtml_(fields.closingPmcSiteEngTime || '—') + '</td>' +
-    '    </tr>' +
-    '  </table>' +
+    '  <div style="margin-bottom:3px">' +
+    '    <b>Name of PMC Site Engineer (Permit Issuing Authority)</b> ' + renderLine_(f.closingPmcSiteEngName, 'closingPmcSiteEngName', '160px') +
+    '    &nbsp;&nbsp;<b>Sign</b> ' + renderLine_(f.closingPmcSiteEngSign || (f.closingPmcSiteEngName ? 'Signed' : ''), 'closingPmcSiteEngSign', '85px') +
+    '    &nbsp;&nbsp;<b>Date</b> ' + renderDateLine_(f.closingPmcSiteEngDate ? displayDate_(f.closingPmcSiteEngDate) : '', 'closingPmcSiteEngDate') +
+    '    &nbsp;&nbsp;<b>Time</b> ' + renderLine_(f.closingPmcSiteEngTime, 'closingPmcSiteEngTime', '65px') +
+    '  </div>' +
     '</div>' +
 
-    ((fields.signedPermitUrl || fields.swmsFileUrl || fields.preWorkPhotoUrl || fields.signedPermitFile || fields.swmsFile || fields.preWorkPhoto) ?
-      '<div style="margin-top:10px;border:1px solid #0284c7;padding:6px 10px;border-radius:6px;background:#f0f9ff">' +
-      '  <div style="font-weight:bold;font-size:11px;margin-bottom:4px;color:#0369a1">Attached Supporting Documents &amp; Reference Files:</div>' +
-      '  <table style="width:100%;border-collapse:collapse;font-size:10px">' +
-      (fields.signedPermitUrl || fields.signedPermitFile ? '<tr><td style="width:38%;padding:2px 0"><b>Signed PTW Copy / Scan:</b></td><td>' + escapeHtml_(fields.signedPermitUrl || fields.signedPermitFile) + '</td></tr>' : '') +
-      (fields.swmsFileUrl || fields.swmsFile ? '<tr><td style="width:38%;padding:2px 0"><b>SWMS / JSA Document:</b></td><td>' + escapeHtml_(fields.swmsFileUrl || fields.swmsFile) + '</td></tr>' : '') +
-      (fields.preWorkPhotoUrl || fields.preWorkPhoto ? '<tr><td style="width:38%;padding:2px 0"><b>Site Verification Photo:</b></td><td>' + escapeHtml_(fields.preWorkPhotoUrl || fields.preWorkPhoto) + '</td></tr>' : '') +
+    '<!-- 7. Supporting File Attachments & Placeholders -->' +
+    ((f.signedPermitUrl || f.swmsFileUrl || f.preWorkPhotoUrl || f.signedPermitFile || f.swmsFile || f.preWorkPhoto) ?
+      '<div style="margin-top:6px;border:1.5px solid #0284c7;padding:5px 8px;border-radius:4px;background:#f0f9ff;font-size:9.5px">' +
+      '  <div style="font-weight:bold;color:#0369a1;margin-bottom:2px">📎 Attached Supporting Documents &amp; Reference Files:</div>' +
+      '  <table style="width:100%;border-collapse:collapse">' +
+      (f.signedPermitUrl || f.signedPermitFile ? '<tr><td style="width:38%;padding:2px 0"><b>Signed PTW Copy / Scan:</b></td><td>' + escapeHtml_(f.signedPermitUrl || f.signedPermitFile) + '</td></tr>' : '') +
+      (f.swmsFileUrl || f.swmsFile ? '<tr><td style="width:38%;padding:2px 0"><b>SWMS / JSA Document:</b></td><td>' + escapeHtml_(f.swmsFileUrl || f.swmsFile) + '</td></tr>' : '') +
+      (f.preWorkPhotoUrl || f.preWorkPhoto ? '<tr><td style="width:38%;padding:2px 0"><b>Site Verification Photo:</b></td><td>' + escapeHtml_(f.preWorkPhotoUrl || f.preWorkPhoto) + '</td></tr>' : '') +
       '  </table>' +
       '</div>' : '') +
 
-    '<table style="width:100%;margin-top:14px;font-size:10px;color:#64748b">' +
+    '<!-- 8. Footer Notation -->' +
+    '<table style="width:100%;margin-top:8px;font-size:9px;color:#475569">' +
     '  <tr>' +
     '    <td style="text-align:left"><b>Controlled Copy©</b></td>' +
-    '    <td style="text-align:right"><b>Shankar Electricals Services I Pvt Ltd.</b><br><span style="font-family:monospace;font-size:10px;font-weight:bold">' + escapeHtml_(docCode) + '</span></td>' +
+    '    <td style="text-align:right"><b>Shankar Electricals Services I Pvt Ltd.</b> &nbsp;|&nbsp; <b>' + escapeHtml_(docCode) + '</b></td>' +
     '  </tr>' +
     '</table>' +
 

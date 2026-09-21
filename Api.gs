@@ -3034,13 +3034,33 @@ function buildObservationsExcelSheet_(sheet, obsRows, project, user) {
 /* =========================================================
    BLANK WORK PERMIT TEMPLATES & LIBRARY SEEDING
    ========================================================= */
-function apiGetBlankPtwTemplateHtml(token, formCode, projectId) {
+function apiGetBlankPtwTemplateHtml(token, formCode, projectId, options) {
   const user = requireUser_(token);
   const pId = projectId || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || 'PRJ001';
   const project = findOne_(SHEETS.PROJECTS, 'id', pId) || { id: pId, name: 'SESIPL Project Site', code: 'PRJ' };
   const def = FORM_DEFS.find(function(f) { return f.formCode === formCode; }) || { formCode: formCode, title: formCode };
-  const html = buildWorkPermitPdfHtml_(project, def, {}, user, 1);
+  const html = buildWorkPermitPdfHtml_(project, def, {}, user, 1, options);
   return { ok: true, html: html, formCode: formCode, title: def.title };
+}
+
+function apiPreviewWorkPermitPdfHtml(token, formCode, fields, projectId, options) {
+  const user = requireUser_(token);
+  const pId = projectId || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || 'PRJ001';
+  const project = findOne_(SHEETS.PROJECTS, 'id', pId) || { id: pId, name: 'SESIPL Project Site', code: 'PRJ' };
+  const def = FORM_DEFS.find(function(f) { return f.formCode === formCode; }) || { formCode: formCode, title: formCode };
+  const html = buildWorkPermitPdfHtml_(project, def, fields || {}, user, 1, options);
+  return { ok: true, html: html, formCode: formCode, title: def.title };
+}
+
+function apiGetSubmissionPdfHtml(token, submissionId, options) {
+  const user = requireUser_(token);
+  const sub = findOne_(SHEETS.SUBMISSIONS, 'id', submissionId);
+  if (!sub) throw new Error("Submission record not found: " + submissionId);
+  const project = findOne_(SHEETS.PROJECTS, 'id', sub.projectId) || { id: sub.projectId, name: 'SESIPL Project Site', code: 'PRJ' };
+  const def = FORM_DEFS.find(function(f) { return f.formCode === sub.formCode; }) || { formCode: sub.formCode, title: sub.formCode };
+  const fields = (typeof sub.payload === 'object' && sub.payload) ? sub.payload : (JSON.parse(sub.payloadJson || '{}'));
+  const html = buildWorkPermitPdfHtml_(project, def, fields, user, sub.version || 1, options);
+  return { ok: true, html: html, submission: sub, title: def.title };
 }
 
 function ensureDemoLibrary_(projects) {
