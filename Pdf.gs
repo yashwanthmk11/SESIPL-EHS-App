@@ -1,4 +1,22 @@
 function generateSubmissionPdf_(project, def, fields, user, version) {
+  const formCode = def.formCode;
+  const templateDocId = (typeof getDocTemplateRegistry_ === 'function')
+    ? (getDocTemplateRegistry_()[formCode] || '')
+    : '';
+
+  // If a Google Doc template is configured, data sits directly in the doc and exports to PDF
+  if (templateDocId && templateDocId.trim() !== '') {
+    try {
+      const placeholderMap = buildPlaceholderMap_(formCode, fields, project, user);
+      const name = (project.code || 'PRJ') + '-' + formCode + '-v' + (version || 1) + '-' + todayIso_();
+      const res = generatePdfFromDocsTemplate_(templateDocId.trim(), placeholderMap, name, project);
+      return { fileId: res.fileId, docId: templateDocId.trim(), url: res.pdfUrl };
+    } catch (err) {
+      Logger.log("Notice: Error generating PDF from Docs template (" + formCode + "): " + err + ". Falling back to HTML generator.");
+    }
+  }
+
+  // Fallback to HTML generator
   const isPermit = def.formCode && def.formCode.indexOf('WP_') === 0;
   const html = isPermit
     ? buildWorkPermitPdfHtml_(project, def, fields, user, version)

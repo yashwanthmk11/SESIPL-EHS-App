@@ -5,6 +5,61 @@
    ========================================================= */
 
 /**
+ * Official Google Doc Template IDs directly configured in the backend.
+ * Linked to the user's provided official templates.
+ */
+const BACKEND_DOCS_TEMPLATES = {
+  // Work Permits (Safety Work Clearance)
+  WP_HEIGHT: '1t-SjqzbVnBHORMCvk_bAEZYeg3M4GpYl',  // Working At Height Permit-04
+  WP_GENERAL: '1xB1mCI7UlmPBT0losFIVL2iXZFrIh6E-', // General work permit-02
+  WP_HOT: '122BRc7qu7FWQXs06X3g50DjbusrZWiNq',     // Hot Work Permit-03
+  WP_LIFT: '1oxR-cGv7bU6pt1lrl1qCkx8_67X28g5S',    // Lifting Activity Permit-05
+  WP_SHAFT: '1tr2XbzrGmtJ86BRE_B9nnRDpV-TSr5KY',   // Shaft work permit-06
+  WP_NIGHT: '1g_z99d2ROzrGRsAwK96tUN9Yrg7D-fwy',   // Night Work permit-07
+
+  // Checklists & Equipment Inspections
+  CL_WELD: '1iQC5RiaqPexVGQ1E6_8eZfns_nVPxnoy',    // SESIPL-EHS-Welding Machine (1)
+  CL_GRIND: '1a1g3LBj887C6NC20DX9W1x7tl04ukSuY',   // SESIPLEHS-Grinding Machine Checklist
+  CL_CUT: '',                                      // Cutting Machine Checklist
+  CL_DRILL: '1-NMUXI9ACdSJfnuBaRrkvoGIpHEYJ0AO',   // SESIPL-EHS Drilling Machine
+  CL_FE: '1GOdBINiB8ZgbRSjGvXWT9GCmf0g0ksw5',      // SESIPL-EHS - Fire Extinguisher
+  CL_SCAFFOLD: '1fDFw_miYiWM9AcHKBbGqUtTIP-NPyVW3',// Scaffolding checklist
+
+  // Attendances, Training & Inductions
+  CL_TBT: '1qCc1BzpLnof_TTaqVFVlp7WgSsaQlmUr',      // SESIPL-EHS-Tool Box Talk
+  CL_JST: '1egxHNPpQ3S8BU5EGHHLPrK0fujWAjD6P',      // SESIPL-EHS-JST Attendance sheet
+  CL_INDUCTION: '',                                // EHS Induction
+
+  // Worker Screening & Medical
+  CL_SCREENING: '1v7WlDOPl7176yGCLWkWY6xghB3agH0Ky',// Screening of Worker Format
+  CL_MEDICAL: '1CwgjUnuPptlNYTaO3abxZEuCQo5BVLvm',  // Medical certificate-xI
+
+  // Stickers / Tags
+  TAG_IND: '',
+  TAG_TOOL: '',
+  TAG_FE: '',
+  TAG_RED: ''
+};
+
+/**
+ * Resolves the Google Doc template ID for a given formCode,
+ * checking runtime properties first and falling back to backend defaults.
+ */
+function getDocTemplateId_(formCode) {
+  let id = '';
+  try {
+    if (typeof getDocTemplateRegistry_ === 'function') {
+      const reg = getDocTemplateRegistry_();
+      id = (reg && reg[formCode]) || '';
+    }
+  } catch (e) {}
+  if (!id || id.trim() === '') {
+    id = BACKEND_DOCS_TEMPLATES[formCode] || '';
+  }
+  return id ? id.trim() : '';
+}
+
+/**
  * Builds a comprehensive dictionary of placeholder replacements.
  * Matches all standard and specific tags for permits, checklists, and worker forms.
  */
@@ -115,7 +170,15 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     tbtConductedBySign: fields.conductedBy ? 'Signed' : '',
     projectManagerName: fields.projectManager || fields.projectManagerName || '',
     projectManagerSign: fields.projectManager ? 'Signed' : '',
-    ehsOfficerSign: 'Signed'
+    ehsOfficerSign: 'Signed',
+
+    // Equipment Details
+    equipmentId: fields.equipmentId || fields.equipmentNo || fields.machineNo || '',
+    equipmentNo: fields.equipmentNo || fields.equipmentId || fields.machineNo || '',
+    machineNo: fields.machineNo || fields.equipmentId || fields.equipmentNo || '',
+    makeType: fields.makeType || fields.make || '',
+    inspectionDate: fields.inspectionDate ? displayDate_(fields.inspectionDate) : '',
+    nextInspectionDate: fields.nextInspectionDate ? displayDate_(fields.nextInspectionDate) : (fields.nextDue ? displayDate_(fields.nextDue) : '')
   };
 
   // Process all keys in fields directly
@@ -126,7 +189,6 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
   }
 
   // Generate Yes / No / NA / Not Required checkbox indicators
-  // For each field like 'height_q1', 'gen_q1', 'lift_q1', 'night_q1'
   for (const k in fields) {
     const val = String(fields[k] || '').trim().toLowerCase();
     const isYes = val === 'yes' || val === 'y' || val === 'true';
@@ -134,24 +196,87 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     const isNA = val === 'na' || val === 'n/a';
     const isNR = val === 'not required' || val === 'nr';
 
-    // Form-specific prefix
+    // Form-specific prefix (e.g. height_q1_yes, night_q1_no)
     map[k + '_yes'] = isYes ? '✓' : '';
     map[k + '_no'] = isNo ? '✓' : '';
     map[k + '_na'] = isNA ? '✓' : '';
     map[k + '_nr'] = isNR ? '✓' : '';
 
-    // Generic prefix (e.g. height_q1 -> q1_yes)
-    const match = k.match(/^(?:height|gen|hot|lift|shaft|night|wm|grind|cut|drill|fe)_?(q\d+)/i);
+    // Generic prefix (e.g. height_q1 -> q1_yes, 1_yes)
+    const match = k.match(/^(?:height|gen|hot|lift|shaft|night|wm|grind|cut|drill|fe)_?(q?\d+)/i);
     if (match) {
-      const qTag = match[1].toLowerCase(); // e.g. 'q1'
+      const numPart = match[1].toLowerCase().replace('q', '');
+      const qTag = 'q' + numPart;
       map[qTag + '_yes'] = isYes ? '✓' : (map[qTag + '_yes'] || '');
       map[qTag + '_no'] = isNo ? '✓' : (map[qTag + '_no'] || '');
       map[qTag + '_na'] = isNA ? '✓' : (map[qTag + '_na'] || '');
       map[qTag + '_nr'] = isNR ? '✓' : (map[qTag + '_nr'] || '');
+      map[qTag] = fields[k];
+
+      map[numPart + '_yes'] = isYes ? '✓' : (map[numPart + '_yes'] || '');
+      map[numPart + '_no'] = isNo ? '✓' : (map[numPart + '_no'] || '');
+      map[numPart + '_na'] = isNA ? '✓' : (map[numPart + '_na'] || '');
+      map[numPart + '_nr'] = isNR ? '✓' : (map[numPart + '_nr'] || '');
     }
   }
 
-  return map;
+  // Handle daily inspection checklists like item1Day1
+  for (let item = 1; item <= 15; item++) {
+    for (let day = 1; day <= 7; day++) {
+      const fieldKey = 'item' + item + 'Day' + day;
+      if (fields[fieldKey]) {
+        const v = String(fields[fieldKey]).trim();
+        const isTick = v.toLowerCase() === 'yes' || v.toLowerCase() === 'y' || v === '✓';
+        const displayVal = isTick ? '✓' : v;
+        map['wm_q' + item + '_d' + day] = displayVal;
+        map['grind_q' + item + '_d' + day] = displayVal;
+        map['cut_q' + item + '_d' + day] = displayVal;
+        map['q' + item + '_d' + day] = displayVal;
+        map['item' + item + '_d' + day] = displayVal;
+      }
+    }
+  }
+
+  // Handle participant rows for TBT, JST, Training, and Induction
+  for (let i = 1; i <= 30; i++) {
+    const name = fields['participant' + i + 'Name'] || fields['tbt_name_' + i] || fields['train_name_' + i] || '';
+    const desig = fields['participant' + i + 'Designation'] || fields['tbt_desig_' + i] || fields['train_desig_' + i] || '';
+    const agency = fields['participant' + i + 'Company'] || fields['participant' + i + 'Agency'] || fields['tbt_agency_' + i] || fields['train_company_' + i] || '';
+    const sign = name ? (fields['participant' + i + 'Signature'] || 'Signed') : '';
+
+    map['tbt_name_' + i] = name;
+    map['tbt_desig_' + i] = desig;
+    map['tbt_agency_' + i] = agency;
+    map['tbt_sign_' + i] = sign;
+
+    map['train_name_' + i] = name;
+    map['train_desig_' + i] = desig;
+    map['train_company_' + i] = agency;
+    map['train_sign_' + i] = sign;
+
+    const indId = fields['attendee' + i + 'Id'] || fields['ind_id_' + i] || '';
+    const indName = fields['attendee' + i + 'Name'] || fields['ind_name_' + i] || '';
+    const indDesig = fields['attendee' + i + 'Designation'] || fields['ind_desig_' + i] || '';
+    const indSign = indName ? (fields['attendee' + i + 'Signature'] || 'Signed') : '';
+
+    map['ind_id_' + i] = indId;
+    map['ind_name_' + i] = indName;
+    map['ind_desig_' + i] = indDesig;
+    map['ind_sign_' + i] = indSign;
+  }
+
+  // Generate uppercase, lowercase, and capitalized aliases for every placeholder
+  const finalMap = {};
+  for (const k in map) {
+    const val = map[k];
+    finalMap[k] = val;
+    finalMap[k.toLowerCase()] = val;
+    finalMap[k.toUpperCase()] = val;
+    const cap = k.charAt(0).toUpperCase() + k.slice(1);
+    finalMap[cap] = val;
+  }
+
+  return finalMap;
 }
 
 /**
@@ -167,13 +292,13 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
     throw new Error("Template Google Doc not accessible with ID: " + templateDocId);
   }
 
-  // Create working copy
+  // Create working copy in designated folder
   const folder = getEhsGeneratedPdfFolder_(project);
   const copyTitle = (title || 'EHS_Document') + '_' + new Date().getTime();
   const docCopy = templateFile.makeCopy(copyTitle, folder);
   const doc = DocumentApp.openById(docCopy.getId());
 
-  // Replace placeholders in Document Body, Header, and Footer
+  // Replace placeholders in Document Body, Header, Footer, and all Table cells
   replacePlaceholdersInDoc_(doc, placeholderMap);
   doc.saveAndClose();
 
@@ -211,11 +336,11 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
     if (!element) return;
     for (const key in placeholderMap) {
       const val = placeholderMap[key] != null ? String(placeholderMap[key]) : '';
-      const tag = '{{' + key + '}}';
+      const regexPattern = '\\{\\{\\s*' + escapeRegex_(key) + '\\s*\\}\\}';
       try {
-        element.replaceText(escapeRegex_(tag), val);
+        element.replaceText(regexPattern, val);
       } catch (e) {
-        // Continue with next placeholder if replacement fails
+        // Continue
       }
     }
   };
@@ -223,6 +348,25 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
   replaceInElement(doc.getBody());
   if (doc.getHeader()) replaceInElement(doc.getHeader());
   if (doc.getFooter()) replaceInElement(doc.getFooter());
+
+  // Explicitly traverse all tables in the body to guarantee all cells are updated
+  try {
+    const tables = doc.getBody().getTables();
+    for (let t = 0; t < tables.length; t++) {
+      const table = tables[t];
+      const numRows = table.getNumRows();
+      for (let r = 0; r < numRows; r++) {
+        const row = table.getRow(r);
+        const numCells = row.getNumCells();
+        for (let c = 0; c < numCells; c++) {
+          const cell = row.getCell(c);
+          replaceInElement(cell);
+        }
+      }
+    }
+  } catch (tableErr) {
+    Logger.log("Notice: Table traversal in replacePlaceholdersInDoc_: " + tableErr);
+  }
 }
 
 function escapeRegex_(str) {
@@ -262,10 +406,9 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
   const fields = (typeof sub.payload === 'object' && sub.payload) ? sub.payload : JSON.parse(sub.payloadJson || '{}');
   const user = { employeeId: sub.submittedBy, name: sub.submittedBy };
 
-  const registry = getDocTemplateRegistry_();
-  const templateDocId = registry[sub.formCode];
+  const templateDocId = getDocTemplateId_(sub.formCode);
 
-  // 1. If user configured a Google Docs template ID for this form:
+  // 1. If a Google Docs template ID is configured for this form:
   if (templateDocId && templateDocId.trim() !== '') {
     const placeholderMap = buildPlaceholderMap_(sub.formCode, fields, project, user, submissionId);
     const title = (project.code || 'PRJ') + '_' + sub.formCode + '_' + submissionId;
