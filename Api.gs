@@ -3034,13 +3034,41 @@ function buildObservationsExcelSheet_(sheet, obsRows, project, user) {
 /* =========================================================
    BLANK WORK PERMIT TEMPLATES & LIBRARY SEEDING
    ========================================================= */
-function apiGetBlankPtwTemplateHtml(token, formCode, projectId) {
+function apiGetBlankPtwTemplateHtml(token, formCode, projectId, options) {
   const user = requireUser_(token);
   const pId = projectId || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || 'PRJ001';
   const project = findOne_(SHEETS.PROJECTS, 'id', pId) || { id: pId, name: 'SESIPL Project Site', code: 'PRJ' };
   const def = FORM_DEFS.find(function(f) { return f.formCode === formCode; }) || { formCode: formCode, title: formCode };
-  const html = buildWorkPermitPdfHtml_(project, def, {}, user, 1);
+  const html = buildWorkPermitPdfHtml_(project, def, {}, user, 1, options);
   return { ok: true, html: html, formCode: formCode, title: def.title };
+}
+
+function apiPreviewWorkPermitPdfHtml(token, formCode, fields, projectId, options) {
+  const user = requireUser_(token);
+  const pId = projectId || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || 'PRJ001';
+  const project = findOne_(SHEETS.PROJECTS, 'id', pId) || { id: pId, name: 'SESIPL Project Site', code: 'PRJ' };
+  const def = FORM_DEFS.find(function(f) { return f.formCode === formCode; }) || { formCode: formCode, title: formCode };
+  const html = buildWorkPermitPdfHtml_(project, def, fields || {}, user, 1, options);
+  return { ok: true, html: html, formCode: formCode, title: def.title };
+}
+
+function apiGetSubmissionPdf(token, submissionId, options) {
+  const user = requireUser_(token);
+  return getOrGenerateSubmissionPdf_(submissionId, options);
+}
+
+function apiGetDocTemplateRegistry(token) {
+  const user = requireUser_(token);
+  return { ok: true, registry: getDocTemplateRegistry_() };
+}
+
+function apiUpdateDocTemplateRegistry(token, registry) {
+  const user = requireUser_(token);
+  if (user.role !== ROLES.MANAGER && user.role !== ROLES.DIRECTOR) {
+    throw new Error("Only EHS Manager or Director can configure document templates.");
+  }
+  const updated = setDocTemplateRegistry_(registry);
+  return { ok: true, registry: updated };
 }
 
 function ensureDemoLibrary_(projects) {

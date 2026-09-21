@@ -69,6 +69,60 @@ const HEADERS = {
   AuditLog: ['id', 'at', 'employeeId', 'action', 'entityType', 'entityId', 'detail']
 };
 
+/* =========================================================
+   GOOGLE DOCS TEMPLATE REGISTRY
+   Maps form codes to Google Doc template IDs for PDF generation.
+   ========================================================= */
+const DEFAULT_DOC_TEMPLATE_REGISTRY = {
+  // Work Permits
+  WP_HEIGHT: '',
+  WP_GENERAL: '',
+  WP_HOT: '',
+  WP_LIFT: '',
+  WP_SHAFT: '',
+  WP_NIGHT: '',
+
+  // Checklists & Equipment Inspections
+  CL_WELD: '',
+  CL_GRIND: '',
+  CL_CUT: '',
+  CL_DRILL: '',
+  CL_FE: '',
+
+  // Attendances & Inductions
+  CL_TBT: '',
+  CL_JST: '',
+  CL_INDUCTION: '',
+
+  // Worker Screening & Medical
+  CL_SCREENING: '',
+  CL_MEDICAL: '',
+
+  // Stickers / Tags
+  TAG_IND: '',
+  TAG_TOOL: '',
+  TAG_FE: '',
+  TAG_RED: ''
+};
+
+function getDocTemplateRegistry_() {
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('DOC_TEMPLATE_REGISTRY');
+    if (raw) {
+      return Object.assign({}, DEFAULT_DOC_TEMPLATE_REGISTRY, JSON.parse(raw));
+    }
+  } catch (e) {
+    // fallback
+  }
+  return Object.assign({}, DEFAULT_DOC_TEMPLATE_REGISTRY);
+}
+
+function setDocTemplateRegistry_(registry) {
+  const merged = Object.assign({}, getDocTemplateRegistry_(), registry || {});
+  PropertiesService.getScriptProperties().setProperty('DOC_TEMPLATE_REGISTRY', JSON.stringify(merged));
+  return merged;
+}
+
 const MODULES = [
   { id: 'TEST_CERT', title: 'Test Certificates', cadence: 'ONETIME', icon: 'verified' },
   { id: 'WEEKLY', title: 'Weekly / Monthly Report', cadence: 'WEEKLY', icon: 'calendar' },
@@ -607,6 +661,21 @@ function getFormFields_(formCode) {
     { key: 'height_q10', label: '10. Employees aware about hazards and safe working practices while working at height.', type: 'select', options: ['Yes', 'Not Required'], required: true }
   ];
 
+  const generalPrecautions = [
+    { key: 'gen_q1', label: '1. Proper Access/ Exit available.', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q2', label: '2. Proper & Safe scaffolding, platform, ladder provided', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q3', label: '3. Daily housekeeping of the work area completed', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q4', label: '4. Identification & protection of any utility services like electric cables, pipes etc. nearby before start of work.', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q5', label: '5. Checked safe condition of hand tools/ Power tools.', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q6', label: '6. Conducted JST/TBT conducted', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q7', label: '7. Emergency precautionary measures are in place', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q8', label: '8. Proper illumination', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q9', label: '9. Personal Protective Equipment provided. Minimum applicable are safety helmet, safety goggles, safety shoes, Hand gloves, dust mask, Etc.', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q10', label: '10. Solid & strong barricade provided around excavation/work area', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_q11', label: '11. Safety Sign board are in place .', type: 'select', options: ['Yes', 'Not Required'], required: true },
+    { key: 'gen_other', label: '12-16. Other Precautions / Notes', type: 'text', required: false }
+  ];
+
   const assemblePermit = (precautions) => {
     return permitHeaderFields
       .concat(precautions)
@@ -674,7 +743,7 @@ function getFormFields_(formCode) {
     WP_LIFT: assemblePermit(liftPrecautions),
     WP_HOT: assemblePermit(hotPrecautions),
     WP_HEIGHT: assemblePermit(heightPrecautions),
-    WP_GENERAL: assemblePermit([]),
+    WP_GENERAL: assemblePermit(generalPrecautions),
     OBS_DAILY: [
       { key: 'date', label: 'Date', type: 'date', required: true },
       { key: 'reportNo', label: 'Report No', type: 'text', required: true },

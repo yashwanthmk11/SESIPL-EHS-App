@@ -1519,6 +1519,9 @@
         '      📄 Download Standard PTW Format (Blank)' +
         '    </button>' +
         '    ' + (canUploadRole() ? '<button class="btn small secondary" onclick="openBulkUpload(\'WP_UPLOAD\')">📤 Upload Signed Permit Scan</button>' : '') +
+        '    <button class="btn small secondary" style="border:1.5px solid #0f766e;color:#0f766e;font-weight:700" onclick="openDocTemplateSettingsModal()">' +
+        '      ⚙️ Google Docs Templates' +
+        '    </button>' +
         '  </div>' +
         '</div>'
       : '';
@@ -1575,10 +1578,11 @@
                             const subCm = (STATE.comments || []).filter(c => c.entityId === s.id);
                             return '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Submission\',\'' + s.id + '\',\'' + esc(f.title) + ' (v' + s.version + ')\',{projectId:\'' + s.projectId + '\',status:\'' + s.status + '\'})" title="View discussion thread">💬' + (subCm.length ? ' ' + subCm.length : '') + '</button>';
                           })() +
+                          '<button class="ghost" style="color:#0f766e;font-weight:700" onclick="viewSubmissionPdf(\'' + s.id + '\')">📄 PDF</button>' +
                           (s.pdfFileId
                             ? '<button class="ghost" onclick="openFile(\'' +
                               s.pdfFileId +
-                              "')\">PDF</button>"
+                              "')\">Drive</button>"
                             : "") +
                           (s.status === "REJECTED" && USER.role === "EHS_LEAD"
                             ? '<button class="btn small" onclick="openForm(\'' +
@@ -3209,6 +3213,205 @@
     }
   }
   window.printBlankPtwTemplate = printBlankPtwTemplate;
+
+  async function viewSubmissionPdf(submissionId) {
+    setLoading(true, "Compiling submission PDF...");
+    try {
+      const res = await run("apiGetSubmissionPdf", TOKEN, submissionId);
+      setLoading(false);
+      if (!res || !res.ok) {
+        alert("Failed to load PDF for submission: " + (res && res.error ? res.error : "Unknown error"));
+        return;
+      }
+
+      if (res.source === "GOOGLE_DOCS") {
+        const modalHtml =
+          '<div style="max-width:960px;margin:0 auto;text-align:left">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+              '<div>' +
+                '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">OFFICIAL PDF DOCUMENT</span>' +
+                '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">' + esc(res.title || "Submission PDF") + '</h3>' +
+                '<p class="muted" style="margin:2px 0 0;font-size:12px">Generated from Google Docs template with submitted data sitting in placeholders.</p>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+                '<a href="' + esc(res.pdfUrl) + '" target="_blank" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Drive</a>' +
+                '<a href="' + esc(res.downloadUrl) + '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>' +
+                '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="background:#475569;padding:12px;border-radius:8px">' +
+              '<iframe src="' + esc(res.previewUrl) + '" style="width:100%;height:75vh;border:none;border-radius:4px;background:#fff"></iframe>' +
+            '</div>' +
+          '</div>';
+        showModal(modalHtml);
+      } else if (res.source === "HTML_FALLBACK" && res.html) {
+        CURRENT_PERMIT_PREVIEW_STATE = { html: res.html, title: res.title };
+        const modalHtml =
+          '<div style="max-width:920px;margin:0 auto;text-align:left">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+              '<div>' +
+                '<span class="badge" style="background:#f8fafc;color:#475569;font-size:11px;font-weight:800;border:1px solid #cbd5e1">DOCUMENT PDF PREVIEW</span>' +
+                '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">' + esc(res.title || "Submission PDF") + '</h3>' +
+                '<p class="muted" style="margin:2px 0 0;font-size:12px">All entered data formatted for PDF export.</p>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+                '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html)">🖨️ Print / Save as PDF</button>' +
+                '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="background:#475569;padding:16px;border-radius:8px;max-height:75vh;overflow-y:auto">' +
+              '<div style="background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.2);border-radius:4px;padding:24px;max-width:800px;margin:0 auto">' +
+                res.html +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        showModal(modalHtml);
+      } else {
+        alert("No PDF content returned.");
+      }
+    } catch (e) {
+      setLoading(false);
+      alert("Error generating PDF: " + (e.message || e));
+    }
+  }
+  window.viewSubmissionPdf = viewSubmissionPdf;
+
+  async function openDocTemplateSettingsModal() {
+    setLoading(true, "Loading Google Docs template registry...");
+    try {
+      const res = await run("apiGetDocTemplateRegistry", TOKEN);
+      setLoading(false);
+      const registry = (res && res.registry) || {};
+
+      const categories = [
+        {
+          name: "Work Permits (Safety Work Clearance)",
+          items: [
+            { code: "WP_HEIGHT", title: "Working At Height Permit (SESIPL-EHS.Blr Prj-04)" },
+            { code: "WP_GENERAL", title: "General Work Permit (SESIPL-EHS.Blr Prj-02)" },
+            { code: "WP_HOT", title: "Hot Work Permit (SESIPL-EHS.Blr Prj-03)" },
+            { code: "WP_LIFT", title: "Lifting Activity Permit (SESIPL-EHS.Blr Prj-05)" },
+            { code: "WP_SHAFT", title: "Shaft Work Permit (SESIPL-EHS.Blr Prj-06)" },
+            { code: "WP_NIGHT", title: "Night Work Permit (SESIPL-EHS.Blr Prj-07)" }
+          ]
+        },
+        {
+          name: "Checklists & Equipment Inspections",
+          items: [
+            { code: "CL_WELD", title: "Welding Machine Checklist (7-Day Log)" },
+            { code: "CL_GRIND", title: "Portable Grinding Machine Checklist (7-Day Log)" },
+            { code: "CL_CUT", title: "Cutting Machine Checklist (7-Day Log)" },
+            { code: "CL_DRILL", title: "Hammering Drill Machine Inspection" },
+            { code: "CL_FE", title: "Fire Extinguisher Inspection Checklist" }
+          ]
+        },
+        {
+          name: "Attendance, Training & Induction",
+          items: [
+            { code: "CL_TBT", title: "Tool Box Talk (TBT) Sheet" },
+            { code: "CL_JST", title: "Training Attendance Form" },
+            { code: "CL_INDUCTION", title: "EHS Induction Sheet" }
+          ]
+        },
+        {
+          name: "Worker Screening & Medical",
+          items: [
+            { code: "CL_SCREENING", title: "Screening of Worker Form" },
+            { code: "CL_MEDICAL", title: "Form XI Medical Certificate" }
+          ]
+        },
+        {
+          name: "Inspection Stickers & Tags",
+          items: [
+            { code: "TAG_IND", title: "EHS Induction Sticker (2\" x 3.5\")" },
+            { code: "TAG_TOOL", title: "Tool Inspection Tag Sticker" },
+            { code: "TAG_FE", title: "Fire Extinguisher Tag" },
+            { code: "TAG_RED", title: "Red Tag (Defective Equipment)" }
+          ]
+        }
+      ];
+
+      const formRows = categories.map(cat => {
+        return (
+          '<div style="margin-bottom:16px">' +
+            '<div style="font-weight:800;font-size:13px;color:#0f766e;border-bottom:1px solid #99f6e4;padding-bottom:4px;margin-bottom:8px">' +
+              cat.name +
+            '</div>' +
+            cat.items.map(it => {
+              const currentId = registry[it.code] || "";
+              return (
+                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">' +
+                  '<div style="flex:1;min-width:240px">' +
+                    '<strong style="font-size:12.5px;color:#1e293b">' + esc(it.title) + '</strong>' +
+                    '<div style="font-size:11px;color:#64748b;font-family:monospace">' + it.code + '</div>' +
+                  '</div>' +
+                  '<div style="flex:2;min-width:280px">' +
+                    '<input type="text" id="tpl_id_' + it.code + '" value="' + esc(currentId) + '" ' +
+                    'placeholder="Paste Google Doc ID or URL (e.g. 1a2b3c4d...)" ' +
+                    'style="width:100%;font-size:12px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:monospace">' +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('') +
+          '</div>'
+        );
+      }).join('');
+
+      const modalHtml =
+        '<div style="max-width:840px;margin:0 auto;text-align:left">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px">' +
+            '<div>' +
+              '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">TEMPLATE ENGINE CONFIG</span>' +
+              '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">Google Docs Template IDs</h3>' +
+              '<p class="muted" style="margin:2px 0 0;font-size:12px">Paste your Google Doc Template ID or Doc URL for each form. The system will copy it, replace {{placeholders}}, and generate official PDFs.</p>' +
+            '</div>' +
+            '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
+          '</div>' +
+          '<div style="max-height:65vh;overflow-y:auto;padding-right:8px">' +
+            formRows +
+          '</div>' +
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="saveDocTemplateSettings()">Save Template IDs</button>' +
+          '</div>' +
+        '</div>';
+      showModal(modalHtml);
+    } catch (err) {
+      setLoading(false);
+      alert("Error loading template registry: " + (err.message || err));
+    }
+  }
+  window.openDocTemplateSettingsModal = openDocTemplateSettingsModal;
+
+  async function saveDocTemplateSettings() {
+    const registry = {};
+    const inputs = document.querySelectorAll('input[id^="tpl_id_"]');
+    inputs.forEach(inp => {
+      const code = inp.id.replace("tpl_id_", "");
+      let val = (inp.value || "").trim();
+      const match = val.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        val = match[1];
+      }
+      registry[code] = val;
+    });
+
+    setLoading(true, "Saving template IDs...");
+    try {
+      const res = await run("apiUpdateDocTemplateRegistry", TOKEN, registry);
+      setLoading(false);
+      if (res && res.ok) {
+        alert("Google Docs Template IDs updated successfully!");
+        hideModal();
+      } else {
+        alert("Failed to save template IDs.");
+      }
+    } catch (err) {
+      setLoading(false);
+      alert("Error saving template IDs: " + (err.message || err));
+    }
+  }
+  window.saveDocTemplateSettings = saveDocTemplateSettings;
 
   async function closeObs(id, fallback) {
     let note = "";
