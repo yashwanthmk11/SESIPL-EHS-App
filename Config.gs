@@ -484,50 +484,50 @@ function getFormFields_(formCode) {
 
   // Official SESIPL Work Permit Header & Authority Fields (1:1 with scanned PDFs)
   const permitHeaderFields = [
-    { key: 'contractorName', label: 'Contractor Name', type: 'text', required: true },
-    { key: 'emergencyContact1', label: 'Emergency Contact No. 1', type: 'text', required: true },
-    { key: 'emergencyContact2', label: 'Emergency Contact No. 2', type: 'text', required: false },
-    { key: 'permitNo', label: 'Permit No', type: 'text', required: true },
-    { key: 'area', label: 'Area', type: 'text', required: true },
-    { key: 'location', label: 'Location', type: 'text', required: true },
-    { key: 'date', label: 'Date', type: 'date', required: true },
-    { key: 'time', label: 'Time', type: 'time', required: true },
-    { key: 'siteEngineer', label: 'Name of Site Engineer (Permit Requesting Authority)', type: 'text', required: true },
-    { key: 'siteEngineerSign', label: 'Site Engineer Sign / Ack', type: 'text', required: false },
-    { key: 'safetyOfficer', label: 'Name of Safety Officer', type: 'text', required: true },
-    { key: 'safetyOfficerSign', label: 'Safety Officer Sign / Ack', type: 'text', required: false },
-    { key: 'contractorInCharge', label: 'Name of Contractor Site In charge', type: 'text', required: true },
-    { key: 'contactNumber', label: 'Contact Number', type: 'text', required: true },
-    { key: 'workDescription', label: 'Description of work', type: 'textarea', required: true },
-    { key: 'workExecutionDate', label: 'Work Execution Date', type: 'date', required: true },
-    { key: 'validFrom', label: 'Valid From', type: 'datetime-local', required: true },
-    { key: 'validTo', label: 'Valid To', type: 'datetime-local', required: true }
+    { key: 'contractorName', label: 'Contractor Name', type: 'text', required: true, placeholder: 'e.g. Vinayaka Electricals / Apex Engineering Pvt. Ltd.' },
+    { key: 'emergencyContact1', label: 'Emergency Contact No. 1', type: 'text', required: true, placeholder: 'e.g. +91 98450 12345 (Site Safety In-charge)' },
+    { key: 'emergencyContact2', label: 'Emergency Contact No. 2', type: 'text', required: false, placeholder: 'e.g. +91 98450 67890 (Site Medical / Ambulance)' },
+    { key: 'permitNo', label: 'Permit No', type: 'text', required: true, placeholder: 'e.g. SESIPL/WP/2026/042' },
+    { key: 'area', label: 'Area', type: 'text', required: true, placeholder: 'e.g. Building 2, Floor 4, AHU Shaft' },
+    { key: 'location', label: 'Location', type: 'text', required: true, placeholder: 'e.g. North Wing Grid C12-D14' },
+    { key: 'date', label: 'Date', type: 'date', required: true, placeholder: 'YYYY-MM-DD' },
+    { key: 'time', label: 'Time', type: 'time', required: true, placeholder: 'HH:mm' },
+    { key: 'siteEngineer', label: 'Name of Site Engineer (Permit Requesting Authority)', type: 'text', required: true, placeholder: 'e.g. R. Prakash (Site In-Charge)' },
+    { key: 'siteEngineerSign', label: 'Site Engineer Sign / Ack', type: 'text', required: false, placeholder: 'e.g. Signed - R. Prakash' },
+    { key: 'safetyOfficer', label: 'Name of Safety Officer', type: 'text', required: true, placeholder: 'e.g. K. Harish (EHS Lead)' },
+    { key: 'safetyOfficerSign', label: 'Safety Officer Sign / Ack', type: 'text', required: false, placeholder: 'e.g. Verified & Signed - K. Harish' },
+    { key: 'contractorInCharge', label: 'Name of Contractor Site In charge', type: 'text', required: true, placeholder: 'e.g. S. Kumar (Agency Lead)' },
+    { key: 'contactNumber', label: 'Contact Number', type: 'text', required: true, placeholder: 'e.g. +91 94480 55667' },
+    { key: 'workDescription', label: 'Description of work', type: 'textarea', required: true, placeholder: 'e.g. Cable tray bracket erection and electrical conduits installation at 4.5m height using mobile scaffold and double lanyard harness...' },
+    { key: 'workExecutionDate', label: 'Work Execution Date', type: 'date', required: true, placeholder: 'YYYY-MM-DD' },
+    { key: 'validFrom', label: 'Valid From', type: 'datetime-local', required: true, placeholder: 'YYYY-MM-DDTHH:mm' },
+    { key: 'validTo', label: 'Valid To', type: 'datetime-local', required: true, placeholder: 'YYYY-MM-DDTHH:mm' }
   ];
 
   const permitApprovalFields = [
-    { key: 'approvalEhsName', label: 'Reviewed & Approved By EHS (Name)', type: 'text', required: false },
-    { key: 'approvalEhsSign', label: 'EHS Sign', type: 'text', required: false },
-    { key: 'approvalEhsDate', label: 'EHS Approval Date', type: 'date', required: false },
-    { key: 'approvalEhsTime', label: 'EHS Approval Time', type: 'time', required: false },
-    { key: 'approvalSiteEngineerName', label: 'Reviewed & Approved By Site Engineer (Name)', type: 'text', required: false },
-    { key: 'approvalSiteEngineerSign', label: 'Site Engineer Sign', type: 'text', required: false },
-    { key: 'approvalSiteEngineerDate', label: 'Site Engineer Approval Date', type: 'date', required: false },
-    { key: 'approvalSiteEngineerTime', label: 'Site Engineer Approval Time', type: 'time', required: false }
+    { key: 'approvalEhsName', label: 'Reviewed & Approved By EHS (Name)', type: 'text', required: false, placeholder: 'e.g. HR Ravikiran (EHS Manager)' },
+    { key: 'approvalEhsSign', label: 'EHS Sign', type: 'text', required: false, placeholder: 'e.g. Approved - HR Ravikiran' },
+    { key: 'approvalEhsDate', label: 'EHS Approval Date', type: 'date', required: false, placeholder: 'YYYY-MM-DD' },
+    { key: 'approvalEhsTime', label: 'EHS Approval Time', type: 'time', required: false, placeholder: 'HH:mm' },
+    { key: 'approvalSiteEngineerName', label: 'Reviewed & Approved By Site Engineer (Name)', type: 'text', required: false, placeholder: 'e.g. S. Sharma (Project Manager)' },
+    { key: 'approvalSiteEngineerSign', label: 'Site Engineer Sign', type: 'text', required: false, placeholder: 'e.g. Approved - S. Sharma' },
+    { key: 'approvalSiteEngineerDate', label: 'Site Engineer Approval Date', type: 'date', required: false, placeholder: 'YYYY-MM-DD' },
+    { key: 'approvalSiteEngineerTime', label: 'Site Engineer Approval Time', type: 'time', required: false, placeholder: 'HH:mm' }
   ];
 
   const permitClosingFields = [
-    { key: 'closingSiteEngName', label: 'Closing Site Engineer (Requesting Authority)', type: 'text', required: false },
-    { key: 'closingSiteEngSign', label: 'Site Engineer Closing Sign', type: 'text', required: false },
-    { key: 'closingSiteEngDate', label: 'Closing Date', type: 'date', required: false },
-    { key: 'closingSiteEngTime', label: 'Closing Time', type: 'time', required: false },
-    { key: 'closingSafetyOfficerName', label: 'Closing Safety Officer', type: 'text', required: false },
-    { key: 'closingSafetyOfficerSign', label: 'Safety Officer Closing Sign', type: 'text', required: false },
-    { key: 'closingSafetyOfficerDate', label: 'Safety Officer Closing Date', type: 'date', required: false },
-    { key: 'closingSafetyOfficerTime', label: 'Safety Officer Closing Time', type: 'time', required: false },
-    { key: 'closingPmcSiteEngName', label: 'Closing PMC Site Engineer (Issuing Authority)', type: 'text', required: false },
-    { key: 'closingPmcSiteEngSign', label: 'PMC Engineer Closing Sign', type: 'text', required: false },
-    { key: 'closingPmcSiteEngDate', label: 'PMC Engineer Closing Date', type: 'date', required: false },
-    { key: 'closingPmcSiteEngTime', label: 'PMC Engineer Closing Time', type: 'time', required: false }
+    { key: 'closingSiteEngName', label: 'Closing Site Engineer (Requesting Authority)', type: 'text', required: false, placeholder: 'e.g. R. Prakash' },
+    { key: 'closingSiteEngSign', label: 'Site Engineer Closing Sign', type: 'text', required: false, placeholder: 'e.g. Work Completed - R. Prakash' },
+    { key: 'closingSiteEngDate', label: 'Closing Date', type: 'date', required: false, placeholder: 'YYYY-MM-DD' },
+    { key: 'closingSiteEngTime', label: 'Closing Time', type: 'time', required: false, placeholder: 'HH:mm' },
+    { key: 'closingSafetyOfficerName', label: 'Closing Safety Officer', type: 'text', required: false, placeholder: 'e.g. K. Harish' },
+    { key: 'closingSafetyOfficerSign', label: 'Safety Officer Closing Sign', type: 'text', required: false, placeholder: 'e.g. Housekeeping Inspected - K. Harish' },
+    { key: 'closingSafetyOfficerDate', label: 'Safety Officer Closing Date', type: 'date', required: false, placeholder: 'YYYY-MM-DD' },
+    { key: 'closingSafetyOfficerTime', label: 'Safety Officer Closing Time', type: 'time', required: false, placeholder: 'HH:mm' },
+    { key: 'closingPmcSiteEngName', label: 'Closing PMC Site Engineer (Issuing Authority)', type: 'text', required: false, placeholder: 'e.g. CBRE Site Incharge' },
+    { key: 'closingPmcSiteEngSign', label: 'PMC Engineer Closing Sign', type: 'text', required: false, placeholder: 'e.g. Verified & Closed - PMC' },
+    { key: 'closingPmcSiteEngDate', label: 'PMC Engineer Closing Date', type: 'date', required: false, placeholder: 'YYYY-MM-DD' },
+    { key: 'closingPmcSiteEngTime', label: 'PMC Engineer Closing Time', type: 'time', required: false, placeholder: 'HH:mm' }
   ];
 
   // Specific Precautions Checklists from Scanned SESIPL Forms

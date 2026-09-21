@@ -1681,31 +1681,286 @@
     WP_GENERAL: 'SESIPL-EHS.Blr Prj-01'
   };
 
+  const PERMIT_SPECIFIC_CONFIG = {
+    WP_HEIGHT: {
+      docCode: 'SESIPL-EHS.Blr Prj-04',
+      title: 'Permit To Work - Working at Height',
+      defaultContractor: 'Apex Facade Engineering Pvt Ltd',
+      defaultPermitNo: 'SESIPL/WP-HT/' + new Date().getFullYear() + '/042',
+      defaultArea: 'Tower B, 7th Floor Facade / High Ceiling',
+      defaultLocation: 'Grid Line C10-D14 External Scaffolding',
+      defaultWorkDesc: 'Installation of facade curtain wall panels and silicone weather sealant at height of 24m using double-lanyard full body harness anchored to dedicated lifeline and inspected mobile scaffolding.',
+      defaultSignedUrl: 'https://drive.google.com/open?id=DEMO_WP_HEIGHT_SIGNED',
+      defaultSwmsUrl: 'SWMS-WAH-2026-Rev2-FacadeInstallation.pdf',
+      defaultPhotoUrl: 'WAH_Scaffold_Tag_and_Lifeline_Inspection.jpg',
+      placeholders: {
+        permitNo: 'e.g. SESIPL/WP-HT/2026/042',
+        contractorName: 'e.g. Apex Facade Solutions / Vinayaka Engineering',
+        area: 'e.g. Tower B, 7th Floor Facade / Atrium High Ceiling',
+        location: 'e.g. External Scaffolding Grid C10-D14',
+        workDescription: 'e.g. Facade bracket welding, external glazing installation at height using full body harness and certified scaffolding...',
+        signedPermitUrl: 'e.g. Drive link or filename of signed Working at Height PTW scan',
+        swmsFileUrl: 'e.g. SWMS-WAH-04_Rev2_GlazingAtHeight.pdf / Drive link',
+        preWorkPhotoUrl: 'e.g. Photo link showing scaffold green tag, barricading & lifeline'
+      }
+    },
+    WP_HOT: {
+      docCode: 'SESIPL-EHS.Blr Prj-03',
+      title: 'Permit To Work - Hot Work',
+      defaultContractor: 'SafeFlow Piping & Fire Systems',
+      defaultPermitNo: 'SESIPL/WP-HW/' + new Date().getFullYear() + '/088',
+      defaultArea: 'Basement 1, Chiller & Pump Plant Room',
+      defaultLocation: 'Chilled Water Header Line Grid B4-B6',
+      defaultWorkDesc: 'Electric arc welding and oxy-acetylene torch cutting of 200mm MS chilled water piping with 10m combustible-free radius, certified fire blanket barrier, calibrated explosive gas detector, and dedicated fire watch equipped with 2x 9kg DCP and CO2 extinguishers.',
+      defaultSignedUrl: 'https://drive.google.com/open?id=DEMO_WP_HOT_SIGNED',
+      defaultSwmsUrl: 'SWMS-HW-2026-Rev4-GasCuttingWelding.pdf',
+      defaultPhotoUrl: 'HotWork_FireBlanket_Extinguisher_Check.jpg',
+      placeholders: {
+        permitNo: 'e.g. SESIPL/WP-HW/2026/088',
+        contractorName: 'e.g. SafeFlow Piping & Fire Systems',
+        area: 'e.g. Basement 1, Chiller Plant Room / Pump House',
+        location: 'e.g. Chilled Water Header Line Grid B4',
+        workDescription: 'e.g. Arc welding & oxy-acetylene cutting of 200mm MS pipe header with fire blanket shielding and dedicated fire watch...',
+        hot_other: 'e.g. Fire blanket installed below welding joint, 5kg DCP cylinder tested & inspected',
+        signedPermitUrl: 'e.g. Drive link or filename of signed Hot Work permit scan',
+        swmsFileUrl: 'e.g. SWMS-HW-02_Rev4_GasCuttingWelding.pdf / Drive link',
+        preWorkPhotoUrl: 'e.g. Photo link showing 5kg DCP extinguisher, fire blanket & cleared combustibles'
+      }
+    },
+    WP_NIGHT: {
+      docCode: 'SESIPL-EHS.Blr Prj-07',
+      title: 'Permit To Work - Night Work Checklist',
+      defaultContractor: 'BuildWell Infrastructure Solutions',
+      defaultPermitNo: 'SESIPL/WP-NW/' + new Date().getFullYear() + '/015',
+      defaultArea: 'Main Entry Lobby & External Drop-Off Driveway',
+      defaultLocation: 'Podium Porch Canopy & Outer Boundary Access Road',
+      defaultWorkDesc: 'Night shift concrete pour of 80m3 for canopy deck slab, including transit mixer movement, concrete boom placer operation, power trowel surface finishing, illuminated access walkways, and standby electrical technician.',
+      defaultSignedUrl: 'https://drive.google.com/open?id=DEMO_WP_NIGHT_SIGNED',
+      defaultSwmsUrl: 'SWMS-NW-2026-Rev1-NightConcretingOps.pdf',
+      defaultPhotoUrl: 'NightShift_TowerLights_Illumination_LuxCheck.jpg',
+      placeholders: {
+        permitNo: 'e.g. SESIPL/WP-NW/2026/015',
+        contractorName: 'e.g. BuildWell Infrastructure Pvt Ltd',
+        area: 'e.g. Central Podium / Main Entry Lobby & Driveway',
+        location: 'e.g. Drop-off porch canopy and external paving zone',
+        workDescription: 'e.g. Night shift concrete pouring and power trowel finishing with mobile tower lighting plants and standby electrician...',
+        night_remarks: 'e.g. Dedicated night safety supervisor on duty, illuminated access walkways (>100 lux), first aider on standby',
+        signedPermitUrl: 'e.g. Drive link or filename of signed Night Shift permit scan',
+        swmsFileUrl: 'e.g. SWMS-NW-01_Rev1_NightConcreting.pdf / Drive link',
+        preWorkPhotoUrl: 'e.g. Photo link showing flood lighting coverage (>100 lux) and illuminated signage'
+      }
+    },
+    WP_SHAFT: {
+      docCode: 'SESIPL-EHS.Blr Prj-06',
+      title: 'Permit To Work - Shaft Work & Confined Space',
+      defaultContractor: 'Otis Elevators / Schindler India Pvt Ltd',
+      defaultPermitNo: 'SESIPL/WP-CS/' + new Date().getFullYear() + '/029',
+      defaultArea: 'Tower A, Core 1, Passenger Lift Shaft #3',
+      defaultLocation: 'Lift Shaft #3 (Basement 2 to 14th Floor Vertical Shaft)',
+      defaultWorkDesc: 'Vertical shaft entry for elevator guide rail bracket installation, plumb alignment, and vertical electrical cabling with continuous forced draft blower ventilation, atmospheric gas monitor (O2, H2S, CO, LEL), and full body harness with retrieval winch.',
+      defaultWorkmen: '1. Rajesh Kumar (Entrant #1, ID: ET-104), 2. Suresh Babu (Entrant #2, ID: ET-105), 3. M. Ramesh (Standby Safety Attendant, ID: SA-102)',
+      defaultSignedUrl: 'https://drive.google.com/open?id=DEMO_WP_SHAFT_SIGNED',
+      defaultSwmsUrl: 'SWMS-SH-2026-Rev2-ElevatorShaftEntry.pdf',
+      defaultPhotoUrl: 'Shaft_GasDetector_Readings_and_TripodRescue.jpg',
+      placeholders: {
+        permitNo: 'e.g. SESIPL/WP-CS/2026/029',
+        contractorName: 'e.g. Otis / Schindler Elevator Installation Team',
+        area: 'e.g. Tower A, Core 1, Lift Shaft & Plumbing Chase',
+        location: 'e.g. Lift Shaft #3 (B2 to 14th Floor) / Stormwater Pit',
+        workDescription: 'e.g. Guide rail alignment, bracket welding and shaft lighting maintenance inside elevator shaft with mechanical forced ventilation...',
+        workmenNames: 'e.g. 1. Rajesh Kumar (ID: 1042), 2. Suresh Babu (ID: 1045), 3. M. Ramesh (ID: 1049)',
+        signedPermitUrl: 'e.g. Drive link or filename of signed Shaft Entry permit scan',
+        swmsFileUrl: 'e.g. SWMS-SH-03_Rev2_LiftShaftEntry.pdf / Drive link',
+        preWorkPhotoUrl: 'e.g. Photo link showing 4-gas detector readings, blower duct & rescue harness'
+      }
+    },
+    WP_LIFT: {
+      docCode: 'SESIPL-EHS.Blr Prj-05',
+      title: 'Permit To Work - Lifting Work',
+      defaultContractor: 'CraneTech Rigging & Heavy Haulage',
+      defaultPermitNo: 'SESIPL/WP-LF/' + new Date().getFullYear() + '/051',
+      defaultArea: 'North Gate Logistics Yard / Unloading Bay',
+      defaultLocation: 'East Gate Material Gate & Heavy Crane Swing Radius',
+      defaultWorkDesc: 'Tandem mobile crane lift for 5.8 ton HVAC chiller unit from flatbed heavy trailer onto Level 1 plant room roof deck using certified 4-leg wire rope slings, web slings with softeners, rated shackles, outrigger steel spreader mats, and 100% barricaded exclusion zone with trained rigger signalman.',
+      defaultSignedUrl: 'https://drive.google.com/open?id=DEMO_WP_LIFT_SIGNED',
+      defaultSwmsUrl: 'SWMS-LF-2026-Rev3-TandemHeavyLiftPlan.pdf',
+      defaultPhotoUrl: 'Crane_Outriggers_Pads_and_RiggingTackleTag.jpg',
+      placeholders: {
+        permitNo: 'e.g. SESIPL/WP-LF/2026/051',
+        contractorName: 'e.g. CraneTech Heavy Rigging Services',
+        area: 'e.g. Logistics Yard / Tower Crane Unloading Bay',
+        location: 'e.g. East Gate Material Gate & Crane Radius Area',
+        workDescription: 'e.g. Tandem mobile crane lift for 4.2 ton HVAC chiller unit from flatbed trailer onto Level 1 plant slab using 4-leg wire rope slings...',
+        lift_other: 'e.g. Outrigger ground bearing test verified, 100% exclusion barricade manned by signalman',
+        signedPermitUrl: 'e.g. Drive link or filename of signed Heavy Lifting permit scan',
+        swmsFileUrl: 'e.g. SWMS-LF-05_Rev3_TandemCraneLiftPlan.pdf / Drive link',
+        preWorkPhotoUrl: 'e.g. Photo link showing crane outriggers on timber pads, rigging tackle inspection tag & barricading'
+      }
+    },
+    WP_GENERAL: {
+      docCode: 'SESIPL-EHS.Blr Prj-01',
+      title: 'Permit To Work - General Work Clearance',
+      defaultContractor: 'Vinayaka Electricals & Engineering',
+      defaultPermitNo: 'SESIPL/WP-GEN/' + new Date().getFullYear() + '/104',
+      defaultArea: 'Building 1, Floor 2, Central Utility Corridor',
+      defaultLocation: 'Electrical Trench & Distribution Board Room Passage',
+      defaultWorkDesc: 'Secondary power cabling, cable tray bracket anchoring, and distribution box dressing without hot work or height hazard, ensuring clear emergency egress pathways and full PPE compliance.',
+      defaultSignedUrl: 'https://drive.google.com/open?id=DEMO_WP_GEN_SIGNED',
+      defaultSwmsUrl: 'SWMS-GEN-2026-Rev2-GeneralSiteClearance.pdf',
+      defaultPhotoUrl: 'GeneralWork_AreaClearance_and_PPEToolbox.jpg',
+      placeholders: {
+        permitNo: 'e.g. SESIPL/WP-GEN/2026/104',
+        contractorName: 'e.g. PowerCraft Electricals / Vinayaka Engineering',
+        area: 'e.g. Building 1, Floor 2, Central Utility Corridor',
+        location: 'e.g. Electrical Trench and DB Room Passage',
+        workDescription: 'e.g. Cable tray routing, junction box fixing and secondary power cabling without hot work or height hazard...',
+        signedPermitUrl: 'e.g. Drive link or filename of signed General PTW scan',
+        swmsFileUrl: 'e.g. SWMS-GEN-01_Rev2_GeneralEHSPlan.pdf / Drive link',
+        preWorkPhotoUrl: 'e.g. Photo link showing clean access route, illuminated work area and PPE verification'
+      }
+    }
+  };
+
+  function fillPermitPlaceholders(formCode) {
+    const cfg = PERMIT_SPECIFIC_CONFIG[formCode] || PERMIT_SPECIFIC_CONFIG.WP_GENERAL;
+    const form = document.getElementById("dyn-form");
+    if (!form) return;
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = hh + ':' + mm;
+    const shiftEndHh = String(Math.min(23, now.getHours() + 8)).padStart(2, '0');
+    const validFromStr = todayStr + 'T' + timeStr;
+    const validToStr = todayStr + 'T' + shiftEndHh + ':' + mm;
+
+    const setVal = (name, val) => {
+      const el = form.elements[name];
+      if (el) {
+        el.value = val;
+        el.style.transition = "background-color 0.3s ease";
+        el.style.backgroundColor = "#f0fdf4";
+        setTimeout(() => { el.style.backgroundColor = ""; }, 1200);
+      }
+    };
+
+    setVal("contractorName", cfg.defaultContractor || "Vinayaka Electricals");
+    setVal("permitNo", cfg.defaultPermitNo || ("SESIPL/WP/" + now.getFullYear() + "/001"));
+    setVal("emergencyContact1", "+91 98450 12345 (Site Safety In-charge)");
+    setVal("emergencyContact2", "+91 98450 67890 (Site Medical / Ambulance)");
+    setVal("area", cfg.defaultArea || "Main Working Area");
+    setVal("location", cfg.defaultLocation || "Project Location");
+    setVal("date", todayStr);
+    setVal("time", timeStr);
+    setVal("siteEngineer", "R. Prakash (Site In-Charge)");
+    setVal("siteEngineerSign", "Signed - R. Prakash");
+    setVal("safetyOfficer", "K. Harish (EHS Lead)");
+    setVal("safetyOfficerSign", "Verified & Signed - K. Harish");
+    setVal("contractorInCharge", "S. Kumar (Agency In-Charge)");
+    setVal("contactNumber", "+91 94480 55667");
+    setVal("workDescription", cfg.defaultWorkDesc || "");
+    setVal("workExecutionDate", todayStr);
+    setVal("validFrom", validFromStr);
+    setVal("validTo", validToStr);
+
+    if (cfg.defaultWorkmen) setVal("workmenNames", cfg.defaultWorkmen);
+    if (cfg.placeholders && cfg.placeholders.night_remarks) setVal("night_remarks", cfg.placeholders.night_remarks.replace(/^e\.g\.\s*/, ''));
+    if (cfg.placeholders && cfg.placeholders.lift_other) setVal("lift_other", cfg.placeholders.lift_other.replace(/^e\.g\.\s*/, ''));
+    if (cfg.placeholders && cfg.placeholders.hot_other) setVal("hot_other", cfg.placeholders.hot_other.replace(/^e\.g\.\s*/, ''));
+
+    // Approvals
+    setVal("approvalEhsName", "HR Ravikiran (EHS Manager)");
+    setVal("approvalEhsSign", "Approved - HR Ravikiran");
+    setVal("approvalEhsDate", todayStr);
+    setVal("approvalEhsTime", timeStr);
+    setVal("approvalSiteEngineerName", "S. Sharma (Project Manager)");
+    setVal("approvalSiteEngineerSign", "Approved - S. Sharma");
+    setVal("approvalSiteEngineerDate", todayStr);
+    setVal("approvalSiteEngineerTime", timeStr);
+
+    // Closings
+    setVal("closingSiteEngName", "R. Prakash");
+    setVal("closingSiteEngSign", "Work Completed - R. Prakash");
+    setVal("closingSiteEngDate", todayStr);
+    setVal("closingSiteEngTime", shiftEndHh + ":" + mm);
+    setVal("closingSafetyOfficerName", "K. Harish");
+    setVal("closingSafetyOfficerSign", "Housekeeping Inspected - K. Harish");
+    setVal("closingSafetyOfficerDate", todayStr);
+    setVal("closingSafetyOfficerTime", shiftEndHh + ":" + mm);
+    setVal("closingPmcSiteEngName", "CBRE Site Incharge");
+    setVal("closingPmcSiteEngSign", "Verified & Closed - PMC");
+    setVal("closingPmcSiteEngDate", todayStr);
+    setVal("closingPmcSiteEngTime", shiftEndHh + ":" + mm);
+
+    // Section 6 file placeholders
+    setVal("signedPermitUrl", cfg.defaultSignedUrl || "");
+    setVal("swmsFileUrl", cfg.defaultSwmsUrl || "");
+    setVal("preWorkPhotoUrl", cfg.defaultPhotoUrl || "");
+
+    const prevSigned = document.getElementById("wp-preview-signedPermitFile");
+    if (prevSigned) prevSigned.textContent = "Attached Placeholder: " + (cfg.defaultSignedUrl || "");
+    const prevSwms = document.getElementById("wp-preview-swmsFile");
+    if (prevSwms) prevSwms.textContent = "Attached Placeholder: " + (cfg.defaultSwmsUrl || "");
+    const prevPhoto = document.getElementById("wp-preview-preWorkPhoto");
+    if (prevPhoto) prevPhoto.textContent = "Attached Placeholder: " + (cfg.defaultPhotoUrl || "");
+
+    // Checkboxes / selects
+    const selects = form.querySelectorAll("select");
+    selects.forEach(sel => {
+      if (sel.querySelector("option[value='Yes']")) sel.value = "Yes";
+    });
+
+    if (typeof showToast === 'function') {
+      showToast("⚡ Auto-filled realistic example data for " + (cfg.title || formCode) + "!", "success");
+    }
+  }
+  window.fillPermitPlaceholders = fillPermitPlaceholders;
+
   function buildWorkPermitFormModalHtml(meta, payload, currentProject, upload) {
     const p = payload || {};
-    const docCode = PERMIT_DOC_CODES[meta.def.formCode] || 'SESIPL-EHS.Blr PTW';
-    const isNight = meta.def.formCode === 'WP_NIGHT';
+    const formCode = meta.def.formCode;
+    const docCode = PERMIT_DOC_CODES[formCode] || 'SESIPL-EHS.Blr PTW';
+    const isNight = formCode === 'WP_NIGHT';
+    const pCfg = PERMIT_SPECIFIC_CONFIG[formCode] || PERMIT_SPECIFIC_CONFIG.WP_GENERAL || {};
 
-    const getVal = (k) => esc(p[k] || "");
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = hh + ':' + mm;
+    const shiftEndHh = String(Math.min(23, now.getHours() + 8)).padStart(2, '0');
+    const validFromStr = todayStr + 'T' + timeStr;
+    const validToStr = todayStr + 'T' + shiftEndHh + ':' + mm;
+
+    const getVal = (k) => {
+      if (p[k] !== undefined && p[k] !== null && p[k] !== "") return esc(p[k]);
+      if (k === 'date') return todayStr;
+      if (k === 'time') return timeStr;
+      if (k === 'workExecutionDate') return todayStr;
+      if (k === 'validFrom') return validFromStr;
+      if (k === 'validTo') return validToStr;
+      return "";
+    };
 
     const PERMIT_PLACEHOLDERS = {
-      contractorName: 'e.g. Vinayaka Electricals / Apex Engineering',
-      permitNo: 'e.g. SESIPL/WP/2026/042',
+      contractorName: (pCfg.placeholders && pCfg.placeholders.contractorName) || 'e.g. Vinayaka Electricals / Apex Engineering',
+      permitNo: (pCfg.placeholders && pCfg.placeholders.permitNo) || 'e.g. SESIPL/WP/2026/042',
       emergencyContact1: 'e.g. +91 98450 12345 (Site Safety In-charge)',
       emergencyContact2: 'e.g. +91 98450 67890 (Site Medical / Ambulance)',
-      area: 'e.g. Building 2, Floor 4, AHU Shaft',
-      location: 'e.g. North Wing Grid C12-D14',
-      workDescription: 'e.g. Cable tray bracket erection and electrical conduits installation at 4.5m height using mobile scaffold and double lanyard harness...',
+      area: (pCfg.placeholders && pCfg.placeholders.area) || 'e.g. Building 2, Floor 4, AHU Shaft',
+      location: (pCfg.placeholders && pCfg.placeholders.location) || 'e.g. North Wing Grid C12-D14',
+      workDescription: (pCfg.placeholders && pCfg.placeholders.workDescription) || 'e.g. Cable tray bracket erection and electrical conduits installation at 4.5m height using mobile scaffold and double lanyard harness...',
       siteEngineer: 'e.g. R. Prakash (Site In-Charge)',
       siteEngineerSign: 'e.g. Signed - R. Prakash',
       safetyOfficer: 'e.g. K. Harish (EHS Lead)',
       safetyOfficerSign: 'e.g. Verified & Signed - K. Harish',
       contractorInCharge: 'e.g. S. Kumar (Agency Lead)',
       contactNumber: 'e.g. +91 94480 55667',
-      workmenNames: 'e.g. 1. Rajesh Kumar (ID: 1042), 2. Suresh Babu (ID: 1045), 3. M. Ramesh (ID: 1049)',
-      night_remarks: 'e.g. Dedicated night supervisor present, area tower floodlights active, first aider on standby',
-      lift_other: 'e.g. Outrigger mats placed on concrete slab, tag line deployed with trained rigger',
-      hot_other: 'e.g. Fire blanket installed below welding joint, 5kg DCP cylinder tested & inspected',
+      workmenNames: (pCfg.placeholders && pCfg.placeholders.workmenNames) || 'e.g. 1. Rajesh Kumar (ID: 1042), 2. Suresh Babu (ID: 1045), 3. M. Ramesh (ID: 1049)',
+      night_remarks: (pCfg.placeholders && pCfg.placeholders.night_remarks) || 'e.g. Dedicated night supervisor present, area tower floodlights active, first aider on standby',
+      lift_other: (pCfg.placeholders && pCfg.placeholders.lift_other) || 'e.g. Outrigger mats placed on concrete slab, tag line deployed with trained rigger',
+      hot_other: (pCfg.placeholders && pCfg.placeholders.hot_other) || 'e.g. Fire blanket installed below welding joint, 5kg DCP cylinder tested & inspected',
       approvalEhsName: 'e.g. HR Ravikiran',
       approvalEhsSign: 'e.g. Approved - HR Ravikiran',
       approvalSiteEngineerName: 'e.g. S. Sharma',
@@ -1720,7 +1975,7 @@
 
     const inp = (key, label, type, req, fullWidth) => {
       const v = getVal(key);
-      const ph = PERMIT_PLACEHOLDERS[key] || ('Enter ' + esc(label.toLowerCase()));
+      const ph = (pCfg.placeholders && pCfg.placeholders[key]) || PERMIT_PLACEHOLDERS[key] || ('Enter ' + esc(label.toLowerCase()));
       return (
         '<div class="form-field' + (fullWidth ? ' full' : '') + '" style="' + (fullWidth ? 'grid-column:1/-1' : '') + '">' +
           '<label style="font-weight:700;font-size:12px;color:#334155;display:block;margin-bottom:4px">' +
@@ -1728,7 +1983,7 @@
           '</label>' +
           (type === "textarea"
             ? '<textarea name="' + key + '" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px;box-sizing:border-box" placeholder="' + esc(ph) + '" ' + (req ? 'required' : '') + '>' + v + '</textarea>'
-            : '<input name="' + key + '" type="' + type + '" value="' + v + '" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:13px;box-sizing:border-box" placeholder="' + esc(ph) + '" ' + (req ? 'required' : '') + '>') +
+            : '<input name="' + key + '" type="' + type + '" value="' + v + '" title="Format: ' + esc(ph) + '" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:13px;box-sizing:border-box" placeholder="' + esc(ph) + '" ' + (req ? 'required' : '') + '>') +
         '</div>'
       );
     };
@@ -1791,9 +2046,14 @@
               '<h2 style="margin:0;font-size:18px;color:#0f172a;font-weight:900">' + esc(meta.def.title) + '</h2>' +
             '</div>' +
           '</div>' +
-          '<div style="text-align:right">' +
-            '<span class="pill" style="font-size:11px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">' + esc(docCode) + '</span>' +
-            '<div style="font-size:11px;color:#64748b;margin-top:4px">Site: <b>' + esc(currentProject.name) + '</b></div>' +
+          '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span class="pill" style="font-size:11px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">' + esc(docCode) + '</span>' +
+              '<button type="button" class="btn small" style="background:#0284c7;color:#fff;font-size:11.5px;font-weight:700;padding:5px 12px;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 1px 3px rgba(0,0,0,0.1)" onclick="fillPermitPlaceholders(\'' + esc(formCode) + '\')">' +
+                '⚡ Auto-Fill Example Placeholders' +
+              '</button>' +
+            '</div>' +
+            '<div style="font-size:11px;color:#64748b">Site: <b>' + esc(currentProject.name) + '</b></div>' +
           '</div>' +
         '</div>' +
 
@@ -1827,8 +2087,8 @@
             '</div>' +
             '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-top:12px">' +
               inp('workExecutionDate', 'Work Execution Date', 'date', true) +
-              inp('validFrom', 'Valid From', 'datetime-local', true) +
-              inp('validTo', 'Valid To', 'datetime-local', true) +
+              inp('validFrom', 'Valid From (Shift Start)', 'datetime-local', true) +
+              inp('validTo', 'Valid To (Shift End)', 'datetime-local', true) +
             '</div>' +
             '<div style="margin-top:12px;background:#f0fdfa;border:1px solid #ccfbf1;border-radius:8px;padding:10px 14px;font-size:12px;color:#0f766e;font-style:italic">' +
               '🛡️ The above signing person will be responsible to ensure that the above described work will be done under all the safety precaution mentioned on the PTW and required by the Project.' +
@@ -1902,35 +2162,53 @@
             '</div>' +
             '<p class="muted" style="font-size:12px;margin:0 0 12px">Upload or provide file placeholders for signed hardcopy PTW, Safe Work Method Statement (SWMS), and site inspection photos.</p>' +
             '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px">' +
-              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1">' +
-                '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📄 Signed Permit Copy / Scan (PDF/Image)</label>' +
-                '<input type="file" id="wp-signed-file" accept=".pdf,image/*" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'signedPermitFile\')">' +
-                '<input type="hidden" name="signedPermitFile" id="wp-hidden-signedPermitFile" value="' + esc(p.signedPermitFile || '') + '">' +
-                '<input type="text" name="signedPermitUrl" id="wp-url-signedPermitFile" value="' + esc(p.signedPermitUrl || '') + '" placeholder="e.g. Scan of signed physical permit copy or paste Drive link" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
-                '<div id="wp-preview-signedPermitFile" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.signedPermitFile ? 'Attached: ' + esc(p.signedPermitFileName || 'Signed Permit File') : '') + '</div>' +
+              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1;display:flex;flex-direction:column;justify-content:space-between">' +
+                '<div>' +
+                  '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📄 Signed Permit Copy / Scan (PDF/Image)</label>' +
+                  '<input type="file" id="wp-signed-file" accept=".pdf,image/*" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'signedPermitFile\')">' +
+                  '<input type="hidden" name="signedPermitFile" id="wp-hidden-signedPermitFile" value="' + esc(p.signedPermitFile || '') + '">' +
+                  '<input type="text" name="signedPermitUrl" id="wp-url-signedPermitFile" value="' + esc(p.signedPermitUrl || '') + '" placeholder="' + esc((pCfg.placeholders && pCfg.placeholders.signedPermitUrl) || 'e.g. Scan of signed physical permit copy or paste Drive link') + '" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
+                  '<div id="wp-preview-signedPermitFile" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.signedPermitFile ? 'Attached: ' + esc(p.signedPermitFileName || 'Signed Permit File') : (p.signedPermitUrl ? 'Placeholder: ' + esc(p.signedPermitUrl) : '')) + '</div>' +
+                '</div>' +
+                '<div style="margin-top:6px;text-align:right">' +
+                  '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" onclick="document.getElementById(\'wp-url-signedPermitFile\').value=\'' + esc(pCfg.defaultSignedUrl || 'https://drive.google.com/open?id=DEMO_SIGNED_PTW') + '\';document.getElementById(\'wp-preview-signedPermitFile\').textContent=\'Attached Placeholder: ' + esc(pCfg.defaultSignedUrl || '') + '\'">+ Insert Sample Link</button>' +
+                '</div>' +
               '</div>' +
-              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1">' +
-                '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📋 SWMS / JSA Risk Assessment File</label>' +
-                '<input type="file" id="wp-swms-file" accept=".pdf,image/*" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'swmsFile\')">' +
-                '<input type="hidden" name="swmsFile" id="wp-hidden-swmsFile" value="' + esc(p.swmsFile || '') + '">' +
-                '<input type="text" name="swmsFileUrl" id="wp-url-swmsFile" value="' + esc(p.swmsFileUrl || '') + '" placeholder="e.g. SWMS-HT-01_Rev3.pdf / Drive link" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
-                '<div id="wp-preview-swmsFile" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.swmsFile ? 'Attached: ' + esc(p.swmsFileName || 'SWMS Document') : '') + '</div>' +
+              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1;display:flex;flex-direction:column;justify-content:space-between">' +
+                '<div>' +
+                  '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📋 SWMS / JSA Risk Assessment File</label>' +
+                  '<input type="file" id="wp-swms-file" accept=".pdf,image/*" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'swmsFile\')">' +
+                  '<input type="hidden" name="swmsFile" id="wp-hidden-swmsFile" value="' + esc(p.swmsFile || '') + '">' +
+                  '<input type="text" name="swmsFileUrl" id="wp-url-swmsFile" value="' + esc(p.swmsFileUrl || '') + '" placeholder="' + esc((pCfg.placeholders && pCfg.placeholders.swmsFileUrl) || 'e.g. SWMS-HT-01_Rev3.pdf / Drive link') + '" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
+                  '<div id="wp-preview-swmsFile" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.swmsFile ? 'Attached: ' + esc(p.swmsFileName || 'SWMS Document') : (p.swmsFileUrl ? 'Placeholder: ' + esc(p.swmsFileUrl) : '')) + '</div>' +
+                '</div>' +
+                '<div style="margin-top:6px;text-align:right">' +
+                  '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" onclick="document.getElementById(\'wp-url-swmsFile\').value=\'' + esc(pCfg.defaultSwmsUrl || 'SWMS-SESIPL-Standard-Method.pdf') + '\';document.getElementById(\'wp-preview-swmsFile\').textContent=\'Attached Placeholder: ' + esc(pCfg.defaultSwmsUrl || '') + '\'">+ Insert Sample Doc</button>' +
+                '</div>' +
               '</div>' +
-              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1">' +
-                '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📷 Site Area / Pre-Task Verification Photo</label>' +
-                '<input type="file" id="wp-photo-file" accept="image/*,.pdf" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'preWorkPhoto\')">' +
-                '<input type="hidden" name="preWorkPhoto" id="wp-hidden-preWorkPhoto" value="' + esc(p.preWorkPhoto || '') + '">' +
-                '<input type="text" name="preWorkPhotoUrl" id="wp-url-preWorkPhoto" value="' + esc(p.preWorkPhotoUrl || '') + '" placeholder="e.g. Photo link showing barricading & PPE" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
-                '<div id="wp-preview-preWorkPhoto" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.preWorkPhoto ? 'Attached: ' + esc(p.preWorkPhotoName || 'Verification Photo') : '') + '</div>' +
+              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1;display:flex;flex-direction:column;justify-content:space-between">' +
+                '<div>' +
+                  '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📷 Site Area / Pre-Task Verification Photo</label>' +
+                  '<input type="file" id="wp-photo-file" accept="image/*,.pdf" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'preWorkPhoto\')">' +
+                  '<input type="hidden" name="preWorkPhoto" id="wp-hidden-preWorkPhoto" value="' + esc(p.preWorkPhoto || '') + '">' +
+                  '<input type="text" name="preWorkPhotoUrl" id="wp-url-preWorkPhoto" value="' + esc(p.preWorkPhotoUrl || '') + '" placeholder="' + esc((pCfg.placeholders && pCfg.placeholders.preWorkPhotoUrl) || 'e.g. Photo link showing barricading & PPE') + '" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
+                  '<div id="wp-preview-preWorkPhoto" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.preWorkPhoto ? 'Attached: ' + esc(p.preWorkPhotoName || 'Verification Photo') : (p.preWorkPhotoUrl ? 'Placeholder: ' + esc(p.preWorkPhotoUrl) : '')) + '</div>' +
+                '</div>' +
+                '<div style="margin-top:6px;text-align:right">' +
+                  '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" onclick="document.getElementById(\'wp-url-preWorkPhoto\').value=\'' + esc(pCfg.defaultPhotoUrl || 'Site_PreWork_Inspection.jpg') + '\';document.getElementById(\'wp-preview-preWorkPhoto\').textContent=\'Attached Placeholder: ' + esc(pCfg.defaultPhotoUrl || '') + '\'">+ Insert Sample Photo</button>' +
+                '</div>' +
               '</div>' +
             '</div>' +
           '</div>' +
 
           (upload ? '<div class="full" style="margin-bottom:16px"><label style="font-weight:700">Attach Document / Scan</label><input type="file" id="up-file"></div>' : '') +
 
-          '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid #e2e8f0">' +
-            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
-            '<button class="btn small" type="submit" style="background:#0f766e;color:#fff;font-weight:700">Submit Work Permit</button>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #e2e8f0;flex-wrap:wrap;gap:10px">' +
+            '<button type="button" class="btn small" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:700" onclick="fillPermitPlaceholders(\'' + esc(formCode) + '\')">⚡ Auto-Fill Example</button>' +
+            '<div style="display:flex;gap:10px">' +
+              '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+              '<button class="btn small" type="submit" style="background:#0f766e;color:#fff;font-weight:700">Submit Work Permit</button>' +
+            '</div>' +
           '</div>' +
         '</form>' +
       '</div>'
@@ -1947,6 +2225,10 @@
     const urlInput = document.getElementById("wp-url-" + key);
     if (urlInput && !urlInput.value) {
       urlInput.value = f.name;
+    }
+    const hiddenEl = document.getElementById("wp-hidden-" + key);
+    if (hiddenEl) {
+      hiddenEl.value = f.name;
     }
   }
   window.handleWpFilePlaceholder = handleWpFilePlaceholder;
