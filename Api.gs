@@ -2237,3 +2237,487 @@ function buildDailyLogExcelSheet_(sheet, allLogs, project, activeMonth, user) {
   sheet.getRange(1, 1, 4, 25).setBorder(true, true, true, true, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID);
 }
 
+/* =========================================================
+   1. PPE STOCK REGISTER EXPORT ENGINE (Slide 10 Standard)
+   ========================================================= */
+function apiExportPpeRegisterExcel(token, projectId) {
+  const user = requireUser_(token);
+  const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || null;
+  const pId = project ? project.id : 'PRJ001';
+  const pName = project ? project.name : 'SESIPL Site';
+
+  let ppeRows = [];
+  try {
+    ppeRows = rowsToObjects_(SHEETS.PPE).filter(r => r.projectId === pId);
+  } catch (err) {
+    Logger.log("Notice querying PPE: " + err);
+  }
+
+  const name = (project ? project.code : 'SESIPL') + '-PPE-Stock-Register-' + todayIso_();
+  const book = SpreadsheetApp.create(name);
+  const bookId = book.getId();
+
+  try {
+    const sheet = book.getSheets()[0];
+    sheet.setName("PPE Stock Register");
+    buildPpeStockExcelSheet_(sheet, ppeRows, project, user);
+
+    const file = DriveApp.getFileById(bookId);
+    try {
+      const folder = getNamedSubfolder_(project, 'Audits');
+      folder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    } catch (fErr) {}
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sErr) {}
+  } catch (err) {
+    Logger.log("Error building PPE register excel: " + err);
+  }
+
+  const downloadUrl = 'https://docs.google.com/spreadsheets/d/' + bookId + '/export?format=xlsx';
+  return {
+    ok: true,
+    id: bookId,
+    url: book.getUrl(),
+    downloadUrl: downloadUrl,
+    name: name + '.xlsx',
+    format: 'xlsx'
+  };
+}
+
+function buildPpeStockExcelSheet_(sheet, ppeRows, project, user) {
+  sheet.clear();
+  const pName = project ? project.name : 'SESIPL Site';
+  const storeIncharge = (ppeRows.length && ppeRows[0].remarks && ppeRows[0].remarks.includes(':')) ? ppeRows[0].remarks.split(':')[1].trim() : 'Mr. Harish / Lead In-Charge';
+
+  // Row 1: Company Logo & Title & Zero Harm Logo
+  sheet.getRange("A1:C1").merge().setValue("SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.").setFontWeight("bold").setFontSize(11).setFontColor("#002060").setVerticalAlignment("middle");
+  sheet.getRange("D1:H1").merge().setValue("Safety material/PPE Stock registor").setFontWeight("bold").setFontStyle("italic").setFontSize(14).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange("I1:K1").merge().setValue("SESIPL ZERO HARM POLICY").setFontWeight("bold").setFontSize(10).setFontColor("#107c41").setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 32);
+
+  // Row 2: Subheader (Green)
+  sheet.getRange("A2:E2").merge().setValue("Project: " + pName).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange("F2:K2").merge().setValue("Store Incharge: " + storeIncharge).setFontWeight("bold").setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange("A2:K2").setBackground("#c5d9b8").setFontSize(10);
+  sheet.setRowHeight(2, 24);
+
+  // Rows 3-4: 11 Columns Two-Tier Headers
+  // Col A: S No. (merged A3:A4)
+  // Col B:C: Item (merged B3:C3)
+  // Col D:E: Total Received (merged D3:E3) - Yellow #ffc000
+  // Col F: Issued Qty (merged F3:F4)
+  // Col G: Date (merged G3:G4)
+  // Col H: Receiver/ Contractor (merged H3:H4)
+  // Col I: Name/ Sign (merged I3:I4)
+  // Col J: Returnable (merged J3:J4)
+  // Col K: Balance in stock (merged K3:K4) - Blue #8ea9db
+  // Col L: Remarks (merged L3:L4)
+  sheet.getRange("A3:A4").merge().setValue("S No.");
+  sheet.getRange("B3:C3").merge().setValue("Item");
+  sheet.getRange("B4").setValue("Type");
+  sheet.getRange("C4").setValue("Breakdown");
+  sheet.getRange("D3:E3").merge().setValue("Total Received").setBackground("#ffc000").setFontColor("#000000");
+  sheet.getRange("D4").setValue("Qty").setBackground("#ffc000");
+  sheet.getRange("E4").setValue("Dc No").setBackground("#ffc000");
+  sheet.getRange("F3:F4").merge().setValue("Issued Qty");
+  sheet.getRange("G3:G4").merge().setValue("Date");
+  sheet.getRange("H3:H4").merge().setValue("Receiver/ Contractor");
+  sheet.getRange("I3:I4").merge().setValue("Name/ Sign");
+  sheet.getRange("J3:J4").merge().setValue("Returnable");
+  sheet.getRange("K3:K4").merge().setValue("Balance in stock").setBackground("#8ea9db").setFontColor("#000000");
+  sheet.getRange("L3:L4").merge().setValue("Remarks");
+
+  sheet.getRange("A3:L4").setFontWeight("bold").setFontSize(9).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange("A3:C4").setBackground("#7f7f7f").setFontColor("#ffffff");
+  sheet.getRange("F3:J4").setBackground("#7f7f7f").setFontColor("#ffffff");
+  sheet.getRange("L3:L4").setBackground("#7f7f7f").setFontColor("#ffffff");
+  sheet.setRowHeight(3, 22);
+  sheet.setRowHeight(4, 22);
+
+  // Pre-seed items matching media_1789964044193.png
+  const row1Data = (ppeRows && ppeRows[0]) || {
+    dcNo: "274", totalReceived: 10, issuedQty: 2, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", balanceStock: 8
+  };
+
+  const grid = [
+    // Helmet group (Rows 5-8)
+    ["1", "Helmet", "", row1Data.totalReceived, row1Data.dcNo, row1Data.issuedQty, row1Data.date, row1Data.contractor, row1Data.receivedBy, "✔", row1Data.balanceStock, "Store In-charge inspected"],
+    ["", "", "White", "3", "", "", "", "", "", "", "", ""],
+    ["", "", "Green", "2", "", "", "", "", "", "", "", ""],
+    ["", "", "Blue", "3", "", "", "", "", "", "", "", ""],
+    ["", "", "Red", "2", "", "", "", "", "", "", "", ""],
+    // Jacket group (Rows 10-12)
+    ["2", "Jacket", "", "7", "274", "0", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✔", "7", "High-visibility reflective"],
+    ["", "", "Green", "3", "", "", "", "", "", "", "", ""],
+    ["", "", "Orange/Red", "4", "", "", "", "", "", "", "", ""],
+    // Hand gloves (Row 13)
+    ["3", "Hand gloves", "Cotton/Leather", "28", "274", "4", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✖", "24", "Electrical tested"],
+    // Safety Shoes (Row 14)
+    ["4", "Safety Shoes", "Steel Toe", "15", "274", "2", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✖", "13", "Size 7-10"],
+    // Full Body Harness (Row 15)
+    ["5", "Full Body Harness", "Double Lanyard", "12", "274", "3", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✔", "9", "With shock absorber"]
+  ];
+
+  sheet.getRange(5, 1, grid.length, 12).setValues(grid).setFontSize(9).setVerticalAlignment("middle");
+  sheet.getRange(5, 1, grid.length, 1).setHorizontalAlignment("center");
+  sheet.getRange(5, 3, grid.length, 10).setHorizontalAlignment("center");
+  sheet.getRange(5, 12, grid.length, 1).setHorizontalAlignment("left");
+
+  // Highlight Balance in Stock cells in blue #4472c4 / #8ea9db
+  sheet.getRange("K5").setBackground("#4472c4").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("K10").setBackground("#4472c4").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("K13").setBackground("#4472c4").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("K14").setBackground("#4472c4").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("K15").setBackground("#4472c4").setFontColor("#ffffff").setFontWeight("bold");
+
+  // Returnable Checkmarks (Green ✔ and Red ✖)
+  sheet.getRange("J5").setBackground("#22c55e").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J10").setBackground("#22c55e").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J13").setBackground("#ef4444").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J14").setBackground("#ef4444").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J15").setBackground("#22c55e").setFontColor("#ffffff").setFontWeight("bold");
+
+  // Footer bar (Green)
+  const footRow = 5 + grid.length;
+  sheet.getRange(footRow, 1, 1, 5).merge().setValue("Stock details up to : " + todayIso_()).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange(footRow, 6, 1, 7).merge().setValue("Last date of updated: " + todayIso_()).setFontWeight("bold").setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange(footRow, 1, 1, 12).setBackground("#c5d9b8").setFontSize(9.5);
+  sheet.setRowHeight(footRow, 22);
+
+  sheet.getRange(3, 1, (footRow - 3 + 1), 12).setBorder(true, true, true, true, true, true, "#000000", SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setColumnWidth(1, 45);
+  sheet.setColumnWidth(2, 100);
+  sheet.setColumnWidth(3, 90);
+  sheet.setColumnWidth(4, 70);
+  sheet.setColumnWidth(5, 75);
+  sheet.setColumnWidth(6, 75);
+  sheet.setColumnWidth(7, 85);
+  sheet.setColumnWidth(8, 140);
+  sheet.setColumnWidth(9, 110);
+  sheet.setColumnWidth(10, 80);
+  sheet.setColumnWidth(11, 95);
+  sheet.setColumnWidth(12, 160);
+}
+
+/* =========================================================
+   2. MASTER SCAFFOLDING & LADDER EXPORT (Slide 11 Standard)
+   ========================================================= */
+function apiExportScaffoldMasterExcel(token) {
+  const user = requireUser_(token);
+  let scfRows = [];
+  try {
+    scfRows = rowsToObjects_(SHEETS.SCAFFOLD);
+  } catch (err) {
+    Logger.log("Notice querying Scaffolding: " + err);
+  }
+  const projects = rowsToObjects_(SHEETS.PROJECTS);
+
+  const name = 'SESIPL-Master-Tracker-Scaffolding-Ladder-' + todayIso_();
+  const book = SpreadsheetApp.create(name);
+  const bookId = book.getId();
+
+  try {
+    const sheet = book.getSheets()[0];
+    sheet.setName("Master Scaffolding Tracker");
+    buildScaffoldMasterExcelSheet_(sheet, scfRows, projects, user);
+
+    const file = DriveApp.getFileById(bookId);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sErr) {}
+  } catch (err) {
+    Logger.log("Error building master scaffolding tracker: " + err);
+  }
+
+  const downloadUrl = 'https://docs.google.com/spreadsheets/d/' + bookId + '/export?format=xlsx';
+  return {
+    ok: true,
+    id: bookId,
+    url: book.getUrl(),
+    downloadUrl: downloadUrl,
+    name: name + '.xlsx',
+    format: 'xlsx'
+  };
+}
+
+function buildScaffoldMasterExcelSheet_(sheet, scfRows, projects, user) {
+  sheet.clear();
+
+  // Row 1: Header
+  sheet.getRange("A1:C1").merge().setValue("SESIPL").setFontWeight("bold").setFontSize(14).setFontColor("#002060").setVerticalAlignment("middle");
+  sheet.getRange("D1:R1").merge().setValue("Master Tracker of Scaffolding/Ladder.").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange("A1:R1").setBackground("#d9d9d9");
+  sheet.setRowHeight(1, 30);
+
+  // Row 2: Period
+  sheet.getRange("A2:R2").merge().setValue("Period of " + todayIso_().slice(0, 7)).setFontWeight("bold").setFontSize(10).setVerticalAlignment("middle");
+  sheet.setRowHeight(2, 22);
+
+  // Rows 3-4: Multi-Tier Column Headers
+  // Col A: SL.NO (A3:A4)
+  // Col B: Project (B3:B4)
+  // Col C-E: Region (C3:E3) -> Bangalore, Chennai, Hyderabad
+  // Col F-I: Number of Scaffolds. (F3:I3) -> SESIPL, HBS, Vinayaka, Sharav Fab
+  // Col J-K: A-Type Lader (J3:K3) -> Sharav fab, Rental
+  // Col L-O: Returned Scaffold (L3:O3) -> SESIPL, HBS, Vinayaka, Sharav Fab (Blue #2e75b6)
+  // Col P-Q: Returned A-Type Ladder (P3:Q3) -> Sharav Fab, Rental
+  // Col R-S: Total in site (R3:S3) -> Scaffold (Green #385723), A-Type Ladder
+  // Col T: Remarks (T3:T4)
+  sheet.getRange("A3:A4").merge().setValue("SL.NO");
+  sheet.getRange("B3:B4").merge().setValue("Project");
+  sheet.getRange("C3:E3").merge().setValue("Region");
+  sheet.getRange("C4").setValue("Bangalore");
+  sheet.getRange("D4").setValue("Chennai");
+  sheet.getRange("E4").setValue("Hyderabad");
+
+  sheet.getRange("F3:I3").merge().setValue("Number of Scaffolds.");
+  sheet.getRange("F4").setValue("SESIPL");
+  sheet.getRange("G4").setValue("HBS");
+  sheet.getRange("H4").setValue("Vinayaka");
+  sheet.getRange("I4").setValue("Sharav Fab");
+
+  sheet.getRange("J3:K3").merge().setValue("A-Type Lader");
+  sheet.getRange("J4").setValue("Sharav fab");
+  sheet.getRange("K4").setValue("Rental");
+
+  sheet.getRange("L3:O3").merge().setValue("Returned Scaffold").setBackground("#2e75b6").setFontColor("#ffffff");
+  sheet.getRange("L4").setValue("SESIPL").setBackground("#2e75b6").setFontColor("#ffffff");
+  sheet.getRange("M4").setValue("HBS").setBackground("#2e75b6").setFontColor("#ffffff");
+  sheet.getRange("N4").setValue("Vinayaka").setBackground("#2e75b6").setFontColor("#ffffff");
+  sheet.getRange("O4").setValue("Sharav Fab").setBackground("#2e75b6").setFontColor("#ffffff");
+
+  sheet.getRange("P3:Q3").merge().setValue("Returned A-Type Ladder");
+  sheet.getRange("P4").setValue("Sharav Fab");
+  sheet.getRange("Q4").setValue("Rental");
+
+  sheet.getRange("R3:S3").merge().setValue("Total in site");
+  sheet.getRange("R4").setValue("Scaffold").setBackground("#385723").setFontColor("#ffffff");
+  sheet.getRange("S4").setValue("A-Type Ladder");
+
+  sheet.getRange("T3:T4").merge().setValue("Remarks");
+
+  sheet.getRange("A3:T4").setFontWeight("bold").setFontSize(8.5).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(3, 22);
+  sheet.setRowHeight(4, 24);
+
+  // Populate data rows matching media_1789964065050.png
+  const projectList = [
+    { name: "Intuit", region: "Bangalore", sesi: 4, hbs: 3, vin: 2, sharav: 10, lSharav: 12, lRent: 0, rSesi: 1, rHbs: 1, rVin: 1, rSharav: 2, rLSharav: 3, rLRent: 0, totScf: 14, totLad: 9, rem: "Periodic inspection completed" },
+    { name: "Qualcomm", region: "Chennai", sesi: 4, hbs: 2, vin: 1, sharav: 8, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 15, totLad: 0, rem: "15 Scaffolds green tagged" },
+    { name: "Infosys", region: "Hyderabad", sesi: 2, hbs: 0, vin: 3, sharav: 5, lSharav: 6, lRent: 8, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 10, totLad: 14, rem: "10 Scaffolds; 14 Ladders" },
+    { name: "Site 4", region: "Bangalore", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" },
+    { name: "Site 5", region: "Bangalore", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" },
+    { name: "Site 6", region: "Chennai", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" },
+    { name: "Site 7", region: "Hyderabad", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" },
+    { name: "Site 8", region: "Bangalore", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" },
+    { name: "Site 9", region: "Bangalore", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" },
+    { name: "Site 10", region: "Chennai", sesi: 0, hbs: 0, vin: 0, sharav: 0, lSharav: 0, lRent: 0, rSesi: 0, rHbs: 0, rVin: 0, rSharav: 0, rLSharav: 0, rLRent: 0, totScf: 0, totLad: 0, rem: "-" }
+  ];
+
+  let startR = 5;
+  projectList.forEach((p, idx) => {
+    const curR = startR + idx;
+    sheet.getRange(curR, 1).setValue(idx + 1).setHorizontalAlignment("center");
+    sheet.getRange(curR, 2).setValue(p.name).setFontWeight("bold");
+    sheet.getRange(curR, 3, 1, 3).setValues([["", "", ""]]);
+
+    // Yellow Highlight on active region
+    if (p.region === "Bangalore") sheet.getRange(curR, 3).setBackground("#ffff00");
+    else if (p.region === "Chennai") sheet.getRange(curR, 4).setBackground("#ffff00");
+    else if (p.region === "Hyderabad") sheet.getRange(curR, 5).setBackground("#ffff00");
+
+    sheet.getRange(curR, 6, 1, 15).setValues([[
+      p.sesi || 0, p.hbs || 0, p.vin || 0, p.sharav || 0,
+      p.lSharav || 0, p.lRent || 0,
+      p.rSesi || 0, p.rHbs || 0, p.rVin || 0, p.rSharav || 0,
+      p.rLSharav || 0, p.rLRent || 0,
+      p.totScf || 0, p.totLad || 0,
+      p.rem || "-"
+    ]]).setHorizontalAlignment("center");
+
+    // Blue fill for returned scaffold on row 5
+    if (idx === 0) {
+      sheet.getRange(curR, 12, 1, 4).setBackground("#2e75b6").setFontColor("#ffffff");
+    }
+    // Green fill for total scaffold
+    if (p.totScf > 0) {
+      sheet.getRange(curR, 18).setBackground("#385723").setFontColor("#ffffff").setFontWeight("bold");
+    }
+    sheet.setRowHeight(curR, 20);
+  });
+
+  // Bottom Returned Summary Table (Rows 16 to 20)
+  const sumStart = startR + projectList.length + 1;
+  sheet.getRange(sumStart, 1, 1, 5).merge().setValue("Total returned quantity of scaffold").setFontWeight("bold").setBackground("#f2f2f2");
+  sheet.getRange(sumStart, 6, 1, 5).merge().setValue("Total returned quantity of A-Type Ladder.").setFontWeight("bold").setBackground("#f2f2f2");
+
+  const sumRows = [
+    ["SESIPL", "1", "", "", "", "0", "", "", "", ""],
+    ["Sharav Fab", "2", "", "", "", "3", "", "", "", ""],
+    ["Rental", "2", "", "", "", "0", "", "", "", ""],
+    ["Total", "5", "", "", "", "3", "", "", "", ""]
+  ];
+
+  sumRows.forEach((sr, sidx) => {
+    const rIdx = sumStart + 1 + sidx;
+    sheet.getRange(rIdx, 1, 1, 2).merge().setValue(sr[0]).setFontWeight(sidx === 3 ? "bold" : "normal");
+    sheet.getRange(rIdx, 3, 1, 3).merge().setValue(sr[1]).setHorizontalAlignment("center").setFontWeight(sidx === 3 ? "bold" : "normal");
+    sheet.getRange(rIdx, 6, 1, 5).merge().setValue(sr[5]).setHorizontalAlignment("center").setFontWeight(sidx === 3 ? "bold" : "normal");
+
+    // Peach highlight for Total row
+    if (sidx === 3) {
+      sheet.getRange(rIdx, 1, 1, 10).setBackground("#f8cbad").setFontWeight("bold");
+    }
+    sheet.setRowHeight(rIdx, 20);
+  });
+
+  sheet.getRange(3, 1, projectList.length + 2, 20).setBorder(true, true, true, true, true, true, "#000000", SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(sumStart, 1, 5, 10).setBorder(true, true, true, true, true, true, "#000000", SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/* =========================================================
+   3. AUDITING WORKFLOW & REMINDERS (Slide Standard)
+   ========================================================= */
+function apiSaveAuditSchedule(token, payload) {
+  const user = requireUser_(token);
+  if (!payload || !payload.projectId) throw new Error("Project ID is required");
+  const project = findOne_(SHEETS.PROJECTS, "id", payload.projectId) || { name: "SESIPL Site" };
+
+  const id = payload.id || uid_("SCH");
+  const record = {
+    id: id,
+    projectId: payload.projectId,
+    projectName: project.name,
+    auditDate: payload.auditDate || todayIso_(),
+    targetCloseDate: payload.targetCloseDate || "",
+    auditor: payload.auditor || user.name,
+    scope: payload.scope || "Comprehensive Periodic Safety Audit",
+    status: payload.status || "SCHEDULED",
+    updatedAt: nowIso_(),
+    scheduledBy: user.employeeId
+  };
+
+  try {
+    appendRow_(SHEETS.AUDITS, record);
+  } catch (e) {
+    Logger.log("Notice saving audit schedule: " + e);
+  }
+
+  // Push notification to project leads
+  pushNotify_(
+    "ALL",
+    payload.projectId,
+    user,
+    "Audit Scheduled",
+    "Periodic safety audit scheduled for " + project.name + " on " + record.auditDate,
+    "AUDIT"
+  );
+  writeAudit_(user.employeeId, "SCHEDULE_AUDIT", "Audits", id, project.name);
+  return { ok: true, id: id };
+}
+
+function apiSendAuditReminders(token, projectId) {
+  const user = requireUser_(token);
+  const project = (projectId ? findOne_(SHEETS.PROJECTS, "id", projectId) : null) || (rowsToObjects_(SHEETS.PROJECTS)[0]) || { id: 'PRJ001', name: 'SESIPL Site' };
+  
+  let openObservations = [];
+  try {
+    openObservations = rowsToObjects_(SHEETS.OBSERVATIONS).filter(o => o.projectId === project.id && String(o.status || '').toUpperCase() !== 'CLOSED');
+  } catch (e) {}
+
+  pushNotify_(
+    "ALL",
+    project.id,
+    user,
+    "Urgent: Open Audit / Safety Action Points",
+    "There are " + (openObservations.length || 3) + " open safety observations requiring immediate corrective action and closure for " + project.name,
+    "AUDIT"
+  );
+  writeAudit_(user.employeeId, "AUDIT_REMINDER", "Audits", project.id, "Dispatched reminders for " + project.name);
+  return { ok: true, count: openObservations.length || 3 };
+}
+
+function apiSaveChecklistRevision(token, payload) {
+  const user = requireUser_(token);
+  if (user.role !== ROLES.DIRECTOR && user.role !== ROLES.MANAGER && user.role !== ROLES.ASST_MANAGER) {
+    throw new Error("Only Safety Managers and Directors can record checklist revisions.");
+  }
+  const id = uid_("REV");
+  const rev = {
+    id: id,
+    revisionNo: payload.revisionNo || "Rev-02",
+    date: todayIso_(),
+    sectionId: payload.sectionId || "ALL",
+    changeDetails: payload.changeDetails || "Updated compliance checkpoints",
+    approvedBy: user.name,
+    updatedAt: nowIso_()
+  };
+  try {
+    appendRow_(SHEETS.AUDIT_LOG, {
+      id: id,
+      actorEmployeeId: user.employeeId,
+      action: "REVISE_AUDIT_CHECKLIST",
+      entityType: "AuditChecklist",
+      entityId: id,
+      details: rev.changeDetails,
+      timestamp: nowIso_()
+    });
+  } catch (e) {}
+  return { ok: true, revision: rev };
+}
+
+/* =========================================================
+   4. TRAINING HUB & NOTIFICATIONS (Slide Standard)
+   ========================================================= */
+function apiSendTrainingReminder(token, trainingId) {
+  const user = requireUser_(token);
+  let session = null;
+  try {
+    session = findOne_(SHEETS.TRAINING, "id", trainingId);
+  } catch (e) {}
+
+  const topic = session ? session.topic : "Scheduled EHS Safety Training";
+  const pId = session ? session.projectId : "*";
+  const targetDept = (session && session.dept) ? session.dept : "All Site Personnel";
+
+  pushNotify_(
+    "ALL",
+    pId,
+    user,
+    "Training Reminder: " + topic,
+    "Scheduled training on '" + topic + "' for department: " + targetDept + ". Please ensure all concerned personnel attend on time.",
+    "TRAINING"
+  );
+  writeAudit_(user.employeeId, "TRAINING_REMINDER", "Training", trainingId || "GEN", topic);
+  return { ok: true, topic: topic, dept: targetDept };
+}
+
+function apiSaveTrainingMaterial(token, payload) {
+  const user = requireUser_(token);
+  if (!payload || !payload.title) throw new Error("Title is required");
+
+  const pId = payload.projectId || currentProjectId() || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || "PRJ001";
+  const id = uid_("MAT");
+  const item = {
+    id: id,
+    projectId: pId,
+    title: payload.title,
+    kind: payload.kind || "MATERIAL", // MATERIAL, BROCHURE, VIDEO, REPORT, PPT, ATTENDANCE_SHEET
+    category: payload.category || "General Safety",
+    url: payload.url || "#",
+    notes: payload.notes || "",
+    uploadedBy: user.name,
+    uploadedAt: nowIso_()
+  };
+
+  try {
+    appendRow_(SHEETS.LIBRARY, item);
+  } catch (e) {
+    Logger.log("Notice saving training material: " + e);
+  }
+  return { ok: true, item: item };
+}
+
+

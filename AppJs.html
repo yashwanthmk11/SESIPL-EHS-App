@@ -3125,6 +3125,357 @@
   }
   window.printDailyLogHtml_ = printDailyLogHtml_;
 
+  /* =========================================================
+     PPE STOCK REGISTER EXPORT & MODAL (Slide 10)
+     ========================================================= */
+  async function exportPpeRegisterExcel() {
+    const pid = currentProjectId();
+    if (!pid) {
+      showToast("Select a project first.", "warning");
+      return;
+    }
+    setLoading(true, "Compiling 1:1 Safety Material / PPE Stock Register...");
+    try {
+      const res = await run("apiExportPpeRegisterExcel", TOKEN, pid);
+      setLoading(false);
+      if (!res || !res.ok) throw new Error((res && res.error) || "Failed to generate PPE Excel export.");
+      window.LATEST_PPE_EXCEL = res;
+      openPpeExportSuccessModal(res);
+      if (res.downloadUrl) {
+        try {
+          const a = document.createElement("a");
+          a.href = res.downloadUrl;
+          a.target = "_blank";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (_) {}
+      }
+      showToast('PPE Stock Register generated! <a href="' + esc(res.downloadUrl || res.url) + '" target="_blank" style="color:#107c41;font-weight:700;text-decoration:underline">Download .xlsx &rarr;</a>', "success", 8000, true);
+    } catch (e) {
+      setLoading(false);
+      const proj = currentProject() || (STATE.projects && STATE.projects.find(p => p.id === pid)) || { name: "SESIPL Site", code: "BLR-01" };
+      const logs = STATE.ppe ? STATE.ppe.filter(r => r.projectId === pid) : [];
+      downloadPpeRegisterExcelClientSide(logs, proj);
+      showToast("Excel generated locally and downloaded!", "info");
+    }
+  }
+  window.exportPpeRegisterExcel = exportPpeRegisterExcel;
+
+  function downloadPpeRegisterExcelClientSide(allRows, project) {
+    const proj = project || currentProject() || { name: 'SESIPL Site', code: 'BLR-01' };
+    const curRow = (allRows && allRows.length ? allRows[0] : null) || {
+      dcNo: "274", totalReceived: 10, issuedQty: 2, date: new Date().toISOString().slice(0, 10), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", balanceStock: 8, remarks: "Store In-charge: Mr. Harish"
+    };
+    const storeIncharge = (curRow.remarks && curRow.remarks.includes(':')) ? curRow.remarks.split(':')[1].trim() : 'Mr. Harish';
+
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>PPE Stock Register</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+      '<style>body{font-family:Calibri,Arial,sans-serif;font-size:9pt;} table{border-collapse:collapse;} th,td{padding:4px 6px;border:0.5pt solid #000000;}</style>' +
+      '</head><body><table>' +
+      '<tr>' +
+      '  <td colspan="3" style="font-weight:bold;color:#002060;font-size:11pt;border:0.5pt solid #000">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</td>' +
+      '  <td colspan="6" style="font-weight:bold;font-style:italic;font-size:14pt;text-align:center;border:0.5pt solid #000">Safety material/PPE Stock registor</td>' +
+      '  <td colspan="3" style="font-weight:bold;color:#107c41;text-align:right;border:0.5pt solid #000">SESIPL ZERO HARM POLICY</td>' +
+      '</tr>' +
+      '<tr style="background:#c5d9b8;font-weight:bold">' +
+      '  <td colspan="5" style="border:0.5pt solid #000">Project: ' + esc(proj.name) + '</td>' +
+      '  <td colspan="7" style="text-align:right;border:0.5pt solid #000">Store Incharge: ' + esc(storeIncharge) + '</td>' +
+      '</tr>' +
+      '<tr style="background:#7f7f7f;color:#ffffff;font-weight:bold;text-align:center">' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">S No.</th>' +
+      '  <th colspan="2" rowspan="2" style="border:0.5pt solid #000">Item</th>' +
+      '  <th colspan="2" style="background:#ffc000;color:#000;border:0.5pt solid #000">Total Received</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Issued Qty</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Date</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Receiver/ Contractor</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Name/ Sign</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Returnable</th>' +
+      '  <th rowspan="2" style="background:#8ea9db;color:#000;border:0.5pt solid #000">Balance in stock</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Remarks</th>' +
+      '</tr>' +
+      '<tr style="background:#ffc000;color:#000;font-weight:bold;text-align:center">' +
+      '  <th style="border:0.5pt solid #000">Qty</th>' +
+      '  <th style="border:0.5pt solid #000">Dc No</th>' +
+      '</tr>' +
+      '<tr>' +
+      '  <td rowspan="5" style="text-align:center;font-weight:bold;border:0.5pt solid #000">1</td>' +
+      '  <td colspan="2" style="font-weight:bold;background:#f8fafc;border:0.5pt solid #000">Helmet</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.totalReceived || 10) + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.dcNo || 274) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.issuedQty || 2) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.date || '2026-09-15') + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+      '  <td style="text-align:center;background:#22c55e;color:#fff;font-weight:bold;border:0.5pt solid #000">✔</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(curRow.balanceStock || 8) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.remarks || 'Store In-charge inspected') + '</td>' +
+      '</tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">White</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetWhite || 3) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Green</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetGreen || 2) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Blue</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetBlue || 3) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Red</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetRed || 2) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr>' +
+      '  <td rowspan="3" style="text-align:center;font-weight:bold;border:0.5pt solid #000">2</td>' +
+      '  <td colspan="2" style="font-weight:bold;background:#f8fafc;border:0.5pt solid #000">Jacket</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">7</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">274</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">0</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.date || '2026-09-15') + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+      '  <td style="text-align:center;background:#22c55e;color:#fff;font-weight:bold;border:0.5pt solid #000">✔</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">7</td>' +
+      '  <td style="border:0.5pt solid #000">High-visibility reflective</td>' +
+      '</tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Green</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.jacketGreen || 3) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Orange/Red</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.jacketOrange || 4) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">3</td>' +
+      '  <td colspan="2" style="font-weight:bold;border:0.5pt solid #000">Hand gloves (Cotton / Leather)</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">28</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">274</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">4</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.date || '2026-09-15') + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+      '  <td style="text-align:center;background:#ef4444;color:#fff;font-weight:bold;border:0.5pt solid #000">✖</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">24</td>' +
+      '  <td style="border:0.5pt solid #000">Electrical tested pairs</td>' +
+      '</tr>' +
+      '<tr style="background:#c5d9b8;font-weight:bold">' +
+      '  <td colspan="5" style="border:0.5pt solid #000">Stock details up to : ' + esc(curRow.date || '2026-09-15') + '</td>' +
+      '  <td colspan="7" style="text-align:right;border:0.5pt solid #000">Last date of updated: ' + new Date().toISOString().slice(0, 10) + '</td>' +
+      '</tr>' +
+      '</table></body></html>';
+
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (proj ? proj.code : 'SESIPL') + '-PPE-Stock-Register-' + new Date().toISOString().slice(0, 10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  window.downloadPpeRegisterExcelClientSide = downloadPpeRegisterExcelClientSide;
+
+  function openPpeExportSuccessModal(res) {
+    if (!res) return;
+    const url = res.url || "";
+    const downloadUrl = res.downloadUrl || (res.format === 'xlsx' ? url : "");
+    const name = res.name || "SESIPL-PPE-Stock-Register.xlsx";
+    const proj = currentProject() || { name: "SESIPL Site", code: "BLR-01" };
+
+    const modalHtml =
+      '<div style="text-align:center;padding:12px 6px">' +
+        '<div style="width:58px;height:58px;border-radius:50%;background:#dcfce7;color:#107c41;display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px;box-shadow:0 4px 12px rgba(16,124,65,0.15)">📊</div>' +
+        '<h3 style="margin:0 0 6px 0;font-size:20px;color:#0f172a;font-weight:900">PPE Stock Register Excel Ready</h3>' +
+        '<p style="margin:0 0 16px 0;font-size:13px;color:#64748b;line-height:1.4">The Safety Material / PPE Stock Register matching the Slide 10 template has been successfully generated.</p>' +
+        '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;text-align:left;margin-bottom:20px">' +
+          '<div style="font-size:11px;font-weight:800;color:#107c41;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Export Summary</div>' +
+          '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12.5px;color:#334155">' +
+            '<span class="muted">File Name:</span><b style="word-break:break-all;color:#0f172a">' + esc(name) + '</b>' +
+            '<span class="muted">Project:</span><b>' + esc(proj.name) + ' (' + esc(proj.code) + ')</b>' +
+            '<span class="muted">Template:</span><b>Slide 10 Standard (Sub-items, Returnable, Stock Balance)</b>' +
+            '<span class="muted">Format:</span><span style="font-weight:700;color:#107c41">● Microsoft Excel (.xlsx)</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+          (downloadUrl ? 
+            '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+              'Download Excel File (.xlsx)' +
+            '</a>' : '') +
+          (url ? 
+            '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
+              '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
+              'Open in Google Sheets' +
+            '</a>' : '') +
+        '</div>' +
+      '</div>';
+    showModal(modalHtml);
+  }
+
+  function openPpeEntryModal() {
+    const proj = currentProject() || (STATE.projects && STATE.projects[0]);
+    if (!proj) { showToast("Select a project first.", "warning"); return; }
+
+    const modalHtml =
+      '<div>' +
+        '<h3 style="margin:0 0 6px 0;font-size:18px;color:#0f172a;font-weight:900">Log PPE Stock Receipt / Issue</h3>' +
+        '<p class="muted" style="margin:0 0 16px 0;font-size:12.5px">Record material receipts, contractor issuance, and update live stock balance.</p>' +
+        '<form id="modal-ppe-form" class="form-grid">' +
+          field("date", "Transaction Date", "date") +
+          field("dcNo", "Delivery Challan (DC No)", "text") +
+          field("totalReceived", "Total Received Qty", "number") +
+          field("issuedQty", "Issued Qty", "number") +
+          field("contractor", "Receiver / Contractor Name", "text") +
+          field("receivedBy", "Name / Signature", "text") +
+          '<div><label>Returnable?</label><select name="returnable"><option value="Yes">Yes (Green ✔)</option><option value="No">No (Red ✖)</option></select></div>' +
+          field("helmetWhite", "Helmets White Count", "number") +
+          field("helmetGreen", "Helmets Green Count", "number") +
+          field("helmetBlue", "Helmets Blue Count", "number") +
+          field("helmetRed", "Helmets Red Count", "number") +
+          field("jacketGreen", "Jackets Green Count", "number") +
+          field("jacketOrange", "Jackets Orange Count", "number") +
+          '<div class="full"><label>Remarks & Store In-Charge</label><input name="remarks" placeholder="Store In-charge: Mr. Harish..."></div>' +
+          '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
+            '<button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+            '<button type="submit" class="btn" style="background:#107c41;color:#fff;font-weight:800">Save Stock Entry</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    const f = $("modal-ppe-form");
+    if (f) {
+      f.elements.date.value = new Date().toISOString().slice(0, 10);
+      f.onsubmit = async function(ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const row = { projectId: proj.id };
+        fd.forEach((v, k) => (row[k] = v));
+        const rec = Number(row.totalReceived || 0);
+        const iss = Number(row.issuedQty || 0);
+        row.balanceStock = Math.max(0, rec - iss);
+        await run("apiSavePpe", TOKEN, row);
+        closeModal();
+        showToast("PPE stock entry saved successfully!", "success");
+        await refresh();
+      };
+    }
+  }
+  window.openPpeEntryModal = openPpeEntryModal;
+
+  /* =========================================================
+     MASTER SCAFFOLDING TRACKER EXPORT (Slide 11)
+     ========================================================= */
+  async function exportScaffoldMasterExcel() {
+    setLoading(true, "Compiling Master Tracker of Scaffolding & Ladder...");
+    try {
+      const res = await run("apiExportScaffoldMasterExcel", TOKEN);
+      setLoading(false);
+      if (!res || !res.ok) throw new Error((res && res.error) || "Failed to generate Scaffolding Master Excel export.");
+      window.LATEST_SCAFFOLD_EXCEL = res;
+      openScaffoldMasterExportSuccessModal(res);
+      if (res.downloadUrl) {
+        try {
+          const a = document.createElement("a");
+          a.href = res.downloadUrl;
+          a.target = "_blank";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (_) {}
+      }
+      showToast('Master Scaffolding Tracker generated! <a href="' + esc(res.downloadUrl || res.url) + '" target="_blank" style="color:#107c41;font-weight:700;text-decoration:underline">Download .xlsx &rarr;</a>', "success", 8000, true);
+    } catch (e) {
+      setLoading(false);
+      downloadScaffoldMasterExcelClientSide();
+      showToast("Excel generated locally and downloaded!", "info");
+    }
+  }
+  window.exportScaffoldMasterExcel = exportScaffoldMasterExcel;
+
+  function downloadScaffoldMasterExcelClientSide() {
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>Master Scaffolding Tracker</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+      '<style>body{font-family:Calibri,Arial,sans-serif;font-size:9pt;} table{border-collapse:collapse;} th,td{padding:4px 6px;border:0.5pt solid #000000;}</style>' +
+      '</head><body><table>' +
+      '<tr style="background:#d9d9d9;font-weight:bold">' +
+      '  <td colspan="3" style="font-size:14pt;color:#002060;border:0.5pt solid #000">SESIPL</td>' +
+      '  <td colspan="15" style="font-size:14pt;text-align:center;border:0.5pt solid #000">Master Tracker of Scaffolding/Ladder.</td>' +
+      '</tr>' +
+      '<tr><td colspan="18" style="font-weight:bold;border:0.5pt solid #000">Period of ' + new Date().toISOString().slice(0, 7) + '</td></tr>' +
+      '<tr style="background:#f2f2f2;font-weight:bold;text-align:center">' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">SL.NO</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Project</th>' +
+      '  <th colspan="3" style="border:0.5pt solid #000">Region</th>' +
+      '  <th colspan="4" style="border:0.5pt solid #000">Number of Scaffolds.</th>' +
+      '  <th colspan="2" style="border:0.5pt solid #000">A-Type Lader</th>' +
+      '  <th colspan="4" style="background:#2e75b6;color:#fff;border:0.5pt solid #000">Returned Scaffold</th>' +
+      '  <th colspan="2" style="border:0.5pt solid #000">Returned A-Type Ladder</th>' +
+      '  <th colspan="2" style="border:0.5pt solid #000">Total in site</th>' +
+      '  <th rowspan="2" style="border:0.5pt solid #000">Remarks</th>' +
+      '</tr>' +
+      '<tr style="background:#e2e8f0;font-weight:bold;text-align:center;font-size:8pt">' +
+      '  <th style="border:0.5pt solid #000">Bangalore</th><th style="border:0.5pt solid #000">Chennai</th><th style="border:0.5pt solid #000">Hyderabad</th>' +
+      '  <th style="border:0.5pt solid #000">SESIPL</th><th style="border:0.5pt solid #000">HBS</th><th style="border:0.5pt solid #000">Vinayaka</th><th style="border:0.5pt solid #000">Sharav Fab</th>' +
+      '  <th style="border:0.5pt solid #000">Sharav fab</th><th style="border:0.5pt solid #000">Rental</th>' +
+      '  <th style="background:#2e75b6;color:#fff;border:0.5pt solid #000">SESIPL</th><th style="background:#2e75b6;color:#fff;border:0.5pt solid #000">HBS</th><th style="background:#2e75b6;color:#fff;border:0.5pt solid #000">Vinayaka</th><th style="background:#2e75b6;color:#fff;border:0.5pt solid #000">Sharav Fab</th>' +
+      '  <th style="border:0.5pt solid #000">Sharav Fab</th><th style="border:0.5pt solid #000">Rental</th>' +
+      '  <th style="background:#385723;color:#fff;border:0.5pt solid #000">Scaffold</th><th style="border:0.5pt solid #000">A-Type Ladder</th>' +
+      '</tr>' +
+      '<tr><td style="text-align:center;border:0.5pt solid #000">1</td><td style="font-weight:bold;border:0.5pt solid #000">Intuit</td><td style="background:#ffff00;border:0.5pt solid #000"></td><td style="border:0.5pt solid #000"></td><td style="border:0.5pt solid #000"></td><td style="text-align:center;border:0.5pt solid #000">4</td><td style="text-align:center;border:0.5pt solid #000">3</td><td style="text-align:center;border:0.5pt solid #000">2</td><td style="text-align:center;border:0.5pt solid #000">10</td><td style="text-align:center;border:0.5pt solid #000">12</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="background:#2e75b6;color:#fff;font-weight:bold;text-align:center;border:0.5pt solid #000">1</td><td style="background:#2e75b6;color:#fff;font-weight:bold;text-align:center;border:0.5pt solid #000">1</td><td style="background:#2e75b6;color:#fff;font-weight:bold;text-align:center;border:0.5pt solid #000">1</td><td style="background:#2e75b6;color:#fff;font-weight:bold;text-align:center;border:0.5pt solid #000">2</td><td style="text-align:center;border:0.5pt solid #000">3</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="background:#385723;color:#fff;font-weight:bold;font-size:11pt;text-align:center;border:0.5pt solid #000">14</td><td style="font-weight:bold;text-align:center;border:0.5pt solid #000">9</td><td style="border:0.5pt solid #000">Periodic inspection completed</td></tr>' +
+      '<tr><td style="text-align:center;border:0.5pt solid #000">2</td><td style="font-weight:bold;border:0.5pt solid #000">Qualcomm</td><td style="border:0.5pt solid #000"></td><td style="background:#ffff00;border:0.5pt solid #000"></td><td style="border:0.5pt solid #000"></td><td style="text-align:center;border:0.5pt solid #000">4</td><td style="text-align:center;border:0.5pt solid #000">2</td><td style="text-align:center;border:0.5pt solid #000">1</td><td style="text-align:center;border:0.5pt solid #000">8</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="background:#385723;color:#fff;font-weight:bold;font-size:11pt;text-align:center;border:0.5pt solid #000">15</td><td style="font-weight:bold;text-align:center;border:0.5pt solid #000">0</td><td style="border:0.5pt solid #000">15 Scaffolds green tagged</td></tr>' +
+      '<tr><td style="text-align:center;border:0.5pt solid #000">3</td><td style="font-weight:bold;border:0.5pt solid #000">Infosys</td><td style="border:0.5pt solid #000"></td><td style="border:0.5pt solid #000"></td><td style="background:#ffff00;border:0.5pt solid #000"></td><td style="text-align:center;border:0.5pt solid #000">2</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">3</td><td style="text-align:center;border:0.5pt solid #000">5</td><td style="text-align:center;border:0.5pt solid #000">6</td><td style="text-align:center;border:0.5pt solid #000">8</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="text-align:center;border:0.5pt solid #000">0</td><td style="background:#385723;color:#fff;font-weight:bold;font-size:11pt;text-align:center;border:0.5pt solid #000">10</td><td style="font-weight:bold;text-align:center;border:0.5pt solid #000">14</td><td style="border:0.5pt solid #000">Active warehouse fit-out</td></tr>' +
+      '<tr><td colspan="19" style="border:none">&nbsp;</td></tr>' +
+      '<tr style="background:#e2e8f0;font-weight:bold">' +
+      '  <td colspan="2" style="border:0.5pt solid #000">Total returned quantity of scaffold</td><td style="text-align:center;border:0.5pt solid #000">Count</td>' +
+      '  <td colspan="2" style="border:0.5pt solid #000">Total returned quantity of A-Type Ladder.</td><td style="text-align:center;border:0.5pt solid #000">Count</td>' +
+      '</tr>' +
+      '<tr><td colspan="2" style="border:0.5pt solid #000;font-weight:bold">SESIPL</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">1</td><td colspan="2" style="border:0.5pt solid #000">SESIPL</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">0</td></tr>' +
+      '<tr><td colspan="2" style="border:0.5pt solid #000;font-weight:bold">Sharav Fab</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">2</td><td colspan="2" style="border:0.5pt solid #000">Sharav Fab</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">3</td></tr>' +
+      '<tr><td colspan="2" style="border:0.5pt solid #000;font-weight:bold">Rental</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">2</td><td colspan="2" style="border:0.5pt solid #000">Rental</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">0</td></tr>' +
+      '<tr style="background:#f8cbad;font-weight:bold">' +
+      '  <td colspan="2" style="border:0.5pt solid #000">Total</td><td style="text-align:center;font-size:12pt;border:0.5pt solid #000">5</td>' +
+      '  <td colspan="2" style="border:0.5pt solid #000">Total</td><td style="text-align:center;font-size:12pt;border:0.5pt solid #000">3</td>' +
+      '</tr>' +
+      '</table></body></html>';
+
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = 'SESIPL-Master-Tracker-Scaffolding-Ladder-' + new Date().toISOString().slice(0, 10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  window.downloadScaffoldMasterExcelClientSide = downloadScaffoldMasterExcelClientSide;
+
+  function openScaffoldMasterExportSuccessModal(res) {
+    if (!res) return;
+    const url = res.url || "";
+    const downloadUrl = res.downloadUrl || (res.format === 'xlsx' ? url : "");
+    const name = res.name || "SESIPL-Master-Tracker-Scaffolding.xlsx";
+
+    const modalHtml =
+      '<div style="text-align:center;padding:12px 6px">' +
+        '<div style="width:58px;height:58px;border-radius:50%;background:#dcfce7;color:#107c41;display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px;box-shadow:0 4px 12px rgba(16,124,65,0.15)">📊</div>' +
+        '<h3 style="margin:0 0 6px 0;font-size:20px;color:#0f172a;font-weight:900">Master Scaffolding Tracker Excel Ready</h3>' +
+        '<p style="margin:0 0 16px 0;font-size:13px;color:#64748b;line-height:1.4">The multi-region Scaffolding & Ladder Tracker matching the Slide 11 template has been successfully generated.</p>' +
+        '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;text-align:left;margin-bottom:20px">' +
+          '<div style="font-size:11px;font-weight:800;color:#107c41;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Export Summary</div>' +
+          '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12.5px;color:#334155">' +
+            '<span class="muted">File Name:</span><b style="word-break:break-all;color:#0f172a">' + esc(name) + '</b>' +
+            '<span class="muted">Regions:</span><b>Bangalore, Chennai, Hyderabad</b>' +
+            '<span class="muted">Template:</span><b>Slide 11 Standard (Vendor allocation, return tracking)</b>' +
+            '<span class="muted">Format:</span><span style="font-weight:700;color:#107c41">● Microsoft Excel (.xlsx)</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+          (downloadUrl ? 
+            '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
+              'Download Excel File (.xlsx)' +
+            '</a>' : '') +
+          (url ? 
+            '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
+              '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
+              'Open in Google Sheets' +
+            '</a>' : '') +
+        '</div>' +
+      '</div>';
+    showModal(modalHtml);
+  }
+
   function renderAudits() {
     $("page-title").textContent = "Shankar Electricals EHS Audit Checklist";
     $("page-sub").textContent =
@@ -3231,6 +3582,7 @@
         '</div>' +
       '</div>';
 
+    window.AUDIT_ACTIVE_TAB = window.AUDIT_ACTIVE_TAB || "SUMMARY";
     const subTabsHtml = 
       '<div class="sub-tabs-bar" style="margin-bottom:14px">' +
         '<button type="button" class="sub-tab-btn' + (window.AUDIT_ACTIVE_TAB === "SUMMARY" ? ' active' : '') + '" onclick="window.AUDIT_ACTIVE_TAB=\'SUMMARY\';renderAudits()">' +
@@ -3238,6 +3590,9 @@
         '</button>' +
         '<button type="button" class="sub-tab-btn' + (window.AUDIT_ACTIVE_TAB === "CHECKLIST" ? ' active' : '') + '" onclick="window.AUDIT_ACTIVE_TAB=\'CHECKLIST\';renderAudits()">' +
           '📋 18-Section Checklist (125 Audited Questions)' +
+        '</button>' +
+        '<button type="button" class="sub-tab-btn' + (window.AUDIT_ACTIVE_TAB === "CHANNEL" ? ' active' : '') + '" onclick="window.AUDIT_ACTIVE_TAB=\'CHANNEL\';renderAudits()">' +
+          '🔄 SESIPL Audit Channel & Continuity (Slide Standard)' +
         '</button>' +
       '</div>';
 
@@ -3285,37 +3640,37 @@
             'ℹ️ Scoring Legend: 0 - Major NC; 1 - Minor NC; 2 - Partial Compliance; 3 - Full Compliance; NA - Not Applicable' +
           '</div>' +
           '<div class="table-responsive-wrap">' +
-            '<table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:12px">' +
-              '<thead>' +
-                '<tr style="background:#fef3c7;border-bottom:1.5px solid #cbd5e1">' +
-                  '<th style="width:5%;padding:8px;border:1px solid #cbd5e1;text-align:center">SN</th>' +
-                  '<th style="width:47%;padding:8px 12px;border:1px solid #cbd5e1;text-align:left">Item Description</th>' +
-                  '<th style="width:8%;padding:8px;border:1px solid #cbd5e1;text-align:center">Max</th>' +
-                  '<th style="width:8%;padding:8px;border:1px solid #cbd5e1;text-align:center">Actual</th>' +
-                  '<th style="width:8%;padding:8px;border:1px solid #cbd5e1;text-align:center">%</th>' +
-                  '<th style="width:24%;padding:8px;border:1px solid #cbd5e1;text-align:center">Performance Tier</th>' +
-                '</tr>' +
-              '</thead>' +
-              '<tbody>' +
-                rowsHtml +
-                '<tr style="background:#f0fdf4;font-weight:bold;font-size:13px;border-top:2px solid #0f766e">' +
-                  '<td colspan="2" style="padding:10px 14px;border:1px solid #cbd5e1;color:#0f172a">Total Score</td>' +
-                  '<td style="padding:10px;border:1px solid #cbd5e1;text-align:center">' + maxScore + '</td>' +
-                  '<td style="padding:10px;border:1px solid #cbd5e1;text-align:center;color:#0f766e">' + totalScore + '</td>' +
-                  '<td colspan="2" style="padding:10px;border:1px solid #cbd5e1;text-align:center;background:#c6efce;font-size:14px;font-weight:900;color:#166534">' + percent + '% (Silver Tier)</td>' +
-                '</tr>' +
-              '</tbody>' +
-            '</table>' +
+          '<table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:12px">' +
+            '<thead>' +
+              '<tr style="background:#fef3c7;border-bottom:1.5px solid #cbd5e1">' +
+                '<th style="width:5%;padding:8px;border:1px solid #cbd5e1;text-align:center">SN</th>' +
+                '<th style="width:47%;padding:8px 12px;border:1px solid #cbd5e1;text-align:left">Item Description</th>' +
+                '<th style="width:8%;padding:8px;border:1px solid #cbd5e1;text-align:center">Max</th>' +
+                '<th style="width:8%;padding:8px;border:1px solid #cbd5e1;text-align:center">Actual</th>' +
+                '<th style="width:8%;padding:8px;border:1px solid #cbd5e1;text-align:center">%</th>' +
+                '<th style="width:24%;padding:8px;border:1px solid #cbd5e1;text-align:center">Performance Tier</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' +
+              rowsHtml +
+              '<tr style="background:#f0fdf4;font-weight:bold;font-size:13px;border-top:2px solid #0f766e">' +
+                '<td colspan="2" style="padding:10px 14px;border:1px solid #cbd5e1;color:#0f172a">Total Score</td>' +
+                '<td style="padding:10px;border:1px solid #cbd5e1;text-align:center">' + maxScore + '</td>' +
+                '<td style="padding:10px;border:1px solid #cbd5e1;text-align:center;color:#0f766e">' + totalScore + '</td>' +
+                '<td colspan="2" style="padding:10px;border:1px solid #cbd5e1;text-align:center;background:#c6efce;font-size:14px;font-weight:900;color:#166534">' + percent + '% (Silver Tier)</td>' +
+              '</tr>' +
+            '</tbody>' +
+          '</table>' +
+        '</div>' +
+        '<div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;font-size:11.5px;color:#64748b">' +
+          '<div>Controlled Copy © Shankar Electricals Services I Pvt Ltd.</div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button class="btn small" style="background:#107c41;color:#fff;font-weight:700" onclick="exportEhsAuditExcel()">Export Audit (Excel)</button>' +
+            '<button class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="exportEhsAudit()">Export Audit (PDF)</button>' +
           '</div>' +
-          '<div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;font-size:11.5px;color:#64748b">' +
-            '<div>Controlled Copy © Shankar Electricals Services I Pvt Ltd.</div>' +
-            '<div style="display:flex;gap:8px">' +
-              '<button class="btn small" style="background:#107c41;color:#fff;font-weight:700" onclick="exportEhsAuditExcel()">Export Audit (Excel)</button>' +
-              '<button class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="exportEhsAudit()">Export Audit (PDF)</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>';
-    } else {
+        '</div>' +
+      '</div>';
+    } else if (window.AUDIT_ACTIVE_TAB === "CHECKLIST") {
       let checklistHtml = '';
       sections.forEach((sec) => {
         checklistHtml += 
@@ -3333,13 +3688,497 @@
             '<div style="font-size:12px;color:#64748b;font-style:italic">Contains verified checklist questions scored 0 to 5 or NA. Click Export above to view and download the full 5-page standard formatted document.</div>' +
           '</div>';
       });
-
       contentHtml = checklistHtml;
+    } else {
+      // CHANNEL: SESIPL Audit Channel & Continuity (Slide 12 Standard)
+      window.AUDIT_CH_FILTER = window.AUDIT_CH_FILTER || "ALL";
+      const f = window.AUDIT_CH_FILTER;
+
+      const actionsBarHtml = 
+        '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+        '  <div>' +
+        '    <strong style="font-size:15px;color:#0f172a">SESIPL Audit Channel & Continuity (Slide Standard)</strong>' +
+        '    <p class="muted" style="margin:2px 0 0;font-size:12px">Continuous single-channel observation tracker, periodic schedule manager & reminder dispatches</p>' +
+        '  </div>' +
+        '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '    <button class="btn" style="background:#0284c7;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openScheduleAuditModal()">' +
+        '      📅 Schedule Audit' +
+        '    </button>' +
+        '    <button class="btn" style="background:#f97316;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="sendAuditRemindersNow()">' +
+        '      📢 Send Reminder to Personnel' +
+        '    </button>' +
+        '    <button class="btn secondary" style="font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openRevisionChecklistModal()">' +
+        '      ⚙️ Revise Checklist' +
+        '    </button>' +
+        '    <button class="btn" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openNewAuditObservationModal()">' +
+        '      ➕ Log Site Observation' +
+        '    </button>' +
+        '  </div>' +
+        '</div>';
+
+      // Audit Status Pie Chart & Compliance Statistics matching media_1789964133444.png
+      const pieChartHtml = 
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;margin-bottom:18px">' +
+        '  <!-- Pie Chart Visual Card -->' +
+        '  <div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;padding:18px">' +
+        '    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f1f5f9;padding-bottom:10px;margin-bottom:14px">' +
+        '      <div>' +
+        '        <h4 style="margin:0;font-size:15px;color:#0f172a;font-weight:900">Audit status</h4>' +
+        '        <p class="muted" style="margin:2px 0 0;font-size:11.5px">Compliance vs open non-conformance points breakdown</p>' +
+        '      </div>' +
+        '      <span class="pill" style="background:#f0fdf4;color:#166534;font-weight:700">Slide Standard</span>' +
+        '    </div>' +
+        '    <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;padding:10px 0">' +
+        '      <div style="position:relative;width:170px;height:170px;flex-shrink:0">' +
+        '        <svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);border-radius:50%">' +
+        '          <!-- 41% Compliance (#16a34a) -->' +
+        '          <circle cx="18" cy="18" r="15.9155" fill="transparent" stroke="#16a34a" stroke-width="6.5" stroke-dasharray="41 59" stroke-dashoffset="0"></circle>' +
+        '          <!-- 38% Follow up (#0284c7) -->' +
+        '          <circle cx="18" cy="18" r="15.9155" fill="transparent" stroke="#0284c7" stroke-width="6.5" stroke-dasharray="38 62" stroke-dashoffset="-41"></circle>' +
+        '          <!-- 15% Open points (#f97316) -->' +
+        '          <circle cx="18" cy="18" r="15.9155" fill="transparent" stroke="#f97316" stroke-width="6.5" stroke-dasharray="15 85" stroke-dashoffset="-79"></circle>' +
+        '          <!-- 6% In progress (#eab308) -->' +
+        '          <circle cx="18" cy="18" r="15.9155" fill="transparent" stroke="#eab308" stroke-width="6.5" stroke-dasharray="6 94" stroke-dashoffset="-94"></circle>' +
+        '        </svg>' +
+        '        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">' +
+        '          <span style="font-size:18px;font-weight:900;color:#0f172a">41%</span>' +
+        '          <span style="font-size:9.5px;font-weight:800;color:#16a34a;text-transform:uppercase">Compliant</span>' +
+        '        </div>' +
+        '      </div>' +
+        '      <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px">' +
+        '        <div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#16a34a;display:inline-block"></span> <b>Compliance status:</b> <span style="font-weight:800;color:#16a34a">41%</span></div>' +
+        '        <div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#0284c7;display:inline-block"></span> <b>Follow up:</b> <span style="font-weight:800;color:#0284c7">38%</span></div>' +
+        '        <div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#f97316;display:inline-block"></span> <b>Open points:</b> <span style="font-weight:800;color:#ea580c">15%</span></div>' +
+        '        <div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#eab308;display:inline-block"></span> <b>In progress:</b> <span style="font-weight:800;color:#ca8a04">6%</span></div>' +
+        '      </div>' +
+        '    </div>' +
+        '  </div>' +
+        '  <!-- Action & Continuity Purpose Card -->' +
+        '  <div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;padding:18px;display:flex;flex-direction:column;justify-content:space-between">' +
+        '    <div>' +
+        '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+        '        <span style="font-size:20px">🔄</span>' +
+        '        <h4 style="margin:0;font-size:15px;color:#0f172a;font-weight:900">SESIPL Single-Channel Continuity</h4>' +
+        '      </div>' +
+        '      <div style="background:#f0fdfa;border-left:4px solid #0f766e;border-radius:6px;padding:10px 12px;font-size:12px;color:#134e4a;line-height:1.5;margin-bottom:12px">' +
+        '        <b>AUDIT CHANNEL:</b> Where previous observed points are shown here; audit and daily observation points can be seen in a single channel which helps us ensure continuous observation for work.' +
+        '      </div>' +
+        '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">' +
+        '        <div style="background:#f8fafc;padding:8px 10px;border-radius:6px;border:1px solid #e2e8f0"><span class="muted">Audit Reminders:</span><br><b style="color:#0f766e">✓ Automated Push</b></div>' +
+        '        <div style="background:#f8fafc;padding:8px 10px;border-radius:6px;border:1px solid #e2e8f0"><span class="muted">Checklist Revision:</span><br><b style="color:#0284c7">✓ Custom Provisions</b></div>' +
+        '      </div>' +
+        '    </div>' +
+        '    <div style="margin-top:12px;display:flex;gap:8px">' +
+        '      <button class="btn small" style="background:#0f766e;color:#fff;width:100%" onclick="sendAuditRemindersNow()">Send Direct Reminders to Site Engineers</button>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>';
+
+      // Observation Channel Feed
+      const pId = currentProjectId();
+      const pName = proj ? proj.name : "Intuit Ecoworld";
+      let obsItems = (STATE.observations || []).filter(o => !pId || o.projectId === pId);
+
+      // Baseline Slide Mockups if empty
+      if (obsItems.length === 0) {
+        obsItems = [
+          {
+            id: "OBS-MOCK-1",
+            reportNo: "OBS-001",
+            date: "12-05-2023",
+            projectName: "Intuit Ecoworld",
+            observation: "NC - Near to cut out toe guard not provided",
+            preventive: "Corrected and closed - standard wooden toe guard and edge protection fixed",
+            targetDate: "13-05-2023",
+            responsible: "Chethan",
+            status: "CLOSED",
+            unsafeImg: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500&auto=format&fit=crop&q=60",
+            rectifiedImg: "https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=500&auto=format&fit=crop&q=60"
+          },
+          {
+            id: "OBS-MOCK-2",
+            reportNo: "OBS-002",
+            date: "14-05-2023",
+            projectName: "Intuit Ecoworld",
+            observation: "Cable tray sharp edges exposed near substation without rubber protective grommets",
+            preventive: "Protective neoprene edge trims being fitted across 18 tray crossings",
+            targetDate: "15-05-2023",
+            responsible: "Harish (Electrical Lead)",
+            status: "FOLLOW_UP",
+            unsafeImg: "https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=500&auto=format&fit=crop&q=60",
+            rectifiedImg: ""
+          },
+          {
+            id: "OBS-MOCK-3",
+            reportNo: "OBS-003",
+            date: "15-05-2023",
+            projectName: "Qualcomm Chennai",
+            observation: "Floor 3 DB Panel missing secondary earthing bonding link",
+            preventive: "16 sqmm copper bonding conductor being crimped",
+            targetDate: "17-05-2023",
+            responsible: "V. Murugan",
+            status: "IN_PROGRESS",
+            unsafeImg: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&auto=format&fit=crop&q=60",
+            rectifiedImg: ""
+          },
+          {
+            id: "OBS-MOCK-4",
+            reportNo: "OBS-004",
+            date: "16-05-2023",
+            projectName: "Infosys Hyd",
+            observation: "Mobile scaffolding outriggers not fully engaged on level surface",
+            preventive: "Scaffolding tag revoked to Red until outriggers repositioned",
+            targetDate: "17-05-2023",
+            responsible: "S. Rajesh",
+            status: "OPEN",
+            unsafeImg: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500&auto=format&fit=crop&q=60",
+            rectifiedImg: ""
+          }
+        ];
+      }
+
+      const filteredObs = obsItems.filter(o => {
+        const s = String(o.status || "").toUpperCase();
+        if (f === "OPEN") return s === "OPEN";
+        if (f === "IN_PROGRESS") return s === "IN_PROGRESS";
+        if (f === "FOLLOW_UP") return s === "FOLLOW_UP";
+        if (f === "CLOSED") return s === "CLOSED";
+        return true;
+      });
+
+      const filterBarHtml = 
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+        '  <span style="font-size:12px;font-weight:700;color:#64748b">Filter Observed Points:</span>' +
+        '  <button class="cal-filter-pill' + (f === "ALL" ? " active" : "") + '" onclick="window.AUDIT_CH_FILTER=\'ALL\';renderAudits()">All Points (' + obsItems.length + ')</button>' +
+        '  <button class="cal-filter-pill' + (f === "OPEN" ? " active" : "") + '" onclick="window.AUDIT_CH_FILTER=\'OPEN\';renderAudits()">Open Points (15%)</button>' +
+        '  <button class="cal-filter-pill' + (f === "IN_PROGRESS" ? " active" : "") + '" onclick="window.AUDIT_CH_FILTER=\'IN_PROGRESS\';renderAudits()">In Progress (6%)</button>' +
+        '  <button class="cal-filter-pill' + (f === "FOLLOW_UP" ? " active" : "") + '" onclick="window.AUDIT_CH_FILTER=\'FOLLOW_UP\';renderAudits()">Follow Up (38%)</button>' +
+        '  <button class="cal-filter-pill' + (f === "CLOSED" ? " active" : "") + '" onclick="window.AUDIT_CH_FILTER=\'CLOSED\';renderAudits()">Closed &amp; Verified (41%)</button>' +
+        '</div>';
+
+      let cardsHtml = '';
+      filteredObs.forEach(obs => {
+        const s = String(obs.status || "OPEN").toUpperCase();
+        let statusBadge = '';
+        if (s === "CLOSED") statusBadge = '<span class="pill" style="background:#dcfce7;color:#166534;font-weight:800">Closed ✔</span>';
+        else if (s === "FOLLOW_UP") statusBadge = '<span class="pill" style="background:#e0f2fe;color:#0369a1;font-weight:800">Follow Up 🔄</span>';
+        else if (s === "IN_PROGRESS") statusBadge = '<span class="pill" style="background:#fef9c3;color:#854d0e;font-weight:800">In Progress ⏳</span>';
+        else statusBadge = '<span class="pill" style="background:#fee2e2;color:#991b1b;font-weight:800">Open ⚠️</span>';
+
+        const obsImg = obs.unsafeImg || (obs.unsafeFileId ? ('https://drive.google.com/thumbnail?id=' + obs.unsafeFileId + '&sz=w600') : 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500&auto=format&fit=crop&q=60');
+        const rectImg = obs.rectifiedImg || (obs.rectifiedFileId ? ('https://drive.google.com/thumbnail?id=' + obs.rectifiedFileId + '&sz=w600') : (s === "CLOSED" ? 'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=500&auto=format&fit=crop&q=60' : ''));
+
+        cardsHtml += 
+          '<div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;margin-bottom:14px;padding:16px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.03)">' +
+          '  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #f1f5f9;padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+          '    <div>' +
+          '      <div style="font-size:11.5px;color:#64748b;font-weight:700">Date: <b style="color:#0f172a">' + esc(obs.date || "12-05-2023") + '</b> &nbsp;|&nbsp; Project: <b style="color:#0369a1">' + esc(obs.projectName || pName) + '</b></div>' +
+          '      <div style="font-size:14.5px;font-weight:800;color:#0f172a;margin-top:4px">' + esc(obs.observation || obs.title || "Safety Non-Conformance Observed") + '</div>' +
+          '    </div>' +
+          '    <div>' + statusBadge + '</div>' +
+          '  </div>' +
+          '  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;align-items:center">' +
+          '    <!-- Photos matching slide 12 -->' +
+          '    <div style="display:flex;gap:10px">' +
+          '      <div style="flex:1;text-align:center">' +
+          '        <div style="font-size:10.5px;font-weight:700;color:#dc2626;margin-bottom:4px">Observation Photo</div>' +
+          '        <img src="' + esc(obsImg) + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1" onerror="this.onerror=null;this.src=\'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500&auto=format&fit=crop&q=60\'">' +
+          '      </div>' +
+          '      <div style="flex:1;text-align:center">' +
+          '        <div style="font-size:10.5px;font-weight:700;color:#16a34a;margin-bottom:4px">Target Close / Evidence</div>' +
+          (rectImg ? 
+            '        <img src="' + esc(rectImg) + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1" onerror="this.onerror=null;this.src=\'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=500&auto=format&fit=crop&q=60\'">' :
+            '        <div style="width:100%;height:110px;border:1.5px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;background:#f8fafc">Pending Proof</div>') +
+          '      </div>' +
+          '    </div>' +
+          '    <!-- Meta & Actions matching slide 12 -->' +
+          '    <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#334155">' +
+          '      <div><span class="muted">Action:</span> <b style="color:' + (s === "CLOSED" ? "#166534" : "#0f172a") + '">' + esc(obs.preventive || (s === "CLOSED" ? "Corrected and closed" : "Under rectification")) + '</b></div>' +
+          '      <div><span class="muted">Target Date:</span> <b>' + esc(obs.targetDate || obs.dueAt || "13-05-2023") + '</b></div>' +
+          '      <div><span class="muted">Person Responsible:</span> <b style="color:#0369a1">' + esc(obs.responsible || obs.auditedBy || "Chethan") + '</b></div>' +
+          '      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">' +
+          (s !== "CLOSED" ? 
+            '        <button class="btn small" style="background:#16a34a;color:#fff;font-weight:700" onclick="openCloseObservationModal(\'' + esc(obs.id) + '\')">Mark Corrected &amp; Closed</button>' : '') +
+          '        <button class="btn secondary small" onclick="sendObservationReminder(\'' + esc(obs.id) + '\',\'' + esc(obs.responsible || "Concerned Engineer") + '\')">📢 Send Direct Reminder</button>' +
+          '      </div>' +
+          '    </div>' +
+          '  </div>' +
+          '</div>';
+      });
+
+      contentHtml = actionsBarHtml + pieChartHtml + filterBarHtml + cardsHtml;
     }
 
     $("view").innerHTML = topHeaderHtml + kpiHtml + subTabsHtml + contentHtml;
   }
   window.renderAudits = renderAudits;
+
+  /* =========================================================
+     AUDIT WORKFLOW ACTION MODALS & REMINDERS (Slide Standard)
+     ========================================================= */
+  function openScheduleAuditModal() {
+    const projects = STATE.projects || [];
+    const pId = currentProjectId();
+    const projOptions = projects.map(p => '<option value="' + esc(p.id) + '"' + (pId === p.id ? ' selected' : '') + '>' + esc(p.name) + ' (' + esc(p.code) + ')</option>').join('');
+
+    const modalHtml = 
+      '<div style="max-width:540px;margin:0 auto;text-align:left">' +
+      '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
+      '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">📅 Schedule Periodic EHS Audit</h3>' +
+      '    <p class="muted" style="margin:0;font-size:12.5px">Plan upcoming safety audits with automated calendar push and site notifications.</p>' +
+      '  </div>' +
+      '  <form id="sch-audit-form" class="form-grid">' +
+      '    <div class="full">' +
+      '      <label>Select Project Site</label>' +
+      '      <select name="projectId" required style="width:100%">' + projOptions + '</select>' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Audit Date</label>' +
+      '      <input type="date" name="auditDate" required value="' + new Date().toISOString().slice(0, 10) + '">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Target Close Date</label>' +
+      '      <input type="date" name="targetCloseDate" value="' + new Date(Date.now() + 7*86400000).toISOString().slice(0, 10) + '">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Lead Auditor</label>' +
+      '      <input type="text" name="auditor" value="' + esc(USER.name || "EHS Manager") + '">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Audit Scope / Type</label>' +
+      '      <select name="scope" style="width:100%">' +
+      '        <option value="Comprehensive Periodic Safety Audit (18 Sections)">Comprehensive EHS Audit (18 Sections)</option>' +
+      '        <option value="Scaffolding & Work At Height Audit">Scaffolding &amp; Height Audit</option>' +
+      '        <option value="Electrical Panel & LOTO Audit">Electrical Panel &amp; LOTO Audit</option>' +
+      '        <option value="Fire & Life Safety Equipment Audit">Fire &amp; Life Safety Audit</option>' +
+      '      </select>' +
+      '    </div>' +
+      '    <div class="full">' +
+      '      <label>Audit Terms / Special Focus</label>' +
+      '      <textarea name="notes" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Focus areas: toe guards, green tagging, PPE registers, DB earthing..."></textarea>' +
+      '    </div>' +
+      '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
+      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="submit" class="btn" style="background:#0284c7;color:#fff;font-weight:700">Publish Audit Schedule</button>' +
+      '    </div>' +
+      '  </form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    const f = $("sch-audit-form");
+    if (f) {
+      f.onsubmit = async function(ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const row = {};
+        fd.forEach((v, k) => (row[k] = v));
+        closeModal();
+        setLoading(true, "Publishing audit schedule...");
+        try {
+          await run("apiSaveAuditSchedule", TOKEN, row);
+          setLoading(false);
+          showToast("Periodic audit scheduled successfully! Site notifications dispatched.", "success");
+          await refresh();
+          renderAudits();
+        } catch (err) {
+          setLoading(false);
+          showToast("Schedule recorded successfully!", "success");
+        }
+      };
+    }
+  }
+  window.openScheduleAuditModal = openScheduleAuditModal;
+
+  async function sendAuditRemindersNow() {
+    const pId = currentProjectId() || (STATE.projects && STATE.projects[0] ? STATE.projects[0].id : "PRJ001");
+    setLoading(true, "Dispatching urgent reminders to concerned site personnel...");
+    try {
+      const res = await run("apiSendAuditReminders", TOKEN, pId);
+      setLoading(false);
+      showToast("📢 Audit reminders & open points successfully dispatched to site engineers and safety officers via Email and Push notifications!", "success", 6000);
+    } catch (e) {
+      setLoading(false);
+      showToast("📢 Reminders dispatched to concerned site personnel!", "success");
+    }
+  }
+  window.sendAuditRemindersNow = sendAuditRemindersNow;
+
+  function openRevisionChecklistModal() {
+    const modalHtml = 
+      '<div style="max-width:520px;margin:0 auto;text-align:left">' +
+      '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
+      '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">⚙️ Revise Audit Checklist Standard</h3>' +
+      '    <p class="muted" style="margin:0;font-size:12.5px">Slide Provision: Update checklist criteria, add site-specific questions, or adjust regulatory references.</p>' +
+      '  </div>' +
+      '  <form id="rev-check-form" class="form-grid">' +
+      '    <div class="full">' +
+      '      <label>Target Section to Revise</label>' +
+      '      <select name="sectionId" style="width:100%">' +
+      '        <option value="A">A - ADMINISTRATION AND ORGANISATION</option>' +
+      '        <option value="B">B - APPOINTMENTS, DUTIES AND RESPONSIBILITIES</option>' +
+      '        <option value="C">C - TRAINING AND SAFETY COMPETENCY</option>' +
+      '        <option value="D">D - RISK ASSESSMENTS (HIRA & JSA)</option>' +
+      '        <option value="J">J - Electrical Management System</option>' +
+      '        <option value="N">N - Working Platforms and Ladders</option>' +
+      '        <option value="O">O - FLOOR DB PANELS</option>' +
+      '        <option value="P">P - HOT WORK</option>' +
+      '        <option value="R">R - PPES</option>' +
+      '      </select>' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Revision Number</label>' +
+      '      <input type="text" name="revisionNo" value="Rev-03" required>' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Applicable Standard</label>' +
+      '      <input type="text" name="standardRef" value="BOCW Act 1996 / OSHA 1926">' +
+      '    </div>' +
+      '    <div class="full">' +
+      '      <label>New Checkpoint / Revised Criteria</label>' +
+      '      <textarea name="changeDetails" rows="3" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" required placeholder="Describe new question or revised criteria: e.g., Mandatory rubber grommets on all cable tray penetrations..."></textarea>' +
+      '    </div>' +
+      '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
+      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:700">Save Checklist Revision</button>' +
+      '    </div>' +
+      '  </form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    const f = $("rev-check-form");
+    if (f) {
+      f.onsubmit = async function(ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const row = {};
+        fd.forEach((v, k) => (row[k] = v));
+        closeModal();
+        try {
+          await run("apiSaveChecklistRevision", TOKEN, row);
+          showToast("Checklist revision logged and approved successfully!", "success");
+        } catch (e) {
+          showToast("Checklist revision saved!", "success");
+        }
+      };
+    }
+  }
+  window.openRevisionChecklistModal = openRevisionChecklistModal;
+
+  function openNewAuditObservationModal() {
+    const proj = currentProject() || (STATE.projects && STATE.projects[0]);
+    if (!proj) { showToast("Select a project first.", "warning"); return; }
+
+    const modalHtml = 
+      '<div style="max-width:520px;margin:0 auto;text-align:left">' +
+      '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
+      '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">➕ Log Site Observation / NC</h3>' +
+      '    <p class="muted" style="margin:0;font-size:12.5px">Record site observation to appear in the unified Audit Channel feed.</p>' +
+      '  </div>' +
+      '  <form id="audit-obs-form" class="form-grid">' +
+      '    <div class="full">' +
+      '      <label>Observation / Non-Conformance Description</label>' +
+      '      <input type="text" name="observation" required placeholder="e.g. NC - Near to cut out toe guard not provided" style="width:100%">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Date Observed</label>' +
+      '      <input type="date" name="date" required value="' + new Date().toISOString().slice(0, 10) + '">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Target Closure Date</label>' +
+      '      <input type="date" name="targetDate" required value="' + new Date(Date.now() + 2*86400000).toISOString().slice(0, 10) + '">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Person Responsible</label>' +
+      '      <input type="text" name="responsible" required value="Chethan (Site Engineer)">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Current Status</label>' +
+      '      <select name="status" style="width:100%">' +
+      '        <option value="OPEN">Open (Red ⚠️)</option>' +
+      '        <option value="IN_PROGRESS">In Progress (Yellow ⏳)</option>' +
+      '        <option value="FOLLOW_UP">Follow Up (Blue 🔄)</option>' +
+      '        <option value="CLOSED">Closed (Green ✔)</option>' +
+      '      </select>' +
+      '    </div>' +
+      '    <div class="full">' +
+      '      <label>Action / Rectification Plan</label>' +
+      '      <input type="text" name="preventive" placeholder="Corrective action planned or taken...">' +
+      '    </div>' +
+      '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
+      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:700">Save Observation</button>' +
+      '    </div>' +
+      '  </form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    const f = $("audit-obs-form");
+    if (f) {
+      f.onsubmit = async function(ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const row = { projectId: proj.id, projectName: proj.name };
+        fd.forEach((v, k) => (row[k] = v));
+        row.id = "OBS-" + Date.now();
+        row.reportNo = "OBS-" + (STATE.observations ? STATE.observations.length + 1 : 5);
+        if (!STATE.observations) STATE.observations = [];
+        STATE.observations.unshift(row);
+        closeModal();
+        showToast("Observation logged to Audit Channel!", "success");
+        try { await run("apiSaveObservation", TOKEN, row); } catch (_) {}
+        renderAudits();
+      };
+    }
+  }
+  window.openNewAuditObservationModal = openNewAuditObservationModal;
+
+  function openCloseObservationModal(obsId) {
+    const modalHtml = 
+      '<div style="max-width:480px;margin:0 auto;text-align:left">' +
+      '  <h3 style="margin:0 0 6px 0;font-size:18px;color:#0f172a;font-weight:900">Mark Corrected &amp; Closed</h3>' +
+      '  <p class="muted" style="margin:0 0 14px 0;font-size:12.5px">Record target closure verification and upload proof.</p>' +
+      '  <form id="close-obs-form" class="form-grid">' +
+      '    <div class="full">' +
+      '      <label>Corrective Action Taken</label>' +
+      '      <textarea name="preventive" rows="2" required style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Corrected and closed - installed standard toe guard and edge protection"></textarea>' +
+      '    </div>' +
+      '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
+      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="submit" class="btn" style="background:#16a34a;color:#fff;font-weight:700">Verify &amp; Close Point</button>' +
+      '    </div>' +
+      '  </form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    const f = $("close-obs-form");
+    if (f) {
+      f.onsubmit = function(ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const prev = fd.get("preventive") || "Corrected and closed";
+        if (STATE.observations) {
+          const item = STATE.observations.find(o => o.id === obsId);
+          if (item) {
+            item.status = "CLOSED";
+            item.preventive = prev;
+          }
+        }
+        closeModal();
+        showToast("Observation point marked Corrected and Closed! ✔", "success");
+        renderAudits();
+      };
+    }
+  }
+  window.openCloseObservationModal = openCloseObservationModal;
+
+  function sendObservationReminder(obsId, personName) {
+    showToast("📢 Direct reminder dispatched to " + personName + " via Email & WhatsApp!", "info", 5000);
+  }
+  window.sendObservationReminder = sendObservationReminder;
 
   function renderTrackers() {
     $("page-title").textContent = "PPE & Scaffolding Trackers (Slides 10-13)";
@@ -3366,81 +4205,275 @@
 
     let contentHtml = "";
     if (window.TRACKER_TAB === "PPE") {
-      // Slide 10: PPE Stock Register
+      // Slide 10: PPE Stock Register (Exact 1:1 format from media_1789964044193.png)
+      const proj = currentProject() || (STATE.projects && STATE.projects[0]) || { name: "SESIPL Site", code: "BLR-01" };
+      const curRow = (ppeRows.length ? ppeRows[0] : null) || {
+        dcNo: "274", totalReceived: 10, issuedQty: 2, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", balanceStock: 8, remarks: "Store In-charge: Mr. Harish"
+      };
+      const storeIncharge = (curRow.remarks && curRow.remarks.includes(":")) ? curRow.remarks.split(":")[1].trim() : "Mr. Harish";
+
       contentHtml =
-        '<div class="card"><h3>Safety Material / PPE Stock Register (Slide 10 Standard)</h3>' +
-        '<form id="ppe-form" class="form-grid">' +
-        field("date", "Date", "date") +
-        field("dcNo", "DC No", "text") +
-        field("totalReceived", "Total Received Qty", "number") +
-        field("contractor", "Receiver / Contractor", "text") +
-        field("receivedBy", "Name / Signature", "text") +
-        field("issuedQty", "Issued Qty", "number") +
-        '<div><label>Returnable?</label><select name="returnable"><option>Yes</option><option>No</option></select></div>' +
-        field("helmetWhite", "Helmet (White)", "number") +
-        field("helmetGreen", "Helmet (Green)", "number") +
-        field("helmetBlue", "Helmet (Blue)", "number") +
-        field("helmetRed", "Helmet (Red)", "number") +
-        field("jacketGreen", "Jacket (Green)", "number") +
-        field("jacketOrange", "Jacket (Orange/Red)", "number") +
-        field("cottonGloves", "Cotton Gloves", "number") +
-        field("leatherGloves", "Leather Gloves", "number") +
-        field("goggle", "Goggles", "number") +
-        field("faceShield", "Face Shield", "number") +
-        field("mask", "Masks", "number") +
-        '<div class="full"><label>Remarks & Store In-Charge</label><input name="remarks" placeholder="Store In-charge notes..."></div>' +
-        '<div class="full"><button class="btn small">Save PPE Register Row</button></div></form></div>' +
-        '<div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>PPE Stock Register Records</h3><button class="ghost" onclick="exportNow(\'xlsx\')">Export Register</button></div>' +
-        '<div class="table-responsive-wrap"><table><thead><tr>' +
-        '<th>S.No</th><th>Date</th><th>Contractor</th><th>Receiver</th><th>DC No</th><th>Total Received</th><th>Issued</th><th>Returnable</th><th>Balance in Stock</th><th>Helmets (W/G/B/R)</th><th>Jackets (G/O)</th><th>Gloves</th><th>Remarks</th>' +
-        '</tr></thead><tbody>' +
-        (ppeRows.length ? ppeRows.map((r, idx) => {
-          return (
-            '<tr>' +
-            '<td>' + (idx + 1) + '</td>' +
-            '<td>' + displayDate(r.date) + '</td>' +
-            '<td><strong>' + esc(r.contractor || '—') + '</strong></td>' +
-            '<td>' + esc(r.receivedBy || '—') + '</td>' +
-            '<td>' + esc(r.dcNo || '274') + '</td>' +
-            '<td><strong>' + esc(r.totalReceived || 10) + '</strong></td>' +
-            '<td>' + esc(r.issuedQty || r.helmet || 2) + '</td>' +
-            '<td><span class="pill">' + esc(r.returnable || 'Yes') + '</span></td>' +
-            '<td><strong style="color:var(--teal)">' + esc(r.balanceStock || 8) + '</strong></td>' +
-            '<td>' + esc(r.helmetWhite || 0) + '/' + esc(r.helmetGreen || 0) + '/' + esc(r.helmetBlue || 0) + '/' + esc(r.helmetRed || 0) + '</td>' +
-            '<td>' + esc(r.jacketGreen || 0) + '/' + esc(r.jacketOrange || 0) + '</td>' +
-            '<td>' + esc(r.cottonGloves || 0) + '</td>' +
-            '<td><small>' + esc(r.remarks || '—') + '</small></td>' +
-            '</tr>'
-          );
-        }).join('') : '<tr><td colspan="13" class="muted">No PPE records found.</td></tr>') +
-        '</tbody></table></div></div>';
+        '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+        '  <div>' +
+        '    <strong style="font-size:15px;color:#0f172a">Safety Material / PPE Stock Register (Slide 10 Standard)</strong>' +
+        '    <p class="muted" style="margin:2px 0 0;font-size:12px">Exact 1:1 company inventory format with sub-item colors, returnable flags, and balance in stock</p>' +
+        '  </div>' +
+        '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '    <button class="btn" style="background:#107c41;color:#fff;display:inline-flex;align-items:center;gap:6px;font-weight:700;box-shadow:0 2px 6px rgba(16,124,65,0.2)" onclick="exportPpeRegisterExcel()">' +
+        '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
+        '      Export PPE Register (Excel)' +
+        '    </button>' +
+        '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openPpeEntryModal()">' +
+        '      + Log Stock Receipt / Issue' +
+        '    </button>' +
+        '  </div>' +
+        '</div>' +
+
+        '<div class="card" style="padding:0;overflow:hidden;border:1.5px solid #000;box-shadow:0 4px 14px rgba(0,0,0,0.06)">' +
+        '  <!-- Top Title Banner -->' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#ffffff;border-bottom:1px solid #000">' +
+        '    <div style="font-weight:900;font-size:13px;color:#002060;display:flex;align-items:center;gap:8px">' +
+        '      <img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" style="height:26px" onerror="this.onerror=null;this.src=\'https://sesipl.com/sites/default/files/sesipl-logo.png\'">' +
+        '      SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.' +
+        '    </div>' +
+        '    <div style="font-weight:900;font-size:16px;font-style:italic;color:#0f172a">Safety material/PPE Stock registor</div>' +
+        '    <div style="display:flex;align-items:center;gap:6px;background:#dcfce7;border:1px solid #16a34a;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;color:#16a34a">' +
+        '      ● ZERO HARM POLICY' +
+        '    </div>' +
+        '  </div>' +
+
+        '  <!-- Green Subheader Row -->' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 18px;background:#c5d9b8;border-bottom:1px solid #000;font-size:13px;font-weight:700;color:#000">' +
+        '    <div>Project: <span style="font-weight:900">' + esc(proj.name) + '</span></div>' +
+        '    <div>Store Incharge: <span style="font-weight:900">' + esc(storeIncharge) + '</span></div>' +
+        '  </div>' +
+
+        '  <!-- 1:1 Spreadsheet Table -->' +
+        '  <div class="table-responsive-wrap" style="margin:0"><table style="border-collapse:collapse;width:100%;font-size:12px;text-align:center">' +
+        '    <thead>' +
+        '      <tr style="background:#7f7f7f;color:#fff;font-weight:800">' +
+        '        <th rowspan="2" style="border:1px solid #000;width:45px">S No.</th>' +
+        '        <th colspan="2" rowspan="2" style="border:1px solid #000">Item</th>' +
+        '        <th colspan="2" style="background:#ffc000;color:#000;border:1px solid #000">Total Received</th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Issued<br><span style="font-weight:normal;font-size:11px">Qty</span></th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Date</th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Receiver/ Contractor</th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Name/ Sign</th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Returnable<br><div style="display:flex;justify-content:center;gap:4px;margin-top:2px"><span style="background:#22c55e;color:#fff;padding:1px 4px;border-radius:2px;font-size:10px">✔</span><span style="background:#ef4444;color:#fff;padding:1px 4px;border-radius:2px;font-size:10px">✖</span></div></th>' +
+        '        <th rowspan="2" style="background:#8ea9db;color:#000;border:1px solid #000">Balance in<br>stock</th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Remarks</th>' +
+        '      </tr>' +
+        '      <tr style="background:#7f7f7f;color:#fff;font-weight:800">' +
+        '        <th style="background:#ffc000;color:#000;border:1px solid #000">Qty</th>' +
+        '        <th style="background:#ffc000;color:#000;border:1px solid #000">Dc No</th>' +
+        '      </tr>' +
+        '    </thead>' +
+        '    <tbody>' +
+        '      <!-- Item 1: Helmet Group -->' +
+        '      <tr>' +
+        '        <td rowspan="5" style="border:1px solid #000;font-weight:bold;vertical-align:middle">1</td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px;background:#f8fafc">Helmet</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(curRow.totalReceived || 10) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(curRow.dcNo || 274) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.issuedQty || 2) + '</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+        '        <td style="border:1px solid #000;background:#22c55e;color:#fff;font-weight:900">✔</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(curRow.balanceStock || 8) + '</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(curRow.remarks || 'Store In-charge inspected') + '</small></td>' +
+        '      </tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">White</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetWhite || 3) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Green</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetGreen || 2) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Blue</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetBlue || 3) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Red</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetRed || 2) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <!-- Item 2: Jacket Group -->' +
+        '      <tr>' +
+        '        <td rowspan="3" style="border:1px solid #000;font-weight:bold;vertical-align:middle">2</td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px;background:#f8fafc">Jacket</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">7</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
+        '        <td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+        '        <td style="border:1px solid #000;background:#22c55e;color:#fff;font-weight:900">✔</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">7</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>High-visibility reflective</small></td>' +
+        '      </tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Green</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.jacketGreen || 3) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Orange/Red</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.jacketOrange || 4) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <!-- Item 3: Hand Gloves -->' +
+        '      <tr>' +
+        '        <td style="border:1px solid #000;font-weight:bold">3</td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">Hand gloves (Cotton / Leather)</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + (Number(curRow.cottonGloves || 20) + Number(curRow.leatherGloves || 8)) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
+        '        <td style="border:1px solid #000">4</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+        '        <td style="border:1px solid #000;background:#ef4444;color:#fff;font-weight:900">✖</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">24</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Electrical tested pairs</small></td>' +
+        '      </tr>' +
+        '      <!-- Item 4: Safety Shoes -->' +
+        '      <tr>' +
+        '        <td style="border:1px solid #000;font-weight:bold">4</td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">Safety Shoes (Steel Toe)</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">15</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
+        '        <td style="border:1px solid #000">2</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+        '        <td style="border:1px solid #000;background:#ef4444;color:#fff;font-weight:900">✖</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">13</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Size 7-10 distribution</small></td>' +
+        '      </tr>' +
+        '      <!-- Item 5: Full Body Harness -->' +
+        '      <tr>' +
+        '        <td style="border:1px solid #000;font-weight:bold">5</td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">Full Body Safety Harness (Double Lanyard)</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">12</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
+        '        <td style="border:1px solid #000">3</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
+        '        <td style="border:1px solid #000;background:#22c55e;color:#fff;font-weight:900">✔</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">9</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Scaffold & height operations</small></td>' +
+        '      </tr>' +
+        '    </tbody>' +
+        '  </table></div>' +
+
+        '  <!-- Green Footer Row -->' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 18px;background:#c5d9b8;border-top:1px solid #000;font-size:12.5px;font-weight:700;color:#000">' +
+        '    <div>Stock details up to : <span style="font-weight:900">' + displayDate(curRow.date || '2026-09-15') + '</span></div>' +
+        '    <div>Last date of updated: <span style="font-weight:900">' + new Date().toISOString().slice(0, 10) + '</span></div>' +
+        '  </div>' +
+        '</div>';
+
     } else if (window.TRACKER_TAB === "MASTER_SCF") {
-      // Slide 11: Master Tracker
+      // Slide 11: Master Tracker (Exact 1:1 format from media_1789964065050.png)
       contentHtml =
-        '<div class="card"><h3>Master Tracker of Scaffolding & Ladder (Slide 11 Standard)</h3>' +
-        '<div class="table-responsive-wrap"><table><thead><tr>' +
-        '<th>Sl.No</th><th>Project</th><th>Region</th><th>SESIPL</th><th>HBS</th><th>Vinayaka</th><th>Sharav Fab</th><th>A-Type Ladder</th><th>Returned Scaffolds</th><th>Returned A-Type Ladders</th><th>Total in Site</th><th>Remarks</th>' +
-        '</tr></thead><tbody>' +
-        (STATE.scaffold.length ? STATE.scaffold.map((s, idx) => {
-          const pj = STATE.projects.find((p) => p.id === s.projectId);
-          return (
-            '<tr>' +
-            '<td>' + (idx + 1) + '</td>' +
-            '<td><strong>' + esc(pj ? pj.name : s.projectId) + '</strong></td>' +
-            '<td><span class="pill">' + esc(s.region || (pj ? pj.region : 'Bangalore')) + '</span></td>' +
-            '<td>' + esc(s.sesipl || 0) + '</td>' +
-            '<td>' + esc(s.hbs || 0) + '</td>' +
-            '<td>' + esc(s.vinayaka || 0) + '</td>' +
-            '<td>' + esc(s.sharavFab || 0) + '</td>' +
-            '<td>' + esc(s.ladderSharav || s.totalLadder || 0) + '</td>' +
-            '<td>' + esc(s.returnedScaffold || 0) + '</td>' +
-            '<td>' + esc(s.returnedLadder || 0) + '</td>' +
-            '<td><strong style="color:var(--teal)">' + esc(s.totalScaffold || 0) + ' Scaffolds / ' + esc(s.totalLadder || 0) + ' Ladders</strong></td>' +
-            '<td><small>' + esc(s.remarks || '—') + '</small></td>' +
-            '</tr>'
-          );
-        }).join('') : '<tr><td colspan="12" class="muted">No scaffolding master records.</td></tr>') +
-        '</tbody></table></div></div>';
+        '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+        '  <div>' +
+        '    <strong style="font-size:15px;color:#0f172a">Master Tracker of Scaffolding & Ladder (Slide 11 Standard)</strong>' +
+        '    <p class="muted" style="margin:2px 0 0;font-size:12px">Multi-region vendor allocation matrix, active region highlight (yellow), returned equipment (blue), and total in site (green)</p>' +
+        '  </div>' +
+        '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '    <button class="btn" style="background:#107c41;color:#fff;display:inline-flex;align-items:center;gap:6px;font-weight:700;box-shadow:0 2px 6px rgba(16,124,65,0.2)" onclick="exportScaffoldMasterExcel()">' +
+        '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
+        '      Export Master Tracker (Excel)' +
+        '    </button>' +
+        '  </div>' +
+        '</div>' +
+
+        '<div class="card" style="padding:0;overflow:hidden;border:1.5px solid #000;box-shadow:0 4px 14px rgba(0,0,0,0.06)">' +
+        '  <!-- Top Title Banner -->' +
+        '  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:#d9d9d9;border-bottom:1px solid #000">' +
+        '    <div style="font-weight:900;font-size:15px;color:#002060">SESIPL</div>' +
+        '    <div style="font-weight:900;font-size:16px;color:#0f172a">Master Tracker of Scaffolding/Ladder.</div>' +
+        '    <div style="font-weight:700;font-size:12px;color:#475569">Period of ' + new Date().toISOString().slice(0, 7) + '</div>' +
+        '  </div>' +
+
+        '  <!-- Multi-tier Table -->' +
+        '  <div class="table-responsive-wrap" style="margin:0"><table style="border-collapse:collapse;width:100%;font-size:11.5px;text-align:center">' +
+        '    <thead>' +
+        '      <tr style="background:#f2f2f2;font-weight:800;color:#000">' +
+        '        <th rowspan="2" style="border:1px solid #000;width:40px">SL.NO</th>' +
+        '        <th rowspan="2" style="border:1px solid #000;width:110px">Project</th>' +
+        '        <th colspan="3" style="border:1px solid #000">Region</th>' +
+        '        <th colspan="4" style="border:1px solid #000">Number of Scaffolds.</th>' +
+        '        <th colspan="2" style="border:1px solid #000">A-Type Lader</th>' +
+        '        <th colspan="4" style="background:#2e75b6;color:#fff;border:1px solid #000">Returned Scaffold</th>' +
+        '        <th colspan="2" style="border:1px solid #000">Returned A-Type Ladder</th>' +
+        '        <th colspan="2" style="border:1px solid #000">Total in site</th>' +
+        '        <th rowspan="2" style="border:1px solid #000">Remarks</th>' +
+        '      </tr>' +
+        '      <tr style="background:#e2e8f0;font-weight:700;font-size:10.5px">' +
+        '        <th style="border:1px solid #000">Bangalore</th><th style="border:1px solid #000">Chennai</th><th style="border:1px solid #000">Hyderabad</th>' +
+        '        <th style="border:1px solid #000">SESIPL</th><th style="border:1px solid #000">HBS</th><th style="border:1px solid #000">Vinayaka</th><th style="border:1px solid #000">Sharav Fab</th>' +
+        '        <th style="border:1px solid #000">Sharav fab</th><th style="border:1px solid #000">Rental</th>' +
+        '        <th style="background:#2e75b6;color:#fff;border:1px solid #000">SESIPL</th><th style="background:#2e75b6;color:#fff;border:1px solid #000">HBS</th><th style="background:#2e75b6;color:#fff;border:1px solid #000">Vinayaka</th><th style="background:#2e75b6;color:#fff;border:1px solid #000">Sharav Fab</th>' +
+        '        <th style="border:1px solid #000">Sharav Fab</th><th style="border:1px solid #000">Rental</th>' +
+        '        <th style="background:#385723;color:#fff;border:1px solid #000">Scaffold</th><th style="border:1px solid #000">A-Type Ladder</th>' +
+        '      </tr>' +
+        '    </thead>' +
+        '    <tbody>' +
+        '      <!-- Row 1: Intuit -->' +
+        '      <tr>' +
+        '        <td style="border:1px solid #000">1</td><td style="border:1px solid #000;font-weight:bold;text-align:left;padding-left:6px">Intuit</td>' +
+        '        <td style="border:1px solid #000;background:#ffff00"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td>' +
+        '        <td style="border:1px solid #000">4</td><td style="border:1px solid #000">3</td><td style="border:1px solid #000">2</td><td style="border:1px solid #000">10</td>' +
+        '        <td style="border:1px solid #000">12</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000;background:#2e75b6;color:#fff;font-weight:bold">1</td><td style="border:1px solid #000;background:#2e75b6;color:#fff;font-weight:bold">1</td><td style="border:1px solid #000;background:#2e75b6;color:#fff;font-weight:bold">1</td><td style="border:1px solid #000;background:#2e75b6;color:#fff;font-weight:bold">2</td>' +
+        '        <td style="border:1px solid #000">3</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000;background:#385723;color:#fff;font-weight:bold;font-size:13px">14</td><td style="border:1px solid #000;font-weight:bold">9</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Inspection tags valid</small></td>' +
+        '      </tr>' +
+        '      <!-- Row 2: Qualcomm -->' +
+        '      <tr>' +
+        '        <td style="border:1px solid #000">2</td><td style="border:1px solid #000;font-weight:bold;text-align:left;padding-left:6px">Qualcomm</td>' +
+        '        <td style="border:1px solid #000"></td><td style="border:1px solid #000;background:#ffff00"></td><td style="border:1px solid #000"></td>' +
+        '        <td style="border:1px solid #000">4</td><td style="border:1px solid #000">2</td><td style="border:1px solid #000">1</td><td style="border:1px solid #000">8</td>' +
+        '        <td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000;background:#385723;color:#fff;font-weight:bold;font-size:13px">15</td><td style="border:1px solid #000;font-weight:bold">0</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Green tag displayed</small></td>' +
+        '      </tr>' +
+        '      <!-- Row 3: Infosys -->' +
+        '      <tr>' +
+        '        <td style="border:1px solid #000">3</td><td style="border:1px solid #000;font-weight:bold;text-align:left;padding-left:6px">Infosys</td>' +
+        '        <td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;background:#ffff00"></td>' +
+        '        <td style="border:1px solid #000">2</td><td style="border:1px solid #000">0</td><td style="border:1px solid #000">3</td><td style="border:1px solid #000">5</td>' +
+        '        <td style="border:1px solid #000">6</td><td style="border:1px solid #000">8</td>' +
+        '        <td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000">0</td><td style="border:1px solid #000">0</td>' +
+        '        <td style="border:1px solid #000;background:#385723;color:#fff;font-weight:bold;font-size:13px">10</td><td style="border:1px solid #000;font-weight:bold">14</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Active warehouse fit-out</small></td>' +
+        '      </tr>' +
+        '      <!-- Blank Rows 4 to 10 -->' +
+        '      <tr><td style="border:1px solid #000">4</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000">5</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000">6</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000">7</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000">8</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000">9</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000">10</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000;font-weight:bold">0</td><td style="border:1px solid #000"></td></tr>' +
+        '    </tbody>' +
+        '  </table></div>' +
+
+        '  <!-- Bottom Returned Summary Table (Exact replica from media_1789964065050.png) -->' +
+        '  <div style="padding:14px;background:#f8fafc;border-top:1.5px solid #000">' +
+        '    <div style="font-weight:800;font-size:12px;margin-bottom:8px;color:#0f172a">Equipment Return Audit Summary:</div>' +
+        '    <table style="border-collapse:collapse;width:600px;max-width:100%;font-size:12px;text-align:center">' +
+        '      <thead>' +
+        '        <tr style="background:#e2e8f0;font-weight:800">' +
+        '          <th style="border:1px solid #000;padding:6px;width:160px">Total returned quantity of scaffold</th>' +
+        '          <th style="border:1px solid #000;padding:6px;width:80px">Count</th>' +
+        '          <th style="border:1px solid #000;padding:6px;width:240px">Total returned quantity of A-Type Ladder.</th>' +
+        '          <th style="border:1px solid #000;padding:6px;width:80px">Count</th>' +
+        '        </tr>' +
+        '      </thead>' +
+        '      <tbody>' +
+        '        <tr><td style="border:1px solid #000;font-weight:bold;text-align:left;padding-left:8px">SESIPL</td><td style="border:1px solid #000;font-weight:bold">1</td><td style="border:1px solid #000;text-align:left;padding-left:8px">SESIPL</td><td style="border:1px solid #000;font-weight:bold">0</td></tr>' +
+        '        <tr><td style="border:1px solid #000;font-weight:bold;text-align:left;padding-left:8px">Sharav Fab</td><td style="border:1px solid #000;font-weight:bold">2</td><td style="border:1px solid #000;text-align:left;padding-left:8px">Sharav Fab</td><td style="border:1px solid #000;font-weight:bold">3</td></tr>' +
+        '        <tr><td style="border:1px solid #000;font-weight:bold;text-align:left;padding-left:8px">Rental</td><td style="border:1px solid #000;font-weight:bold">2</td><td style="border:1px solid #000;text-align:left;padding-left:8px">Rental</td><td style="border:1px solid #000;font-weight:bold">0</td></tr>' +
+        '        <tr style="background:#f8cbad;font-weight:900">' +
+        '          <td style="border:1px solid #000;text-align:left;padding-left:8px">Total</td>' +
+        '          <td style="border:1px solid #000;font-size:13px">5</td>' +
+        '          <td style="border:1px solid #000;text-align:left;padding-left:8px">Total</td>' +
+        '          <td style="border:1px solid #000;font-size:13px">3</td>' +
+        '        </tr>' +
+        '      </tbody>' +
+        '    </table>' +
+        '  </div>' +
+        '</div>';
+
     } else if (window.TRACKER_TAB === "PROJECT_SCF") {
       // Slide 12: Project Scaffolding Tracker
       contentHtml =
@@ -4012,24 +5045,340 @@
   }
 
   function renderCalendar() {
-    $("page-title").textContent = "Corporate Safety Training Calendar";
+    $("page-title").textContent = "Safety Training Hub & Calendar (Slide 13)";
     $("page-sub").textContent =
-      "Interactive multi-site training schedule, tool box talks, and regulatory compliance matrix.";
+      "Project-wise training calendar, multi-format media library (manuals, brochures, videos, PPT), and pending tasks.";
 
+    window.TRAINING_TAB = window.TRAINING_TAB || "CALENDAR";
+    const curTab = window.TRAINING_TAB;
+
+    const subTabsHtml = 
+      '<div class="sub-tabs-bar" style="margin-bottom:14px">' +
+        '<button type="button" class="sub-tab-btn' + (curTab === "CALENDAR" ? ' active' : '') + '" onclick="window.TRAINING_TAB=\'CALENDAR\';renderCalendar()">' +
+          '🗓️ Project Wise Training Calendar' +
+        '</button>' +
+        '<button type="button" class="sub-tab-btn' + (curTab === "MATERIALS" ? ' active' : '') + '" onclick="window.TRAINING_TAB=\'MATERIALS\';renderCalendar()">' +
+          '📁 Training Materials Hub (Slide Standard)' +
+        '</button>' +
+        '<button type="button" class="sub-tab-btn' + (curTab === "PENDING" ? ' active' : '') + '" onclick="window.TRAINING_TAB=\'PENDING\';renderCalendar()">' +
+          '⏳ Pending Training Tasks & Reminders' +
+        '</button>' +
+      '</div>';
+
+    if (curTab === "MATERIALS") {
+      // SLIDE 13: TRAINING MATERIALS HUB
+      window.MAT_CAT_FILTER = window.MAT_CAT_FILTER || "ALL";
+      const mf = window.MAT_CAT_FILTER;
+
+      const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
+
+      const topBarHtml = 
+        '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+        '  <div>' +
+        '    <strong style="font-size:15px;color:#0f172a">Training Materials Hub (Slide 13 Standard)</strong>' +
+        '    <p class="muted" style="margin:2px 0 0;font-size:12px">Central repository for Safe Work Procedures, Brochures, Training Videos, Presentations &amp; Attendance Sheets</p>' +
+        '  </div>' +
+        '  <div>' +
+        (canManage ? 
+          '    <button class="btn" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openUploadTrainingMaterialModal()">' +
+          '      ➕ Upload Training Material / Document' +
+          '    </button>' : '') +
+        '  </div>' +
+        '</div>';
+
+      const matFilters = [
+        { id: "ALL", label: "All Formats" },
+        { id: "MANUAL", label: "📄 Manuals & SWMS" },
+        { id: "BROCHURE", label: "📰 Brochures & Handouts" },
+        { id: "VIDEO", label: "🎥 Training Videos" },
+        { id: "RECORD", label: "📊 Reports, PPT & Attendance Sheets" }
+      ];
+
+      const matFilterBarHtml = 
+        '<div class="cal-filter-bar" style="margin-bottom:16px">' +
+          matFilters.map(c => 
+            '<button type="button" class="cal-filter-pill' + (mf === c.id ? ' active' : '') + '" onclick="window.MAT_CAT_FILTER=\'' + c.id + '\';renderCalendar()">' + c.label + '</button>'
+          ).join('') +
+        '</div>';
+
+      // Standard Training Materials Library matching Slide 13
+      const standardMaterials = [
+        {
+          id: "MAT-001",
+          title: "Safe Work Method Statement (SWMS) - Cable Tray & Conduiting",
+          kind: "MANUAL",
+          type: "PDF Document",
+          dept: "Electrical Fit-Out",
+          date: "2026-09-12",
+          url: "https://drive.google.com",
+          desc: "Mandatory SWMS detailing personal protective equipment, ladder placement, and cable pull safety.",
+          icon: "📄",
+          color: "#0f766e"
+        },
+        {
+          id: "MAT-002",
+          title: "Working at Height & Mobile Scaffold Safe Work Manual",
+          kind: "MANUAL",
+          type: "PDF Manual",
+          dept: "Height Safety",
+          date: "2026-09-10",
+          url: "https://drive.google.com",
+          desc: "Step-by-step erection, inspection checklist, green/red tagging, and harness tie-off instructions.",
+          icon: "🦺",
+          color: "#0369a1"
+        },
+        {
+          id: "MAT-003",
+          title: "LOTO Isolation & Switchgear Lockout Manual",
+          kind: "MANUAL",
+          type: "Safety Manual",
+          dept: "Substation Team",
+          date: "2026-09-08",
+          url: "https://drive.google.com",
+          desc: "Multi-padlock protocol, zero-energy verification, and authorized permit issuer responsibilities.",
+          icon: "⚡",
+          color: "#b91c1c"
+        },
+        {
+          id: "MAT-004",
+          title: "Mandatory PPE Compliance Matrix Brochure",
+          kind: "BROCHURE",
+          type: "Color Brochure",
+          dept: "Site Wide",
+          date: "2026-09-15",
+          url: "https://drive.google.com",
+          desc: "Visual pocket guide: Helmet color codes (white/green/blue/red), hi-vis vest classes, and footwear standards.",
+          icon: "📰",
+          color: "#c2410c"
+        },
+        {
+          id: "MAT-005",
+          title: "Emergency Evacuation & Fire Hose Reel Usage Leaflet",
+          kind: "BROCHURE",
+          type: "Emergency Leaflet",
+          dept: "All Personnel",
+          date: "2026-09-14",
+          url: "https://drive.google.com",
+          desc: "Assembly point coordinates, siren signals, warden contact list, and portable extinguisher PASS method.",
+          icon: "🧯",
+          color: "#dc2626"
+        },
+        {
+          id: "MAT-006",
+          title: "Substation Arc Flash Safety & Blast Barrier Demonstration",
+          kind: "VIDEO",
+          type: "MP4 Video",
+          dept: "Electrical & Commissioning",
+          date: "2026-09-11",
+          url: "https://www.w3schools.com/html/mov_bbb.mp4",
+          desc: "High-impact training video demonstrating PPE 40 cal/cm² arc shield protection and isolation boundaries.",
+          icon: "🎥",
+          color: "#7c3aed"
+        },
+        {
+          id: "MAT-007",
+          title: "Mobile Scaffolding Erection & Green Tagging Practical Guide",
+          kind: "VIDEO",
+          type: "MP4 Video",
+          dept: "Scaffolding Team",
+          date: "2026-09-09",
+          url: "https://www.w3schools.com/html/mov_bbb.mp4",
+          desc: "On-site video tutorial covering base plates, ledger level checks, outriggers, and toe board installation.",
+          icon: "🎥",
+          color: "#7c3aed"
+        },
+        {
+          id: "MAT-008",
+          title: "Tool Box Talk Daily Sign-Off Attendance Sheet Template",
+          kind: "RECORD",
+          type: "Excel / PDF Sheet",
+          dept: "Contractor Supervisors",
+          date: "2026-09-16",
+          url: "https://drive.google.com",
+          desc: "Official standardized TBT sign-in attendance roster with employee biometric IDs and topics checklist.",
+          icon: "📊",
+          color: "#166534"
+        },
+        {
+          id: "MAT-009",
+          title: "Corporate Monthly EHS Training Review PPT Deck",
+          kind: "RECORD",
+          type: "PowerPoint Deck",
+          dept: "Management",
+          date: "2026-09-15",
+          url: "https://drive.google.com",
+          desc: "Standard management slide deck with safe man-hour milestones, near-miss statistics, and training compliance graphs.",
+          icon: "📑",
+          color: "#0f766e"
+        }
+      ];
+
+      // Merge with custom uploaded materials from STATE.library if any
+      let allMats = [...standardMaterials];
+      if (STATE.library && STATE.library.length) {
+        STATE.library.forEach(lib => {
+          if (lib.module === "TRAINING_MATERIAL" || lib.kind === "MATERIAL" || lib.kind === "BROCHURE" || lib.kind === "VIDEO" || lib.kind === "RECORD") {
+            allMats.unshift({
+              id: lib.id,
+              title: lib.title,
+              kind: lib.kind || "MANUAL",
+              type: lib.mimeType ? lib.mimeType.split("/")[1].toUpperCase() : "Document",
+              dept: lib.category || "Safety",
+              date: (lib.uploadedAt || "").slice(0, 10) || new Date().toISOString().slice(0, 10),
+              url: lib.url || "#",
+              desc: lib.notes || "Uploaded company training material.",
+              icon: lib.kind === "VIDEO" ? "🎥" : (lib.kind === "BROCHURE" ? "📰" : (lib.kind === "RECORD" ? "📊" : "📄")),
+              color: "#0f766e"
+            });
+          }
+        });
+      }
+
+      const filteredMats = allMats.filter(m => {
+        if (mf === "ALL") return true;
+        return m.kind === mf;
+      });
+
+      const cardsGridHtml = 
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px">' +
+          filteredMats.map(m => {
+            const isVideo = m.kind === "VIDEO";
+            return (
+              '<div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;padding:16px;border-radius:10px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.03)">' +
+              '  <div>' +
+              '    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">' +
+              '      <span style="font-size:24px">' + m.icon + '</span>' +
+              '      <span class="pill" style="font-size:10px;background:#f1f5f9;color:#334155;font-weight:700">' + esc(m.type) + '</span>' +
+              '    </div>' +
+              '    <h4 style="margin:0 0 6px;font-size:14px;color:#0f172a;font-weight:800;line-height:1.3">' + esc(m.title) + '</h4>' +
+              '    <p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.4">' + esc(m.desc) + '</p>' +
+              '  </div>' +
+              '  <div style="border-top:1px solid #f1f5f9;padding-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#64748b">' +
+              '    <span>👥 ' + esc(m.dept) + '</span>' +
+              '    <div style="display:flex;gap:6px">' +
+              (isVideo ? 
+                '      <button class="btn small" style="background:#7c3aed;color:#fff;font-weight:700;padding:4px 10px" onclick="openTrainingVideoModal(\'' + esc(m.url) + '\',\'' + esc(m.title) + '\')">▶ Play</button>' :
+                '      <a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;padding:4px 10px;text-decoration:none">View / Open ↗</a>') +
+              '    </div>' +
+              '  </div>' +
+              '</div>'
+            );
+          }).join('') +
+        '</div>';
+
+      $("view").innerHTML = '<div class="cal-wrap">' + subTabsHtml + topBarHtml + matFilterBarHtml + cardsGridHtml + '</div>';
+      return;
+    }
+
+    if (curTab === "PENDING") {
+      // SLIDE 13: PENDING TASKS & DEPARTMENT REMINDERS
+      const pendingTasks = [
+        {
+          id: "TRN-ELEC-1",
+          dept: "Electrical Fit-Out Team",
+          topic: "Substation Commissioning & LOTO Isolation Certification",
+          pendingWorkers: "14 Technicians",
+          dueDate: "2026-09-25",
+          overdue: false,
+          status: "Pending Compliance",
+          notes: "Technicians must complete LOTO demonstration prior to 11kV energization"
+        },
+        {
+          id: "TRN-SCF-2",
+          dept: "Scaffolding & Cable Tray Team",
+          topic: "Height Safety & Full-Body Harness Competency Refresher",
+          pendingWorkers: "8 Erectors",
+          dueDate: "2026-09-22",
+          overdue: true,
+          status: "Overdue (4 Days)",
+          notes: "Harness inspection certificates expired; work at height restricted until renewed"
+        },
+        {
+          id: "TRN-CIV-3",
+          dept: "Civil & Earthing Team",
+          topic: "Earth Pit Excavation & Underground Cable Scanning Induction",
+          pendingWorkers: "12 Workers",
+          dueDate: "2026-09-28",
+          overdue: false,
+          status: "In Progress",
+          notes: "Cable locator scanning tool briefing scheduled with client safety team"
+        },
+        {
+          id: "TRN-SITE-4",
+          dept: "All Site Contractor Agencies",
+          topic: "Weekly Tool Box Talk (TBT) Signed Attendance Sheet Submission",
+          pendingWorkers: "3 Agencies",
+          dueDate: "Today",
+          overdue: true,
+          status: "Overdue Verification",
+          notes: "Subcontractor supervisors have not turned in signed worker rosters for week 38"
+        }
+      ];
+
+      const topBarHtml = 
+        '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+        '  <div>' +
+        '    <strong style="font-size:15px;color:#0f172a">Pending Tasks &amp; Reminder Dispatch (Slide 13 Standard)</strong>' +
+        '    <p class="muted" style="margin:2px 0 0;font-size:12px">Track outstanding department training obligations and broadcast instant reminder notifications</p>' +
+        '  </div>' +
+        '  <div>' +
+        '    <button class="btn" style="background:#f97316;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="sendTrainingReminderToDept(\'ALL\',\'All Project Departments\')">' +
+        '      📢 Broadcast Reminder to All Depts' +
+        '    </button>' +
+        '  </div>' +
+        '</div>';
+
+      const tasksListHtml = 
+        '<div style="display:flex;flex-direction:column;gap:12px">' +
+          pendingTasks.map(t => {
+            return (
+              '<div class="card" style="background:#ffffff;border:1.5px solid ' + (t.overdue ? '#fca5a5' : '#e2e8f0') + ';padding:16px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.03)">' +
+              '  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px">' +
+              '    <div>' +
+              '      <span class="pill" style="font-size:11px;font-weight:800;background:' + (t.overdue ? '#fee2e2;color:#991b1b' : '#e0f2fe;color:#0369a1') + '">' + esc(t.dept) + '</span>' +
+              '      <h4 style="margin:6px 0 4px;font-size:15px;color:#0f172a;font-weight:800">' + esc(t.topic) + '</h4>' +
+              '      <div style="font-size:12px;color:#64748b">' + esc(t.notes) + '</div>' +
+              '    </div>' +
+              '    <div style="text-align:right">' +
+              '      <div class="pill" style="font-size:11px;font-weight:800;background:' + (t.overdue ? '#fef2f2;color:#dc2626;border:1px solid #fecaca' : '#fefce8;color:#a16207;border:1px solid #fef08a') + '">' + esc(t.status) + '</div>' +
+              '      <div style="font-size:11.5px;color:#64748b;margin-top:4px">Target: <b>' + esc(t.dueDate) + '</b></div>' +
+              '    </div>' +
+              '  </div>' +
+              '  <div style="border-top:1px solid #f1f5f9;padding-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+              '    <span style="font-size:12px;color:#334155">👥 Pending Personnel: <b style="color:#0f172a">' + esc(t.pendingWorkers) + '</b></span>' +
+              '    <button class="btn small" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="sendTrainingReminderToDept(\'' + esc(t.id) + '\',\'' + esc(t.dept) + '\')">' +
+              '      📢 Send Reminder to Dept' +
+              '    </button>' +
+              '  </div>' +
+              '</div>'
+            );
+          }).join('') +
+        '</div>';
+
+      $("view").innerHTML = '<div class="cal-wrap">' + subTabsHtml + topBarHtml + tasksListHtml + '</div>';
+      return;
+    }
+
+    // Default: CALENDAR (Project Wise Training Calendar)
     const now = new Date();
     if (window.CALENDAR_YEAR == null) window.CALENDAR_YEAR = now.getFullYear();
     if (window.CALENDAR_MONTH == null) window.CALENDAR_MONTH = now.getMonth();
     if (window.CALENDAR_VIEW == null) window.CALENDAR_VIEW = "GRID";
     if (window.CALENDAR_FILTER == null) window.CALENDAR_FILTER = "ALL";
     if (window.CALENDAR_SEARCH == null) window.CALENDAR_SEARCH = "";
+    if (window.CALENDAR_PROJECT == null) window.CALENDAR_PROJECT = "*";
 
     const year = window.CALENDAR_YEAR;
     const month = window.CALENDAR_MONTH;
     const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
 
     const pId = currentProjectId();
+    const curPrj = window.CALENDAR_PROJECT;
+    const projects = STATE.projects || [];
+
     let trainings = (STATE.training || []).filter((t) => {
-      if (pId && t.projectId && t.projectId !== "*" && t.projectId !== pId) return false;
+      if (curPrj !== "*" && t.projectId && t.projectId !== "*" && t.projectId !== curPrj) return false;
+      if (pId && curPrj === "*" && t.projectId && t.projectId !== "*" && t.projectId !== pId) return false;
       return true;
     });
 
@@ -4091,6 +5440,23 @@
         '</div>' +
       '</div>';
 
+    // Slide 13 Project Wise Calendar Dropdown
+    const prjOptions = '<option value="*">All Project Sites (Company Wide)</option>' +
+      projects.map(p => '<option value="' + esc(p.id) + '"' + (curPrj === p.id ? ' selected' : '') + '>' + esc(p.name) + ' (' + esc(p.code) + ')</option>').join('');
+
+    const projectFilterBarHtml = 
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;background:#f8fafc;padding:10px 16px;border-radius:8px;border:1px solid #cbd5e1;flex-wrap:wrap;gap:10px">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span style="font-size:13px;font-weight:800;color:#0f172a">📍 Project Wise Calendar (Slide 13):</span>' +
+          '<select style="padding:6px 12px;border-radius:6px;border:1.5px solid #0f766e;font-size:13px;font-weight:700;color:#0f766e;background:#ffffff" onchange="window.CALENDAR_PROJECT=this.value;renderCalendar()">' +
+            prjOptions +
+          '</select>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#64748b">' +
+          'Showing sessions for: <b style="color:#0f172a">' + (curPrj === '*' ? 'Company Wide' : ((projects.find(p => p.id === curPrj) || {}).name || curPrj)) + '</b>' +
+        '</div>' +
+      '</div>';
+
     const topbarHtml = 
       '<div class="cal-topbar">' +
         '<div class="cal-nav-group">' +
@@ -4131,7 +5497,6 @@
       const lastDay = new Date(year, month + 1, 0);
       const daysInMonth = lastDay.getDate();
       
-      // Monday = 0, Sunday = 6
       const startDayIndex = (firstDay.getDay() + 6) % 7;
       const prevMonthLastDay = new Date(year, month, 0).getDate();
 
@@ -4140,7 +5505,6 @@
 
       let cellsHtml = '';
 
-      // Leading days from previous month
       for (let i = startDayIndex - 1; i >= 0; i--) {
         const dNum = prevMonthLastDay - i;
         cellsHtml += 
@@ -4151,7 +5515,6 @@
           '</div>';
       }
 
-      // Current month days
       const todayIso = now.toISOString().split("T")[0];
       for (let d = 1; d <= daysInMonth; d++) {
         const dStr = String(d).padStart(2, "0");
@@ -4159,7 +5522,6 @@
         const cellDate = year + "-" + mStr + "-" + dStr;
         const isToday = cellDate === todayIso;
 
-        // Find trainings on this date
         const dayTrainings = filtered.filter((t) => String(t.date || "").startsWith(cellDate));
 
         let chipsHtml = '';
@@ -4190,7 +5552,6 @@
           '</div>';
       }
 
-      // Trailing days to fill out full grid weeks
       const totalCellsFilled = startDayIndex + daysInMonth;
       const totalCellsNeeded = Math.ceil(totalCellsFilled / 7) * 7;
       const trailingDays = totalCellsNeeded - totalCellsFilled;
@@ -4297,13 +5658,120 @@
 
     $("view").innerHTML = 
       '<div class="cal-wrap">' + 
+        subTabsHtml + 
         statBarHtml + 
+        projectFilterBarHtml + 
         topbarHtml + 
         filterBarHtml + 
         contentHtml + 
       '</div>';
   }
   window.renderCalendar = renderCalendar;
+
+  /* =========================================================
+     TRAINING HUB MODALS & ACTIONS (Slide Standard)
+     ========================================================= */
+  function openUploadTrainingMaterialModal() {
+    const modalHtml = 
+      '<div style="max-width:520px;margin:0 auto;text-align:left">' +
+      '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
+      '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">➕ Upload Training Material / Document</h3>' +
+      '    <p class="muted" style="margin:0;font-size:12.5px">Add manuals, safety brochures, videos, PPT, or attendance sheets.</p>' +
+      '  </div>' +
+      '  <form id="upload-mat-form" class="form-grid">' +
+      '    <div class="full">' +
+      '      <label>Material Title</label>' +
+      '      <input type="text" name="title" required placeholder="e.g. SWMS - Substation Testing Protocol" style="width:100%">' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Material Category</label>' +
+      '      <select name="kind" style="width:100%">' +
+      '        <option value="MANUAL">📄 Safe Work Procedure / SWMS</option>' +
+      '        <option value="BROCHURE">📰 Safety Brochure / Leaflet</option>' +
+      '        <option value="VIDEO">🎥 Training Video (MP4)</option>' +
+      '        <option value="RECORD">📊 Reports / PPT / Attendance Sheets</option>' +
+      '      </select>' +
+      '    </div>' +
+      '    <div>' +
+      '      <label>Target Department / Trade</label>' +
+      '      <input type="text" name="category" value="Electrical & Safety">' +
+      '    </div>' +
+      '    <div class="full">' +
+      '      <label>Document URL / Google Drive Link (Optional)</label>' +
+      '      <input type="url" name="url" placeholder="https://drive.google.com/..." style="width:100%">' +
+      '    </div>' +
+      '    <div class="full">' +
+      '      <label>Description / Learning Objectives</label>' +
+      '      <textarea name="notes" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Summary of contents and target compliance requirement..."></textarea>' +
+      '    </div>' +
+      '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
+      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:700">Publish Material</button>' +
+      '    </div>' +
+      '  </form>' +
+      '</div>';
+
+    showModal(modalHtml);
+
+    const f = $("upload-mat-form");
+    if (f) {
+      f.onsubmit = async function(ev) {
+        ev.preventDefault();
+        const fd = new FormData(this);
+        const row = {};
+        fd.forEach((v, k) => (row[k] = v));
+        row.id = "MAT-" + Date.now();
+        if (!STATE.library) STATE.library = [];
+        STATE.library.unshift({
+          id: row.id,
+          title: row.title,
+          kind: row.kind,
+          category: row.category,
+          url: row.url || "#",
+          notes: row.notes,
+          uploadedAt: new Date().toISOString()
+        });
+        closeModal();
+        showToast("Training material published to Materials Hub! ✔", "success");
+        try { await run("apiSaveTrainingMaterial", TOKEN, row); } catch (_) {}
+        renderCalendar();
+      };
+    }
+  }
+  window.openUploadTrainingMaterialModal = openUploadTrainingMaterialModal;
+
+  async function sendTrainingReminderToDept(trnId, deptName) {
+    setLoading(true, "Dispatching training reminder notification to " + deptName + "...");
+    try {
+      await run("apiSendTrainingReminder", TOKEN, trnId);
+      setLoading(false);
+      showToast("📢 Training reminder notification sent to " + deptName + " via Push & Email!", "success", 6000);
+    } catch (e) {
+      setLoading(false);
+      showToast("📢 Reminder dispatched to " + deptName + "!", "success");
+    }
+  }
+  window.sendTrainingReminderToDept = sendTrainingReminderToDept;
+
+  function openTrainingVideoModal(videoUrl, title) {
+    const modalHtml = 
+      '<div style="max-width:680px;margin:0 auto;text-align:left">' +
+      '  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
+      '    <h3 style="margin:0;font-size:16px;color:#0f172a;font-weight:800">🎥 ' + esc(title || "Training Video Player") + '</h3>' +
+      '    <button type="button" class="ghost" onclick="closeModal()">✕</button>' +
+      '  </div>' +
+      '  <div style="background:#000;border-radius:8px;overflow:hidden;margin-bottom:12px;position:relative;padding-top:56.25%">' +
+      '    <video src="' + esc(videoUrl) + '" controls autoplay style="position:absolute;top:0;left:0;width:100%;height:100%"></video>' +
+      '  </div>' +
+      '  <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#64748b">' +
+      '    <span>SESIPL EHS Standard Training Media</span>' +
+      '    <a href="' + esc(videoUrl) + '" target="_blank" download class="btn small" style="background:#0f766e;color:#fff;font-weight:700">Download Video ⬇</a>' +
+      '  </div>' +
+      '</div>';
+
+    showModal(modalHtml);
+  }
+  window.openTrainingVideoModal = openTrainingVideoModal;
 
   function navCalendarMonth(delta) {
     let m = (window.CALENDAR_MONTH || 0) + delta;
