@@ -334,6 +334,7 @@
       TOKEN = res.token;
       sessionStorage.setItem(TOKEN_KEY, TOKEN);
       USER = res.user;
+      VIEW = "dashboard";
       if (btnText) btnText.textContent = "Entering Portal...";
       await boot();
     } catch (err) {
@@ -363,6 +364,7 @@
     TOKEN = "";
     USER = null;
     STATE = null;
+    VIEW = "dashboard";
     sessionStorage.removeItem(TOKEN_KEY);
     $("app-screen").hidden = true;
     $("login-screen").hidden = false;
@@ -371,6 +373,7 @@
   }
 
   async function boot() {
+    VIEW = "dashboard";
     const bootRes = await run("apiBootstrap", TOKEN);
     if (!bootRes || !bootRes.ok || !bootRes.data) {
       const msg = (bootRes && bootRes.error) ? bootRes.error : "Failed to load dashboard data. Please try again.";
@@ -391,6 +394,21 @@
     buildNav();
     render();
   }
+
+  function canUploadRole() {
+    return USER && (USER.role === "EHS_LEAD" || USER.role === "ASST_EHS_MANAGER");
+  }
+  window.canUploadRole = canUploadRole;
+
+  function canApproveRole() {
+    return USER && (USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR");
+  }
+  window.canApproveRole = canApproveRole;
+
+  function canCommentRole() {
+    return !!USER;
+  }
+  window.canCommentRole = canCommentRole;
 
   function canManageProjects() {
     return USER && (USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER" || USER.role === "ASST_EHS_MANAGER");
@@ -443,26 +461,27 @@
   }
 
   function buildNav() {
-    const items = USER.role === "EHS_LEAD"
-      ? [
-          ["dashboard", "Dashboard"], ["daily", "Daily uploads"],
-          ["weekly", "Weekly / Monthly"], ["permits", "Work permits"],
-          ["onetime", "One-time docs"], ["observations", "Observations"],
-          ["audits", "EHS Audits"],
-          ["documents", "PDF library"], ["dailylog", "Daily log"],
-          ["trackers", "PPE / Scaffold"], ["gallery", "Gallery"],
-          ["library", "eLibrary"], ["calendar", "Training calendar"],
-        ]
-      : [
-          ["dashboard", "Dashboard"], ["inbox", "Approvals"],
-          ["daily", "Daily uploads"], ["weekly", "Weekly / Monthly"],
-          ["permits", "Work permits"], ["onetime", "One-time docs"],
-          ["observations", "Observations"], ["audits", "EHS Audits"],
-          ["documents", "PDF library"],
-          ["dailylog", "Daily log"], ["trackers", "PPE / Scaffold"],
-          ["gallery", "Gallery"], ["library", "eLibrary"],
-          ["calendar", "Training calendar"],
-        ];
+    const isUp = canUploadRole();
+    const items = [
+      ["dashboard", "Dashboard"]
+    ];
+    if (canApproveRole()) {
+      items.push(["inbox", "Approvals"]);
+    }
+    items.push(
+      ["daily", isUp ? "Daily uploads" : "Daily Checklists"],
+      ["weekly", isUp ? "Weekly / Monthly" : "Weekly Reports"],
+      ["permits", "Work permits"],
+      ["onetime", isUp ? "One-time docs" : "Compliance Docs"],
+      ["observations", "Observations"],
+      ["audits", "EHS Audits"],
+      ["documents", "PDF library"],
+      ["dailylog", "Daily log"],
+      ["trackers", "PPE / Scaffold"],
+      ["gallery", "Gallery"],
+      ["library", "eLibrary"],
+      ["calendar", "Training calendar"]
+    );
     if (canManageProjects())
       items.push(["projects", "Projects"]);
     if (USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR")
@@ -1467,9 +1486,11 @@
                 f.entryType +
                 "</span></div>" +
                 (f.entryType === "UPLOAD"
-                  ? '<button class="btn small" onclick="openBulkUpload(\'' +
-                    f.formCode +
-                    '\')">Bulk upload files</button>'
+                  ? (canUploadRole()
+                    ? '<button class="btn small" onclick="openBulkUpload(\'' +
+                      f.formCode +
+                      '\')">Bulk upload files</button>'
+                    : '')
                   : canSubmitForm(f)
                   ? '<button class="btn small" onclick="openForm(\'' +
                     f.formCode +
@@ -1586,10 +1607,7 @@
   }
 
   function canSubmitForm(form) {
-    if (form.entryType === "UPLOAD") {
-      return USER.role === "ASST_EHS_MANAGER" || USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR";
-    }
-    return true;
+    return canUploadRole();
   }
 
   function statusPill(st) {
@@ -2115,32 +2133,36 @@
       kpi(latestCumSafe.toLocaleString('en-IN') + ' hrs', "Cumulative Safe Hours") +
       kpi('<span class="badge-zeroharm">0 LTI</span>', "Accident Benchmark") +
       '</div>' +
-      '<div class="charts" style="margin-top:14px"><div class="card"><canvas id="dl-manpower-chart"></canvas></div><div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
-      field("date", "Date", "date") +
-      field("workingHours", "Working Hours", "number") +
-      field("staff", "Staff Count", "number") +
-      field("workers", "Workers Count", "number") +
-      field("safeManHours", "Safe Man Hours", "number") +
-      field("cumSafeManHours", "Cumulative Safe Hours", "number") +
-      field("inductions", "Total Inductions", "number") +
-      field("indStaff", "Induction Staff", "number") +
-      field("indWorkers", "Induction Workers", "number") +
-      field("tbtCount", "TBT Count", "number") +
-      field("tbtPersons", "TBT Persons Attended", "number") +
-      field("trainingTopic", "Training Topic", "text") +
-      field("trainingPersons", "Training Persons Attended", "number") +
-      field("permitHot", "Hot Work Permits", "number") +
-      field("permitElectrical", "Electrical Permits", "number") +
-      field("permitCold", "Cold Work Permits", "number") +
-      field("permitGeneral", "General Permits", "number") +
-      field("firstAid", "First Aid Cases", "number") +
-      field("nearMiss", "Near Miss / Incidents", "number") +
-      field("ltiCount", "No. of LTI (Target: 0)", "number") +
-      '<div class="full"><label>Accident Details / Zero-Harm Status</label><input name="accidentDetails" placeholder="Nil - Safe day or details"></div>' +
-      field("verifiedBy", "Report Verified By", "text") +
-      field("approvedBy", "Report Approved By", "text") +
-      '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
-      '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div></div>' +
+      '<div class="charts" style="margin-top:14px' + (canUploadRole() ? '' : ';grid-template-columns:1fr') + '">' +
+      '<div class="card"' + (canUploadRole() ? '' : ' style="grid-column:1 / -1;width:100%"') + '><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Manpower Trend</b><span class="muted" style="font-size:12px">Consolidated site tracking</span></div><canvas id="dl-manpower-chart"></canvas></div>' +
+      (canUploadRole() ? 
+        '<div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
+        field("date", "Date", "date") +
+        field("workingHours", "Working Hours", "number") +
+        field("staff", "Staff Count", "number") +
+        field("workers", "Workers Count", "number") +
+        field("safeManHours", "Safe Man Hours", "number") +
+        field("cumSafeManHours", "Cumulative Safe Hours", "number") +
+        field("inductions", "Total Inductions", "number") +
+        field("indStaff", "Induction Staff", "number") +
+        field("indWorkers", "Induction Workers", "number") +
+        field("tbtCount", "TBT Count", "number") +
+        field("tbtPersons", "TBT Persons Attended", "number") +
+        field("trainingTopic", "Training Topic", "text") +
+        field("trainingPersons", "Training Persons Attended", "number") +
+        field("permitHot", "Hot Work Permits", "number") +
+        field("permitElectrical", "Electrical Permits", "number") +
+        field("permitCold", "Cold Work Permits", "number") +
+        field("permitGeneral", "General Permits", "number") +
+        field("firstAid", "First Aid Cases", "number") +
+        field("nearMiss", "Near Miss / Incidents", "number") +
+        field("ltiCount", "No. of LTI (Target: 0)", "number") +
+        '<div class="full"><label>Accident Details / Zero-Harm Status</label><input name="accidentDetails" placeholder="Nil - Safe day or details"></div>' +
+        field("verifiedBy", "Report Verified By", "text") +
+        field("approvedBy", "Report Approved By", "text") +
+        '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
+        '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div>' : '') +
+      '</div>' +
       '<div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Daily Performance Log Records</h3><span class="badge-zeroharm">Zero-Harm (0 LTI)</span></div>' +
       '<div class="table-responsive-wrap"><table><thead><tr>' +
       '<th>Date</th><th>Staff</th><th>Workers</th><th>Total MP</th><th>Hours</th><th>Total Man-Hours</th><th>Safe Hours</th><th>Cum. Safe Hours</th><th>Inductions</th><th>TBT (Count/Pers)</th><th>Training Topic</th><th>Permits (H/E/C/G)</th><th>Accidents (FA/NM/LTI)</th><th>Verified By</th><th>Approved By</th>' +
@@ -2241,7 +2263,7 @@
     $("view").innerHTML =
       '<div class="card" style="display:flex;justify-content:space-between;align-items:center">' +
       '<div><strong>Daily Safety Audit Observation Log</strong><p class="muted" style="margin:4px 0 0">Note: This report is considered as true records and will be closed on High priority.</p></div>' +
-      '<button class="btn small" onclick="openObsForm()">+ Log New Observation</button>' +
+      (canUploadRole() ? '<button class="btn small" onclick="openObsForm()">+ Log New Observation</button>' : '') +
       '</div>' +
       '<div class="card" style="margin-top:12px">' +
       '<div class="table-responsive-wrap"><table><thead><tr>' +
@@ -3486,7 +3508,121 @@
         '</div>' +
       '</div>';
     showModal(modalHtml);
+  async function exportMovementExcel() {
+    setLoading(true, "Compiling Slide 13 Sharav Fab Scaffold Movement Tracker...");
+    try {
+      const rows = STATE.movement || [];
+      downloadMovementExcelClientSide(rows);
+      setLoading(false);
+      showToast("Scaffold Movement Tracker exported to Excel successfully! 📊", "success");
+    } catch (e) {
+      setLoading(false);
+      alert("Export failed: " + (e.message || e));
+    }
   }
+  window.exportMovementExcel = exportMovementExcel;
+
+  function downloadMovementExcelClientSide(rows) {
+    const movRows = rows || STATE.movement || [];
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>Scaffold Movement Tracker</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+      '<style>body{font-family:Calibri,Arial,sans-serif;font-size:10pt;} table{border-collapse:collapse;width:100%;} th,td{padding:6px 8px;border:0.5pt solid #000000;text-align:center;}</style>' +
+      '</head><body><table>' +
+      '<tr>' +
+      '  <th colspan="7" style="font-size:13pt;font-weight:bold;text-align:center;padding:10px;border:0.5pt solid #000">Sharav Fab Scaffold Movement tracker July-2026</th>' +
+      '</tr>' +
+      '<tr style="font-weight:bold">' +
+      '  <th rowspan="2" style="border:0.5pt solid #000;vertical-align:middle;width:40pt">S no</th>' +
+      '  <th colspan="3" style="background:#d9e1f2;border:0.5pt solid #000">From</th>' +
+      '  <th colspan="2" style="background:#fce4d6;border:0.5pt solid #000">To</th>' +
+      '  <th rowspan="2" style="background:#e2efda;border:0.5pt solid #000;vertical-align:middle;width:120pt">Remarks</th>' +
+      '</tr>' +
+      '<tr style="background:#bfbfbf;font-weight:bold">' +
+      '  <th style="border:0.5pt solid #000;width:70pt">Date</th>' +
+      '  <th style="border:0.5pt solid #000;width:110pt">Project</th>' +
+      '  <th style="border:0.5pt solid #000;width:50pt">Qnty</th>' +
+      '  <th style="border:0.5pt solid #000;width:110pt">Project</th>' +
+      '  <th style="border:0.5pt solid #000;width:50pt">Qnty</th>' +
+      '</tr>' +
+      [1, 2, 3, 4, 5, 6].map((sno) => {
+        const r = movRows[sno - 1] || {};
+        return '<tr>' +
+          '  <td style="font-weight:bold;border:0.5pt solid #000">' + sno + '</td>' +
+          '  <td style="border:0.5pt solid #000">' + (r.date ? displayDate(r.date) : '') + '</td>' +
+          '  <td style="text-align:left;border:0.5pt solid #000">' + esc(r.fromProject || '') + '</td>' +
+          '  <td style="border:0.5pt solid #000">' + (r.fromQty ? esc(r.fromQty) : '') + '</td>' +
+          '  <td style="text-align:left;border:0.5pt solid #000">' + esc(r.toProject || '') + '</td>' +
+          '  <td style="border:0.5pt solid #000">' + (r.toQty ? esc(r.toQty) : '') + '</td>' +
+          '  <td style="text-align:left;border:0.5pt solid #000">' + esc(r.remarks || '') + '</td>' +
+          '</tr>';
+      }).join('') +
+      '<tr>' +
+      '  <td colspan="7" style="background:#d9d9d9;height:24pt;border:0.5pt solid #000"></td>' +
+      '</tr>' +
+      '</table></body></html>';
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Sharav_Fab_Scaffold_Movement_Tracker_July_2026.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  window.downloadMovementExcelClientSide = downloadMovementExcelClientSide;
+
+  function openMovementEntryModal() {
+    const modalHtml =
+      '<div style="padding:10px 4px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:16px">' +
+          '<div>' +
+            '<h3 style="margin:0;font-size:18px;color:#0f172a;font-weight:900">Log Scaffold Movement</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">Record equipment transfer between project sites (Slide 13 Standard)</p>' +
+          '</div>' +
+        '</div>' +
+        '<form id="modal-mov-form" class="form-grid">' +
+          field("date", "Transfer Date", "date") +
+          field("fromProject", "From Project", "text") +
+          field("fromQty", "From Quantity", "number") +
+          field("toProject", "To Project", "text") +
+          field("toQty", "To Quantity", "number") +
+          '<div class="full">' +
+            '<label>Remarks / DC Details</label>' +
+            '<input name="remarks" placeholder="Delivery challan, vehicle no, condition tags...">' +
+          '</div>' +
+          '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">' +
+            '<button type="button" class="btn secondary" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:800">Save Scaffold Movement</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+    showModal(modalHtml);
+    const f = $("modal-mov-form");
+    if (f) {
+      if (f.elements.date) f.elements.date.value = new Date().toISOString().slice(0, 10);
+      f.onsubmit = async function (ev) {
+        ev.preventDefault();
+        const fd = new FormData(f);
+        const row = {};
+        fd.forEach((v, k) => row[k] = v);
+        setLoading(true, "Saving scaffold movement record...");
+        try {
+          await run("apiSaveMovement", TOKEN, row);
+          setLoading(false);
+          hideModal();
+          showToast("Scaffold movement record logged successfully!", "success");
+          await refresh();
+        } catch (err) {
+          setLoading(false);
+          alert("Failed to save movement: " + (err.message || err));
+        }
+      };
+    }
+  }
+  window.openMovementEntryModal = openMovementEntryModal;
 
   function renderAudits() {
     $("page-title").textContent = "Shankar Electricals EHS Audit Checklist";
@@ -3722,9 +3858,10 @@
         '    <button class="btn secondary" style="font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openRevisionChecklistModal()">' +
         '      ⚙️ Revise Checklist' +
         '    </button>' +
+        (canUploadRole() ? 
         '    <button class="btn" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openNewAuditObservationModal()">' +
         '      ➕ Log Site Observation' +
-        '    </button>' +
+        '    </button>' : '') +
         '  </div>' +
         '</div>';
 
@@ -3740,8 +3877,8 @@
         '      </div>' +
         '      <span class="pill" style="background:#f0fdf4;color:#166534;font-weight:700">Slide Standard</span>' +
         '    </div>' +
-        '    <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;padding:10px 0">' +
-        '      <div style="position:relative;width:170px;height:170px;flex-shrink:0">' +
+        '    <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;padding:8px 0">' +
+        '      <div style="position:relative;width:140px;height:140px;flex-shrink:0">' +
         '        <svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);border-radius:50%">' +
         '          <!-- 41% Compliance (#16a34a) -->' +
         '          <circle cx="18" cy="18" r="15.9155" fill="transparent" stroke="#16a34a" stroke-width="6.5" stroke-dasharray="41 59" stroke-dashoffset="0"></circle>' +
@@ -3753,8 +3890,8 @@
         '          <circle cx="18" cy="18" r="15.9155" fill="transparent" stroke="#eab308" stroke-width="6.5" stroke-dasharray="6 94" stroke-dashoffset="-94"></circle>' +
         '        </svg>' +
         '        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">' +
-        '          <span style="font-size:18px;font-weight:900;color:#0f172a">41%</span>' +
-        '          <span style="font-size:9.5px;font-weight:800;color:#16a34a;text-transform:uppercase">Compliant</span>' +
+        '          <span style="font-size:16px;font-weight:900;color:#0f172a">41%</span>' +
+        '          <span style="font-size:9px;font-weight:800;color:#16a34a;text-transform:uppercase">Compliant</span>' +
         '        </div>' +
         '      </div>' +
         '      <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px">' +
@@ -4235,9 +4372,10 @@
         '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
         '      Export PPE Register (Excel)' +
         '    </button>' +
-        '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openPpeEntryModal()">' +
-        '      + Log Stock Receipt / Issue' +
-        '    </button>' +
+        (canUploadRole() ? 
+          '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openPpeEntryModal()">' +
+          '      + Log Stock Receipt / Issue' +
+          '    </button>' : '') +
         '  </div>' +
         '</div>' +
 
@@ -4488,7 +4626,9 @@
 
     } else if (window.TRACKER_TAB === "PROJECT_SCF") {
       // Slide 12: Project Scaffolding Tracker
-      contentHtml =
+      const proj = currentProject() || (STATE.projects && STATE.projects[0]) || { name: "Current Project" };
+      const curScf = (scfRows.length ? scfRows[scfRows.length - 1] : null) || {};
+      contentHtml = canUploadRole() ?
         '<div class="card"><h3>Tracker of Scaffolding / Ladder (Slide 12 Standard)</h3>' +
         '<form id="scf-form" class="form-grid">' +
         field("sharavFab", "Scaffolds (Sharav Fab)", "number") +
@@ -4507,37 +4647,87 @@
         field("returnedScaffold", "Returned Scaffolds", "number") +
         field("returnedLadder", "Returned Ladders", "number") +
         '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Inspection status, tags..."></div>' +
-        '<div class="full"><button class="btn small">Save Project Equipment Counts</button></div></form></div>';
-    } else if (window.TRACKER_TAB === "MOVEMENT") {
-      // Slide 13: Movement Tracker
-      contentHtml =
-        '<div class="card"><h3>Sharav Fab Scaffold Movement Tracker (Slide 13 Standard)</h3>' +
-        '<form id="mov-form" class="form-grid">' +
-        field("date", "Date", "date") +
-        field("fromProject", "From Project", "text") +
-        field("fromQty", "From Qty", "number") +
-        field("toProject", "To Project", "text") +
-        field("toQty", "To Qty", "number") +
-        field("remarks", "Remarks", "text") +
-        '<div class="full"><button class="btn small">Save Scaffold Movement</button></div></form></div>' +
-        '<div class="card" style="margin-top:14px"><h3>Movement History</h3>' +
-        '<div class="table-responsive-wrap"><table><thead><tr>' +
-        '<th>S.No</th><th>Date</th><th>From Project</th><th>From Qty</th><th>To Project</th><th>To Qty</th><th>Remarks</th>' +
-        '</tr></thead><tbody>' +
-        (movRows.length ? movRows.map((m, idx) => {
-          return (
-            '<tr>' +
-            '<td>' + (idx + 1) + '</td>' +
-            '<td>' + displayDate(m.date) + '</td>' +
-            '<td><strong>' + esc(m.fromProject) + '</strong></td>' +
-            '<td>' + esc(m.fromQty) + '</td>' +
-            '<td><strong>' + esc(m.toProject) + '</strong></td>' +
-            '<td>' + esc(m.toQty) + '</td>' +
-            '<td>' + esc(m.remarks || '—') + '</td>' +
-            '</tr>'
-          );
-        }).join('') : '<tr><td colspan="7" class="muted">No movement records recorded.</td></tr>') +
+        '<div class="full"><button class="btn small">Save Project Equipment Counts</button></div></form></div>'
+        :
+        '<div class="card"><h3>Project Equipment Inventory: ' + esc(proj.name) + ' (Slide 12 Standard)</h3>' +
+        '<div class="grid kpi" style="margin-bottom:14px">' +
+        kpi(curScf.totalScaffold || 0, "Total Scaffolding") +
+        kpi(curScf.totalLadder || 0, "Total Ladders") +
+        kpi(curScf.returnedScaffold || 0, "Returned Scaffolding") +
+        kpi(curScf.returnedLadder || 0, "Returned Ladders") +
+        '</div>' +
+        '<div class="table-responsive-wrap"><table><thead><tr><th>Scaffolds (Sharav / SESIPL / Vinayaka / HBS)</th><th>Ladders (Sharav / SESIPL / Vinayaka / HBS)</th><th>Specialty Ladders</th><th>Remarks</th></tr></thead><tbody>' +
+        '<tr><td>' + (curScf.sharavFab || 0) + ' / ' + (curScf.sesipl || 0) + ' / ' + (curScf.vinayaka || 0) + ' / ' + (curScf.hbs || 0) + '</td>' +
+        '<td>' + (curScf.ladderSharav || 0) + ' / ' + (curScf.ladderSesipl || 0) + ' / ' + (curScf.ladderVinayaka || 0) + ' / ' + (curScf.ladderHbs || 0) + '</td>' +
+        '<td>Airport: ' + (curScf.airportLadder || 0) + ', FRP: ' + (Number(curScf.frpMsafe || 0) + Number(curScf.frpYoungman || 0)) + '</td>' +
+        '<td>' + esc(curScf.remarks || 'Standard site allocation') + '</td></tr>' +
         '</tbody></table></div></div>';
+    } else if (window.TRACKER_TAB === "MOVEMENT") {
+      // Slide 13: Sharav Fab Scaffold Movement Tracker matching media_1789965730952.png
+      contentHtml =
+        '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+        '  <div>' +
+        '    <strong style="font-size:15px;color:#0f172a">Sharav Fab Scaffold Movement Tracker (Slide 13 Standard)</strong>' +
+        '    <p class="muted" style="margin:2px 0 0;font-size:12px">Exact 1:1 format transit log of scaffolding movement between project sites</p>' +
+        '  </div>' +
+        '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '    <button class="btn" style="background:#107c41;color:#fff;display:inline-flex;align-items:center;gap:6px;font-weight:700;box-shadow:0 2px 6px rgba(16,124,65,0.2)" onclick="exportMovementExcel()">' +
+        '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
+        '      Export Movement Tracker (Excel)' +
+        '    </button>' +
+        (canUploadRole() ? 
+          '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openMovementEntryModal()">' +
+          '      + Log Scaffold Movement' +
+          '    </button>' : '') +
+        '  </div>' +
+        '</div>' +
+
+        '<div class="card" style="padding:0;overflow:hidden;border:1.5px solid #000;box-shadow:0 4px 14px rgba(0,0,0,0.06)">' +
+        '  <div class="table-responsive-wrap" style="margin:0"><table style="border-collapse:collapse;width:100%;font-size:12px;text-align:center;border:1.5px solid #000">' +
+        '    <thead>' +
+        '      <!-- Title Banner Row matching media_1789965730952.png -->' +
+        '      <tr style="background:#ffffff;color:#000">' +
+        '        <th colspan="7" style="border:1px solid #000;padding:12px 6px;font-size:15px;font-weight:900;text-align:center;letter-spacing:0.2px">' +
+        '          Sharav Fab Scaffold Movement tracker July-2026' +
+        '        </th>' +
+        '      </tr>' +
+        '      <!-- Two-tier Header 1: From (#d9e1f2), To (#fce4d6), Remarks (#e2efda) -->' +
+        '      <tr style="font-weight:800;font-size:12px">' +
+        '        <th rowspan="2" style="border:1px solid #000;background:#ffffff;width:55px;vertical-align:middle;padding:6px">S no</th>' +
+        '        <th colspan="3" style="border:1px solid #000;background:#d9e1f2;color:#000;padding:8px">From</th>' +
+        '        <th colspan="2" style="border:1px solid #000;background:#fce4d6;color:#000;padding:8px">To</th>' +
+        '        <th rowspan="2" style="border:1px solid #000;background:#e2efda;color:#000;width:180px;vertical-align:middle;padding:6px">Remarks</th>' +
+        '      </tr>' +
+        '      <!-- Two-tier Header 2: Subheaders in Grey (#bfbfbf) -->' +
+        '      <tr style="background:#bfbfbf;color:#000;font-weight:700;font-size:11.5px">' +
+        '        <th style="border:1px solid #000;padding:6px;width:110px">Date</th>' +
+        '        <th style="border:1px solid #000;padding:6px;min-width:140px">Project</th>' +
+        '        <th style="border:1px solid #000;padding:6px;width:80px">Qnty</th>' +
+        '        <th style="border:1px solid #000;padding:6px;min-width:140px">Project</th>' +
+        '        <th style="border:1px solid #000;padding:6px;width:80px">Qnty</th>' +
+        '      </tr>' +
+        '    </thead>' +
+        '    <tbody>' +
+        '      <!-- 6 Data Rows matching media_1789965730952.png -->' +
+        [1, 2, 3, 4, 5, 6].map(function(sno) {
+          var r = movRows[sno - 1] || {};
+          return '<tr style="height:34px;background:#ffffff">' +
+            '<td style="border:1px solid #000;font-weight:bold;text-align:center">' + sno + '</td>' +
+            '<td style="border:1px solid #000;text-align:center">' + (r.date ? displayDate(r.date) : '') + '</td>' +
+            '<td style="border:1px solid #000;text-align:left;padding-left:8px;font-weight:bold">' + esc(r.fromProject || '') + '</td>' +
+            '<td style="border:1px solid #000;text-align:center">' + (r.fromQty ? esc(r.fromQty) : '') + '</td>' +
+            '<td style="border:1px solid #000;text-align:left;padding-left:8px;font-weight:bold">' + esc(r.toProject || '') + '</td>' +
+            '<td style="border:1px solid #000;text-align:center">' + (r.toQty ? esc(r.toQty) : '') + '</td>' +
+            '<td style="border:1px solid #000;text-align:left;padding-left:8px">' + esc(r.remarks || '') + '</td>' +
+          '</tr>';
+        }).join('') +
+        '      <!-- Blank Grey Footer Row matching media_1789965730952.png -->' +
+        '      <tr style="height:36px;background:#d9d9d9">' +
+        '        <td colspan="7" style="border:1px solid #000;background:#d9d9d9"></td>' +
+        '      </tr>' +
+        '    </tbody>' +
+        '  </table></div>' +
+        '</div>';
     }
 
     $("view").innerHTML = tabHtml + contentHtml;
@@ -4595,10 +4785,7 @@
       return t.includes(searchQuery) || u.includes(searchQuery) || c.includes(searchQuery);
     });
 
-    const canUp =
-      USER.role === "ASST_EHS_MANAGER" ||
-      USER.role === "EHS_MANAGER" ||
-      USER.role === "DIRECTOR";
+    const canUp = canUploadRole();
 
     const cats = [
       { key: "ALL", label: "All Media" },
@@ -4951,7 +5138,7 @@
         !l.projectId ||
         l.projectId === currentProjectId(),
     );
-    const can = USER.role !== "EHS_LEAD";
+    const can = canUploadRole();
     $("view").innerHTML =
       (can
         ? '<div class="card"><form id="lib-form" class="form-grid">' +
@@ -5082,7 +5269,7 @@
       window.MAT_CAT_FILTER = window.MAT_CAT_FILTER || "ALL";
       const mf = window.MAT_CAT_FILTER;
 
-      const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
+      const canManage = canUploadRole();
 
       const topBarHtml = 
         '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
@@ -5256,14 +5443,14 @@
           filteredMats.map(m => {
             const isVideo = m.kind === "VIDEO";
             return (
-              '<div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;padding:16px;border-radius:10px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.03)">' +
+              '<div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;padding:16px;border-radius:10px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.03);min-height:220px;word-break:break-word">' +
               '  <div>' +
               '    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">' +
               '      <span style="font-size:24px">' + m.icon + '</span>' +
               '      <span class="pill" style="font-size:10px;background:#f1f5f9;color:#334155;font-weight:700">' + esc(m.type) + '</span>' +
               '    </div>' +
               '    <h4 style="margin:0 0 6px;font-size:14px;color:#0f172a;font-weight:800;line-height:1.3">' + esc(m.title) + '</h4>' +
-              '    <p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.4">' + esc(m.desc) + '</p>' +
+              '    <p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">' + esc(m.desc) + '</p>' +
               '  </div>' +
               '  <div style="border-top:1px solid #f1f5f9;padding-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#64748b">' +
               '    <span>👥 ' + esc(m.dept) + '</span>' +
@@ -5382,7 +5569,7 @@
 
     const year = window.CALENDAR_YEAR;
     const month = window.CALENDAR_MONTH;
-    const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
+    const canManage = canUploadRole();
 
     const pId = currentProjectId();
     const curPrj = window.CALENDAR_PROJECT;

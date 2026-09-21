@@ -672,8 +672,8 @@ function apiSaveProjectOrgMember(token, row) {
 
 function apiSaveMovement(token, row) {
   const user = requireUser_(token);
-  if (!canMutateAll_(user.role) && user.role !== ROLES.ASST)
-    throw new Error("Movement tracker is managerial.");
+  if (!canUploadRole_(user.role))
+    throw new Error("Only Asst EHS Manager and EHS Lead can log scaffold movements.");
   row.id = uid_("MOV");
   row.enteredBy = user.employeeId;
   row.date = row.date || todayIso_();
@@ -683,6 +683,8 @@ function apiSaveMovement(token, row) {
 
 function apiSaveObservation(token, row) {
   const user = requireUser_(token);
+  if (!canUploadRole_(user.role))
+    throw new Error("Only Asst EHS Manager and EHS Lead can log observations.");
   assertProjectAccess_(user, row.projectId);
   row.id = uid_("OBS");
   row.status = STATUS.OPEN;
@@ -742,8 +744,8 @@ function apiCloseObservation(token, id, fallbackNote) {
 
 function apiSaveTraining(token, row) {
   const user = requireUser_(token);
-  if (user.role !== ROLES.MANAGER && user.role !== ROLES.DIRECTOR && user.role !== ROLES.ASST) {
-    throw new Error("Only Manager, Director, or Assistant Manager can manage the training calendar.");
+  if (!canUploadRole_(user.role)) {
+    throw new Error("Only Asst EHS Manager and EHS Lead can schedule or edit training sessions.");
   }
 
   if (row.id) {
@@ -2696,6 +2698,9 @@ function apiSendTrainingReminder(token, trainingId) {
 
 function apiSaveTrainingMaterial(token, payload) {
   const user = requireUser_(token);
+  if (!canUploadRole_(user.role)) {
+    throw new Error("Only Asst EHS Manager and EHS Lead can upload training materials.");
+  }
   if (!payload || !payload.title) throw new Error("Title is required");
 
   const pId = payload.projectId || currentProjectId() || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || "PRJ001";

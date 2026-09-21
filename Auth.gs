@@ -190,19 +190,20 @@ function canMutateAll_(role) {
   return role === ROLES.MANAGER || role === ROLES.DIRECTOR;
 }
 
+function canUploadRole_(role) {
+  return role === ROLES.LEAD || role === ROLES.ASST;
+}
+
 function canSubmitForm_(role, entryType) {
-  if (entryType === "UPLOAD") return canManageOneTimeUploads_(role);
-  return role === ROLES.LEAD || role === ROLES.ASST || canMutateAll_(role);
+  return canUploadRole_(role);
 }
 
 function canManageOneTimeUploads_(role) {
-  return (
-    role === ROLES.ASST || role === ROLES.MANAGER || role === ROLES.DIRECTOR
-  );
+  return canUploadRole_(role);
 }
 
 function canUploadManagedFile_(role) {
-  return role === ROLES.ASST || canMutateAll_(role);
+  return canUploadRole_(role);
 }
 
 function canManageProjects_(role) {
@@ -236,9 +237,8 @@ function assertProjectAccess_(user, projectId) {
 
 function assertEdit_(user, projectId) {
   assertProjectAccess_(user, projectId);
-  if (user.role === ROLES.LEAD) return;
-  if (user.role === ROLES.ASST || canMutateAll_(user.role)) return;
-  throw new Error("You do not have edit access.");
+  if (canUploadRole_(user.role)) return;
+  throw new Error("You do not have upload/entry permissions. Only EHS Lead and Asst EHS Manager can submit or modify data.");
 }
 
 function assertDelete_(user, projectId) {
