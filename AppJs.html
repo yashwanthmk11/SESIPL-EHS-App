@@ -1,4 +1,4 @@
-<script>
+﻿<script>
   const TOKEN_KEY = "sesipl_ehs_token";
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
   let USER = null;
@@ -1508,25 +1508,7 @@
       : "Submit → PDF → approval chain. Rejected items return to Lead with comments.";
     const forms = STATE.catalog.filter((f) => moduleIds.indexOf(f.module) >= 0);
     const needProject = !currentProjectId() && USER.role !== "EHS_LEAD";
-    const permitBanner = isPermit
-      ? '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;background:#f0fdfa;border:1.5px solid #0f766e;flex-wrap:wrap;gap:12px">' +
-        '  <div>' +
-        '    <strong style="color:#0f766e;font-size:14px">Standard Work Permit Blank Formats (SESIPL Controlled Copies)</strong>' +
-        '    <p class="muted" style="margin:3px 0 0;font-size:12px">Need physical on-site sign-offs? Download or print blank standard formats of all 6 permits, or upload scanned copies.</p>' +
-        '  </div>' +
-        '  <div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        '    <button class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="openPtwTemplatesModal()">' +
-        '      📄 Download Standard PTW Format (Blank)' +
-        '    </button>' +
-        '    ' + (canUploadRole() ? '<button class="btn small secondary" onclick="openBulkUpload(\'WP_UPLOAD\')">📤 Upload Signed Permit Scan</button>' : '') +
-        '    <button class="btn small secondary" style="border:1.5px solid #0f766e;color:#0f766e;font-weight:700" onclick="openDocTemplateSettingsModal()">' +
-        '      ⚙️ Google Docs Templates' +
-        '    </button>' +
-        '  </div>' +
-        '</div>'
-      : '';
     $("view").innerHTML =
-      permitBanner +
       (needProject && USER.role === "ASST_EHS_MANAGER"
         ? '<div class="card">Select a mapped project from the dropdown to continue.</div>'
         : forms
@@ -2237,6 +2219,788 @@
   }
   window.handleWpFilePlaceholder = handleWpFilePlaceholder;
 
+
+/* =========================================================
+     SPECIALIZED EHS FORM BUILDERS: 7-DAY, INSPECTIONS, ATTENDANCE, SCREENING
+     ========================================================= */
+
+  function quickFill7DayChecklist(isYes) {
+    const selects = document.querySelectorAll('#dyn-form select[name^="item"]');
+    selects.forEach(s => {
+      s.value = isYes ? "Yes" : "No";
+      s.style.background = isYes ? "#f0fdf4" : "#fef2f2";
+    });
+  }
+  window.quickFill7DayChecklist = quickFill7DayChecklist;
+
+  function quickFillInspection(isYes) {
+    const selects = document.querySelectorAll('#dyn-form select[name$="_choice"], #dyn-form select[name^="drill_"], #dyn-form select[name^="fe_"]');
+    selects.forEach(s => {
+      s.value = isYes ? "Yes" : "No";
+      s.style.background = isYes ? "#f0fdf4" : "#fef2f2";
+    });
+  }
+  window.quickFillInspection = quickFillInspection;
+
+  function quickFillAttendance() {
+    const samples = [
+      { name: "Rajesh Kumar", desig: "Electrician", comp: "Shankar Electricals" },
+      { name: "Suresh Babu", desig: "Fitter", comp: "Shankar Electricals" },
+      { name: "M. Ramesh", desig: "Helper", comp: "Vinayaka Engineering" },
+      { name: "Anil Sharma", desig: "Foreman", comp: "Shankar Electricals" },
+      { name: "Vijay Patil", desig: "Rigger", comp: "Apex Rigging" },
+      { name: "Sunil Naik", desig: "Welder", comp: "SafeFlow Piping" },
+      { name: "K. Mohan", desig: "Electrician", comp: "Shankar Electricals" },
+      { name: "Prakash Rao", desig: "Technician", comp: "Shankar Electricals" },
+      { name: "Santosh Gowda", desig: "Mason", comp: "Vinayaka Engineering" },
+      { name: "Dharmesh S", desig: "Electrician", comp: "Shankar Electricals" }
+    ];
+    samples.forEach((item, idx) => {
+      const i = idx + 1;
+      const nameInp = document.querySelector('input[name="participant' + i + 'Name"], input[name="attendee' + i + 'Name"], input[name="tbt_name_' + i + '"]');
+      if (nameInp) nameInp.value = item.name;
+      const desigInp = document.querySelector('input[name="participant' + i + 'Designation"], input[name="attendee' + i + 'Designation"], input[name="tbt_desig_' + i + '"]');
+      if (desigInp) desigInp.value = item.desig;
+      const compInp = document.querySelector('input[name="participant' + i + 'Company"], input[name="attendee' + i + 'Id"], input[name="tbt_agency_' + i + '"]');
+      if (compInp) compInp.value = (compInp.name.indexOf("Id") >= 0 ? "SE-IND-" + (100 + i) : item.comp);
+    });
+  }
+  window.quickFillAttendance = quickFillAttendance;
+
+  function quickFillWorkerScreening() {
+    const setVal = (name, val) => {
+      const el = document.querySelector('#dyn-form [name="' + name + '"]');
+      if (el) el.value = val;
+    };
+    setVal("workerId", "SE-WKR-" + Math.floor(1000 + Math.random() * 9000));
+    setVal("workerName", "Rajesh M. Kumar");
+    setVal("fatherName", "M. Narayana Kumar");
+    setVal("permanentAddress", "H.No 42, 3rd Cross, Gandhi Nagar, Mandya, Karnataka - 571401");
+    setVal("presentAddress", "Site Labour Colony, Quarter B-12, Bengaluru Site");
+    setVal("dateOfBirth", "1994-06-15");
+    setVal("sex", "Male");
+    setVal("age", "32");
+    setVal("maritalStatus", "Married");
+    setVal("childrenCount", "2");
+    setVal("motherTongue", "Kannada");
+    setVal("languages", "Kannada, Hindi, English");
+    setVal("emergencyContact", "Kavitha R (Wife) - 9845012345");
+    setVal("identificationMark", "Mole on right collar bone");
+    setVal("vision", "Normal");
+    setVal("health", "Normal");
+    setVal("weightKg", "68");
+    setVal("heightCms", "172");
+    setVal("bloodGroup", "B+");
+    setVal("educationDetails", "SSLC Passed (Govt High School, 2010), ITI Electrical Certificate (2012)");
+    setVal("suitableEmployment", "Industrial Electrical Cabling & Conduit Installation");
+    setVal("siteInCharge", "S. Sharma (Site Engineer)");
+    setVal("workerDeclarationSignature", "Signed - Rajesh Kumar");
+    setVal("contractorDeclarationSignature", "Verified & Approved - Shankar Electricals");
+  }
+  window.quickFillWorkerScreening = quickFillWorkerScreening;
+
+  /* 1. 7-Day Machine Checklist Builder */
+  function build7DayChecklistFormModalHtml(meta, payload, currentProject) {
+    const p = payload || {};
+    const formCode = meta.def.formCode;
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const projName = (currentProject && currentProject.name) || "SESIPL Site";
+
+    let items = [];
+    if (formCode === "CL_WELD") {
+      items = [
+        "1. ON / OFF knob is provided. Ensure no damage and uninsulated knob",
+        "2. Regulator with indicator is provided",
+        "3. Welding cables connected to the welding machine with lugs at the joints",
+        "4. No damage in the insulation of welding cables",
+        "5. Electrode rod holder and earthing holder are without damage",
+        "6. Industrial type Plug for power tapping cable of welding machine",
+        "7. No internal live electrical parts of welding machine is exposed",
+        "8. Trolley without damaged wheels",
+        "9. Fire extinguisher and fire bucket with sand availability"
+      ];
+    } else if (formCode === "CL_GRIND") {
+      items = [
+        "1. Handle free from damage",
+        "2. Wheel guard covering 3/4th area",
+        "3. Grinding wheel free from crack",
+        "4. Rear handle without any damage",
+        "5. Presence of cord strain reliver(glands)",
+        "6. Trigger switch free from damage",
+        "7. Presence of dead man switch",
+        "8. Electrical wire without cut and joint",
+        "9. Plug top provided",
+        "10. Machine body free from damages"
+      ];
+    } else if (formCode === "CL_CUT") {
+      items = [
+        "1. Cutting blade manufacture defined and free from damage",
+        "2. Availability of safety Guard and in good condition",
+        "3. Lock system for plate and guard",
+        "4. Availability of job clamp(fence) and in condition",
+        "5. Availability on handle and in good condition",
+        "6. Cable connection and free from damages",
+        "7. Availability of dust guard (chip deflector)",
+        "8. Machine base in free from damage"
+      ];
+    } else if (formCode === "CL_SCAFFOLD") {
+      items = [
+        "1. All coupler hooks properly installed",
+        "2. Proper platform and locking system provided",
+        "3. Inspection tag displayed",
+        "4. Scaffold erected on firm base",
+        "5. Wheel lock provided and working",
+        "6. Toe board provided",
+        "7. Access ladder properly installed",
+        "8. Double top and mid railing provided"
+      ];
+    }
+
+    const days = [
+      { id: 1, label: "Day 1 (Mon)" },
+      { id: 2, label: "Day 2 (Tue)" },
+      { id: 3, label: "Day 3 (Wed)" },
+      { id: 4, label: "Day 4 (Thu)" },
+      { id: 5, label: "Day 5 (Fri)" },
+      { id: 6, label: "Day 6 (Sat)" },
+      { id: 7, label: "Day 7 (Sun)" }
+    ];
+
+    const tableRows = items.map((itemText, idx) => {
+      const itemNum = idx + 1;
+      const dayCells = days.map(d => {
+        const fieldKey = "item" + itemNum + "Day" + d.id;
+        const curVal = p[fieldKey] || "Yes";
+        return (
+          '<td style="padding:4px;text-align:center;border:1px solid #cbd5e1">' +
+            '<select name="' + fieldKey + '" style="padding:3px 4px;font-size:11px;border-radius:4px;border:1px solid #94a3b8;background:' + (curVal === 'Yes' ? '#f0fdf4' : '#fff') + '">' +
+              '<option value="Yes" ' + (curVal === 'Yes' ? 'selected' : '') + '>✓ Yes</option>' +
+              '<option value="No" ' + (curVal === 'No' ? 'selected' : '') + '>✗ No</option>' +
+              '<option value="NA" ' + (curVal === 'NA' ? 'selected' : '') + '>— NA</option>' +
+            '</select>' +
+          '</td>'
+        );
+      }).join('');
+
+      return (
+        '<tr style="border-bottom:1px solid #e2e8f0;background:' + (idx % 2 === 0 ? '#ffffff' : '#f8fafc') + '">' +
+          '<td style="padding:6px 8px;font-size:11.5px;font-weight:700;text-align:center;border:1px solid #cbd5e1">' + itemNum + '</td>' +
+          '<td style="padding:6px 8px;font-size:12px;color:#1e293b;border:1px solid #cbd5e1">' + esc(itemText) + '</td>' +
+          dayCells +
+        '</tr>'
+      );
+    }).join('');
+
+    return (
+      '<div style="max-width:980px;margin:0 auto;text-align:left">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f766e;padding-bottom:10px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+          '<div>' +
+            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">7-DAY PERIODIC CHECKLIST</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">' + esc(meta.def.title) + '</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">Project: <b>' + esc(projName) + '</b> | Shankar Electricals Services (I) Pvt Ltd®</p>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<button type="button" class="btn small secondary" style="font-weight:700;font-size:11.5px" onclick="quickFill7DayChecklist(true)">⚡ Mark All Days (✓)</button>' +
+            '<button type="button" class="modal-close" onclick="hideModal()">×</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="dyn-form">' +
+          '<div class="card" style="padding:12px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Project Name</label>' +
+                '<input type="text" name="projectName" value="' + esc(p.projectName || projName) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Contractor Name</label>' +
+                '<input type="text" name="contractor" value="' + esc(p.contractor || p.contractorName || 'Shankar Electricals Services I Pvt Ltd') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Equipment / M/C No.</label>' +
+                '<input type="text" name="equipmentId" value="' + esc(p.equipmentId || p.equipmentNo || p.machineNo || 'EQ-' + formCode.replace('CL_', '') + '-01') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Make / Type</label>' +
+                '<input type="text" name="make" value="' + esc(p.make || p.makeType || 'Industrial Grade') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Inspection Date / Week</label>' +
+                '<input type="date" name="date" value="' + esc(p.date || todayStr) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card" style="padding:0;overflow-x:auto;margin-bottom:12px;border:1.5px solid #cbd5e1">' +
+            '<table style="width:100%;border-collapse:collapse;min-width:760px">' +
+              '<thead>' +
+                '<tr style="background:#0f766e;color:#ffffff;font-size:11.5px">' +
+                  '<th style="padding:8px;width:40px;text-align:center;border:1px solid #0d9488">Sl No</th>' +
+                  '<th style="padding:8px;text-align:left;border:1px solid #0d9488">Description of items to be checked daily</th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 1<br><small>Mon</small></th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 2<br><small>Tue</small></th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 3<br><small>Wed</small></th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 4<br><small>Thu</small></th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 5<br><small>Fri</small></th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 6<br><small>Sat</small></th>' +
+                  '<th style="padding:8px;width:75px;text-align:center;border:1px solid #0d9488">Day 7<br><small>Sun</small></th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' +
+                tableRows +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+
+          '<div class="card" style="padding:12px;margin-bottom:14px;background:#f8fafc;border:1px solid #cbd5e1">' +
+            '<div style="font-weight:800;font-size:12px;color:#0f766e;margin-bottom:8px">Daily Verification Signatures:</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px">Supervisor Name & Sign</label>' +
+                '<input type="text" name="supervisorSign" value="' + esc(p.supervisorSign || 'Verified - Site Supervisor') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Safety Officer Name & Sign</label>' +
+                '<input type="text" name="safetyOfficerSign" value="' + esc(p.safetyOfficerSign || 'Inspected - Safety Officer') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Mech / Electrical Engineer & Sign</label>' +
+                '<input type="text" name="engineerSign" value="' + esc(p.engineerSign || 'Checked - Site Engineer') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" class="btn small" style="background:#0f766e;color:#fff;font-weight:700">Submit Checklist</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  /* 2. Inspection Checklist Builder (YES / NO / REMARKS) */
+  function buildInspectionChecklistFormModalHtml(meta, payload, currentProject) {
+    const p = payload || {};
+    const formCode = meta.def.formCode;
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const projName = (currentProject && currentProject.name) || "SESIPL Site";
+
+    let items = [];
+    if (formCode === "CL_DRILL") {
+      items = [
+        "1. Equipment double insulated. (is written in the machine body)",
+        "2. Equipment free from any defect like broken handle, broken parts etc",
+        "3. Is electrical cable free from defects.",
+        "4. Industrial plug top available and in working condition.",
+        "5. Drilling Bit without any damage.",
+        "6. Drilling bit holder is available and in working condition",
+        "7. Switch in working condition"
+      ];
+    } else if (formCode === "CL_FE") {
+      items = [
+        "1. Condition of the extinguisher (Clean and Tidy)",
+        "2. Is the extinguisher corroded.",
+        "3. Safety pin is in locking position",
+        "4. Condition of discharge nozzle (any blockage / damage)",
+        "5. Condition of hose (any leakage / broken)",
+        "6. Weight of the extinguisher (Should match with actual weight written in the body)",
+        "7. Availability of visual board.",
+        "8. All the indicator gauges (where fitted) in green segment (not to be red)",
+        "9. Extinguisher is expired or refilled before refilled date",
+        "10. Others"
+      ];
+    }
+
+    const tableRows = items.map((itemText, idx) => {
+      const num = idx + 1;
+      const keyPrefix = formCode === "CL_DRILL" ? "drill_q" + num : "fe_q" + num;
+      const curChoice = p[keyPrefix + "_choice"] || p[keyPrefix] || "Yes";
+      const curRemarks = p[keyPrefix + "_remarks"] || "";
+
+      return (
+        '<tr style="border-bottom:1px solid #e2e8f0;background:' + (idx % 2 === 0 ? '#ffffff' : '#f8fafc') + '">' +
+          '<td style="padding:8px;font-size:11.5px;font-weight:700;text-align:center;border:1px solid #cbd5e1">' + num + '</td>' +
+          '<td style="padding:8px;font-size:12px;color:#1e293b;border:1px solid #cbd5e1">' + esc(itemText) + '</td>' +
+          '<td style="padding:6px;text-align:center;border:1px solid #cbd5e1;width:110px">' +
+            '<select name="' + keyPrefix + '_choice" style="padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #94a3b8;background:' + (curChoice === 'Yes' ? '#f0fdf4' : '#fff') + '">' +
+              '<option value="Yes" ' + (curChoice === 'Yes' ? 'selected' : '') + '>✓ YES</option>' +
+              '<option value="No" ' + (curChoice === 'No' ? 'selected' : '') + '>✗ NO</option>' +
+            '</select>' +
+          '</td>' +
+          '<td style="padding:6px;border:1px solid #cbd5e1;width:220px">' +
+            '<input type="text" name="' + keyPrefix + '_remarks" value="' + esc(curRemarks) + '" placeholder="Optional remark" style="width:100%;padding:4px 8px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px">' +
+          '</td>' +
+        '</tr>'
+      );
+    }).join('');
+
+    return (
+      '<div style="max-width:920px;margin:0 auto;text-align:left">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f766e;padding-bottom:10px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+          '<div>' +
+            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">EQUIPMENT INSPECTION</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">' + esc(meta.def.title) + '</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">Project: <b>' + esc(projName) + '</b> | SESIPL EHS Safety System</p>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<button type="button" class="btn small secondary" style="font-weight:700;font-size:11.5px" onclick="quickFillInspection(true)">⚡ Mark All YES</button>' +
+            '<button type="button" class="modal-close" onclick="hideModal()">×</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="dyn-form">' +
+          '<div class="card" style="padding:12px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Project Name</label>' +
+                '<input type="text" name="projectName" value="' + esc(p.projectName || projName) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Contractor Name</label>' +
+                '<input type="text" name="contractor" value="' + esc(p.contractor || p.contractorName || 'Shankar Electricals Services I Pvt Ltd') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">' + (formCode === 'CL_FE' ? 'Extinguisher No.' : 'Equipment No.') + '</label>' +
+                '<input type="text" name="' + (formCode === 'CL_FE' ? 'extinguisherNo' : 'equipmentNo') + '" value="' + esc(p.extinguisherNo || p.equipmentNo || (formCode === 'CL_FE' ? 'FE-01' : 'DRL-01')) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Inspection Date</label>' +
+                '<input type="date" name="inspectionDate" value="' + esc(p.inspectionDate || todayStr) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              (formCode === 'CL_FE' ?
+                '<div>' +
+                  '<label style="font-size:11.5px;font-weight:700">Extinguisher Specifications</label>' +
+                  '<select name="extinguisherSpecification" style="padding:6px;font-size:12px;width:100%">' +
+                    '<option ' + (p.extinguisherSpecification === 'ABC Type' ? 'selected' : '') + '>ABC Type</option>' +
+                    '<option ' + (p.extinguisherSpecification === 'Water Type' ? 'selected' : '') + '>Water Type</option>' +
+                    '<option ' + (p.extinguisherSpecification === 'CO2 Type' ? 'selected' : '') + '>CO2 Type</option>' +
+                  '</select>' +
+                '</div>' +
+                '<div>' +
+                  '<label style="font-size:11.5px;font-weight:700">Next Due Date</label>' +
+                  '<input type="date" name="nextInspectionDate" value="' + esc(p.nextInspectionDate || todayStr) + '" required style="padding:6px;font-size:12px;width:100%">' +
+                '</div>' : '') +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card" style="padding:0;overflow-x:auto;margin-bottom:12px;border:1.5px solid #cbd5e1">' +
+            '<table style="width:100%;border-collapse:collapse">' +
+              '<thead>' +
+                '<tr style="background:#0f766e;color:#ffffff;font-size:11.5px">' +
+                  '<th style="padding:8px;width:50px;text-align:center;border:1px solid #0d9488">SL NO</th>' +
+                  '<th style="padding:8px;text-align:left;border:1px solid #0d9488">DESCRIPTION</th>' +
+                  '<th style="padding:8px;width:110px;text-align:center;border:1px solid #0d9488">STATUS</th>' +
+                  '<th style="padding:8px;width:220px;text-align:left;border:1px solid #0d9488">REMARKS</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' +
+                tableRows +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+
+          '<div class="card" style="padding:12px;margin-bottom:14px;background:#f8fafc;border:1px solid #cbd5e1">' +
+            '<div style="font-weight:800;font-size:12px;color:#0f766e;margin-bottom:8px">Verification & Sign-offs:</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px">Checked by (Name & Sign)</label>' +
+                '<input type="text" name="checkedByName" value="' + esc(p.checkedByName || p.checkedBy || 'Checked - Safety Supervisor') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">EHS SESIPL (Name & Sign)</label>' +
+                '<input type="text" name="ehsName" value="' + esc(p.ehsName || 'Ravikiran - EHS SESIPL') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">PMC Review Status</label>' +
+                '<select name="reviewStatus" style="padding:6px;font-size:12px;width:100%">' +
+                  '<option ' + (p.reviewStatus === 'Accepted' ? 'selected' : '') + '>Accepted</option>' +
+                  '<option ' + (p.reviewStatus === 'Rejected' ? 'selected' : '') + '>Rejected</option>' +
+                '</select>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" class="btn small" style="background:#0f766e;color:#fff;font-weight:700">Submit Inspection</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  /* 3. Attendance, TBT & Training Form Builder */
+  function buildAttendanceFormModalHtml(meta, payload, currentProject) {
+    const p = payload || {};
+    const formCode = meta.def.formCode;
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const projName = (currentProject && currentProject.name) || "SESIPL Site";
+    const isInduction = formCode === "CL_INDUCTION";
+
+    const rowsCount = 15;
+    let tableRows = "";
+    for (let i = 1; i <= rowsCount; i++) {
+      const name = p["participant" + i + "Name"] || p["attendee" + i + "Name"] || p["tbt_name_" + i] || "";
+      const desig = p["participant" + i + "Designation"] || p["attendee" + i + "Designation"] || p["tbt_desig_" + i] || "";
+      const comp = p["participant" + i + "Company"] || p["attendee" + i + "Id"] || p["tbt_agency_" + i] || "";
+      const sign = name ? "Signed" : "";
+
+      tableRows += (
+        '<tr style="border-bottom:1px solid #e2e8f0;background:' + (i % 2 === 0 ? '#ffffff' : '#f8fafc') + '">' +
+          '<td style="padding:6px;text-align:center;border:1px solid #cbd5e1;font-weight:700;font-size:11.5px">' + i + '</td>' +
+          (isInduction ?
+            '<td style="padding:4px 6px;border:1px solid #cbd5e1;width:120px">' +
+              '<input type="text" name="attendee' + i + 'Id" value="' + esc(comp) + '" placeholder="ID Card No" style="width:100%;padding:4px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px">' +
+            '</td>' : '') +
+          '<td style="padding:4px 6px;border:1px solid #cbd5e1">' +
+            '<input type="text" name="' + (isInduction ? 'attendee' + i + 'Name' : 'participant' + i + 'Name') + '" value="' + esc(name) + '" placeholder="Worker Full Name" style="width:100%;padding:4px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px">' +
+          '</td>' +
+          '<td style="padding:4px 6px;border:1px solid #cbd5e1;width:140px">' +
+            '<input type="text" name="' + (isInduction ? 'attendee' + i + 'Designation' : 'participant' + i + 'Designation') + '" value="' + esc(desig) + '" placeholder="e.g. Electrician" style="width:100%;padding:4px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px">' +
+          '</td>' +
+          (!isInduction ?
+            '<td style="padding:4px 6px;border:1px solid #cbd5e1;width:160px">' +
+              '<input type="text" name="participant' + i + 'Company" value="' + esc(comp) + '" placeholder="Agency Name" style="width:100%;padding:4px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px">' +
+            '</td>' : '') +
+          '<td style="padding:6px;text-align:center;border:1px solid #cbd5e1;width:80px;font-size:11px;color:#0f766e;font-weight:700">' +
+            (name ? '✓ Signed' : '—') +
+          '</td>' +
+        '</tr>'
+      );
+    }
+
+    return (
+      '<div style="max-width:960px;margin:0 auto;text-align:left">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f766e;padding-bottom:10px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+          '<div>' +
+            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">TRAINING & ATTENDANCE</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">' + esc(meta.def.title) + '</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">Project: <b>' + esc(projName) + '</b> | SESIPL EHS Digital</p>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<button type="button" class="btn small secondary" style="font-weight:700;font-size:11.5px" onclick="quickFillAttendance()">⚡ Fill Sample Attendees</button>' +
+            '<button type="button" class="modal-close" onclick="hideModal()">×</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="dyn-form">' +
+          '<div class="card" style="padding:12px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Project Name</label>' +
+                '<input type="text" name="projectName" value="' + esc(p.projectName || projName) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Contractor Name</label>' +
+                '<input type="text" name="contractor" value="' + esc(p.contractor || p.contractorName || 'Shankar Electricals Services I Pvt Ltd') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Date</label>' +
+                '<input type="date" name="date" value="' + esc(p.date || todayStr) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Topic Discussed</label>' +
+                '<input type="text" name="topic" value="' + esc(p.topic || 'Daily TBT on PPE Compliance & Safe Scaffolding Platform') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card" style="padding:0;overflow-x:auto;margin-bottom:12px;border:1.5px solid #cbd5e1">' +
+            '<table style="width:100%;border-collapse:collapse;min-width:680px">' +
+              '<thead>' +
+                '<tr style="background:#0f766e;color:#ffffff;font-size:11.5px">' +
+                  '<th style="padding:8px;width:45px;text-align:center;border:1px solid #0d9488">Sl No</th>' +
+                  (isInduction ? '<th style="padding:8px;width:120px;text-align:left;border:1px solid #0d9488">ID Card No.</th>' : '') +
+                  '<th style="padding:8px;text-align:left;border:1px solid #0d9488">Name of Workman</th>' +
+                  '<th style="padding:8px;width:140px;text-align:left;border:1px solid #0d9488">Designation</th>' +
+                  (!isInduction ? '<th style="padding:8px;width:160px;text-align:left;border:1px solid #0d9488">Agency Name</th>' : '') +
+                  '<th style="padding:8px;width:80px;text-align:center;border:1px solid #0d9488">Sign</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' +
+                tableRows +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+
+          '<div class="card" style="padding:12px;margin-bottom:14px;background:#f8fafc;border:1px solid #cbd5e1">' +
+            '<div style="font-weight:800;font-size:12px;color:#0f766e;margin-bottom:8px">Conducted By & Approval Sign-offs:</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px">Conducted By (Name & Sign)</label>' +
+                '<input type="text" name="conductedBy" value="' + esc(p.conductedBy || 'K. Harish (Safety Officer)') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Project Manager Name</label>' +
+                '<input type="text" name="projectManager" value="' + esc(p.projectManager || 'S. Sharma (Project Manager)') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" class="btn small" style="background:#0f766e;color:#fff;font-weight:700">Submit Attendance Record</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  /* 4. Worker Screening Form Builder */
+  function buildWorkerScreeningFormModalHtml(meta, payload, currentProject) {
+    const p = payload || {};
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const projName = (currentProject && currentProject.name) || "SESIPL Site";
+
+    return (
+      '<div style="max-width:920px;margin:0 auto;text-align:left">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f766e;padding-bottom:10px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+          '<div>' +
+            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">WORKER INDUCTION & SCREENING</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">Screening Of Worker</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">Project: <b>' + esc(projName) + '</b> | Shankar Electricals Services I Pvt Ltd</p>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<button type="button" class="btn small secondary" style="font-weight:700;font-size:11.5px" onclick="quickFillWorkerScreening()">⚡ Auto-Fill Example</button>' +
+            '<button type="button" class="modal-close" onclick="hideModal()">×</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="dyn-form">' +
+          '<!-- Section 1: Identification -->' +
+          '<div class="card" style="padding:14px;margin-bottom:12px;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:8px">' +
+            '<div style="font-weight:800;font-size:13px;color:#0f766e;margin-bottom:8px">1. Workman Identification & Contractor</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Worker ID No.</label>' +
+                '<input type="text" name="workerId" value="' + esc(p.workerId || 'SE-WKR-1042') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Date of Screening</label>' +
+                '<input type="date" name="date" value="' + esc(p.date || todayStr) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Contractor / Sub-Contractor</label>' +
+                '<input type="text" name="contractor" value="' + esc(p.contractor || 'Shankar Electricals Services I Pvt Ltd') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Full Name of Workman</label>' +
+                '<input type="text" name="workerName" value="' + esc(p.workerName || '') + '" required placeholder="Full Name as per Aadhaar" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Father / Husband Name</label>' +
+                '<input type="text" name="fatherName" value="' + esc(p.fatherName || '') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:1/-1">' +
+                '<label style="font-size:11.5px;font-weight:700">Permanent Address</label>' +
+                '<input type="text" name="permanentAddress" value="' + esc(p.permanentAddress || '') + '" required placeholder="H.No, Street, Village/Town, District, State, PIN" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:1/-1">' +
+                '<label style="font-size:11.5px;font-weight:700">Present Address</label>' +
+                '<input type="text" name="presentAddress" value="' + esc(p.presentAddress || '') + '" required placeholder="Local address or site camp accommodation" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<!-- Section 2: Personal Details -->' +
+          '<div class="card" style="padding:14px;margin-bottom:12px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:8px">' +
+            '<div style="font-weight:800;font-size:13px;color:#0f766e;margin-bottom:8px">2. Personal Profile & Background</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px">Date of Birth</label>' +
+                '<input type="date" name="dateOfBirth" value="' + esc(p.dateOfBirth || '') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Sex</label>' +
+                '<select name="sex" style="padding:6px;font-size:12px;width:100%"><option>Male</option><option>Female</option><option>Other</option></select>' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Age (Years)</label>' +
+                '<input type="number" name="age" value="' + esc(p.age || '28') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Marital Status</label>' +
+                '<select name="maritalStatus" style="padding:6px;font-size:12px;width:100%"><option>Married</option><option>Single</option><option>Widow</option><option>Widower</option></select>' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Number of Children</label>' +
+                '<input type="number" name="childrenCount" value="' + esc(p.childrenCount || '0') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Mother Tongue</label>' +
+                '<input type="text" name="motherTongue" value="' + esc(p.motherTongue || 'Kannada') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:span 2">' +
+                '<label style="font-size:11.5px">Emergency Contact Person & Phone</label>' +
+                '<input type="text" name="emergencyContact" value="' + esc(p.emergencyContact || '') + '" required placeholder="Name, Relationship & Mobile No." style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:span 2">' +
+                '<label style="font-size:11.5px">Identification Mark</label>' +
+                '<input type="text" name="identificationMark" value="' + esc(p.identificationMark || '') + '" placeholder="e.g. Scar on left hand, mole on neck" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<!-- Section 3: Medical & Fitness -->' +
+          '<div class="card" style="padding:14px;margin-bottom:12px;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:8px">' +
+            '<div style="font-weight:800;font-size:13px;color:#0f766e;margin-bottom:8px">3. Medical Examination & Physical Fitness</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px">Vision</label>' +
+                '<select name="vision" style="padding:6px;font-size:12px;width:100%"><option>Normal</option><option>Not Normal</option></select>' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Health Status</label>' +
+                '<select name="health" style="padding:6px;font-size:12px;width:100%"><option>Normal</option><option>Not Normal</option></select>' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Weight (KG)</label>' +
+                '<input type="number" name="weightKg" value="' + esc(p.weightKg || '65') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Height (CMS)</label>' +
+                '<input type="number" name="heightCms" value="' + esc(p.heightCms || '170') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Blood Group</label>' +
+                '<input type="text" name="bloodGroup" value="' + esc(p.bloodGroup || 'O+') + '" placeholder="e.g. B+, O+, AB+" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:1/-1">' +
+                '<label style="font-size:11.5px">Education Details</label>' +
+                '<input type="text" name="educationDetails" value="' + esc(p.educationDetails || 'SSLC / 10th Standard Passed') + '" placeholder="Examination, Year, School/Board" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<!-- Section 4: Declarations -->' +
+          '<div class="card" style="padding:14px;margin-bottom:14px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:8px">' +
+            '<div style="font-weight:800;font-size:13px;color:#0f766e;margin-bottom:8px">4. Declarations & Employment Suitability</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px">Suitable for employment in (Trade)</label>' +
+                '<input type="text" name="suitableEmployment" value="' + esc(p.suitableEmployment || 'Electrical Wiring & Cabling') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Site in charge / Site Engineer</label>' +
+                '<input type="text" name="siteInCharge" value="' + esc(p.siteInCharge || 'S. Sharma (Site Engineer)') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Worker Declaration Signature / Thumb</label>' +
+                '<input type="text" name="workerDeclarationSignature" value="' + esc(p.workerDeclarationSignature || 'Signed by Worker') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px">Contractor Declaration Signature</label>' +
+                '<input type="text" name="contractorDeclarationSignature" value="' + esc(p.contractorDeclarationSignature || 'Approved - Shankar Electricals') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" class="btn small" style="background:#0f766e;color:#fff;font-weight:700">Submit Worker Screening</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  /* 5. Medical Certificate Form XI Builder */
+  function buildMedicalFormModalHtml(meta, payload, currentProject) {
+    const p = payload || {};
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const projName = (currentProject && currentProject.name) || "SESIPL Site";
+
+    return (
+      '<div style="max-width:880px;margin:0 auto;text-align:left">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0f766e;padding-bottom:10px;margin-bottom:14px">' +
+          '<div>' +
+            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">STATUTORY MEDICAL FORM</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">Form XI — Certificate of Medical Examination</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">[See Rule 223(c)] Building and Other Construction Workers Act</p>' +
+          '</div>' +
+          '<button type="button" class="modal-close" onclick="hideModal()">×</button>' +
+        '</div>' +
+
+        '<form id="dyn-form">' +
+          '<div class="card" style="padding:14px;margin-bottom:12px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">1. Certificate Serial No.</label>' +
+                '<input type="text" name="certificateNo" value="' + esc(p.certificateNo || 'MED-' + Math.floor(1000 + Math.random() * 9000)) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Date of Examination</label>' +
+                '<input type="date" name="date" value="' + esc(p.date || todayStr) + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">2. Name of Worker</label>' +
+                '<input type="text" name="workerName" value="' + esc(p.workerName || '') + '" required placeholder="Full Name" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Son / Daughter / Wife of</label>' +
+                '<input type="text" name="fatherName" value="' + esc(p.fatherName || '') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Sex</label>' +
+                '<select name="sex" style="padding:6px;font-size:12px;width:100%"><option>Male</option><option>Female</option><option>Other</option></select>' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Date of Birth / Age</label>' +
+                '<input type="text" name="dateOfBirth" value="' + esc(p.dateOfBirth || '28 Years') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:1/-1">' +
+                '<label style="font-size:11.5px;font-weight:700">Identification Marks</label>' +
+                '<input type="text" name="identificationMarks" value="' + esc(p.identificationMarks || '(1) Mole on left arm (2) Scar on forehead') + '" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div style="grid-column:1/-1">' +
+                '<label style="font-size:11.5px;font-weight:700">Residence Address</label>' +
+                '<input type="text" name="residence" value="' + esc(p.residence || '') + '" required placeholder="Permanent / Local Residence Address" style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card" style="padding:14px;margin-bottom:14px;background:#ffffff;border:1.5px solid #cbd5e1">' +
+            '<div style="font-weight:800;font-size:13px;color:#0f766e;margin-bottom:8px">Medical Certification & Fitness</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px">' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Physical Fitness Decision</label>' +
+                '<select name="physicalFitness" style="padding:6px;font-size:12px;width:100%">' +
+                  '<option>Fit for employment</option>' +
+                  '<option>Unfit for employment</option>' +
+                '</select>' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Employment Field / Trade</label>' +
+                '<input type="text" name="suitableEmployment" value="' + esc(p.suitableEmployment || 'Building and Construction Work / Electrical Trade') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+              '<div>' +
+                '<label style="font-size:11.5px;font-weight:700">Medical Inspector / C.M.O. (Name & Seal)</label>' +
+                '<input type="text" name="medicalInspector" value="' + esc(p.medicalInspector || 'Dr. K. Srinivas, MBBS, Reg. No. 45210') + '" required style="padding:6px;font-size:12px;width:100%">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
+            '<button type="submit" class="btn small" style="background:#0f766e;color:#fff;font-weight:700">Submit Medical Certificate</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  window.build7DayChecklistFormModalHtml = build7DayChecklistFormModalHtml;
+  window.buildInspectionChecklistFormModalHtml = buildInspectionChecklistFormModalHtml;
+  window.buildAttendanceFormModalHtml = buildAttendanceFormModalHtml;
+  window.buildWorkerScreeningFormModalHtml = buildWorkerScreeningFormModalHtml;
+  window.buildMedicalFormModalHtml = buildMedicalFormModalHtml;
+
   async function openForm(formCode, submissionId) {
     if (!currentProjectId()) {
       alert("Select a project first.");
@@ -2253,9 +3017,24 @@
 
     const upload = meta.def.entryType === "UPLOAD";
     const isPermit = formCode.startsWith("WP_");
+    const is7Day = ["CL_WELD", "CL_GRIND", "CL_CUT", "CL_SCAFFOLD"].indexOf(formCode) >= 0;
+    const isInspectionChecklist = ["CL_DRILL", "CL_FE"].indexOf(formCode) >= 0;
+    const isAttendance = ["CL_TBT", "CL_JST", "CL_INDUCTION"].indexOf(formCode) >= 0;
+    const isScreening = formCode === "CL_SCREENING";
+    const isMedical = formCode === "CL_MEDICAL";
 
     if (isPermit) {
       showModal(buildWorkPermitFormModalHtml(meta, payload, currentProject(), upload));
+    } else if (is7Day) {
+      showModal(build7DayChecklistFormModalHtml(meta, payload, currentProject()));
+    } else if (isInspectionChecklist) {
+      showModal(buildInspectionChecklistFormModalHtml(meta, payload, currentProject()));
+    } else if (isAttendance) {
+      showModal(buildAttendanceFormModalHtml(meta, payload, currentProject()));
+    } else if (isScreening) {
+      showModal(buildWorkerScreeningFormModalHtml(meta, payload, currentProject()));
+    } else if (isMedical) {
+      showModal(buildMedicalFormModalHtml(meta, payload, currentProject()));
     } else {
       const fields = meta.fields
         .map((f) => {
@@ -3143,76 +3922,7 @@
     }, 400);
   }
 
-  /* =========================================================
-     WORK PERMITS: BLANK TEMPLATES DOWNLOAD & PRINT MODAL
-     ========================================================= */
-  const PTW_METAS = [
-    { code: "WP_HEIGHT", docCode: "SESIPL-EHS.Blr Prj-04", title: "Working At Height Permit", risk: "CRITICAL RISK", icon: "🪜", desc: "For work above 1.8m, scaffolding, mobile elevated work platforms & edge work." },
-    { code: "WP_HOT", docCode: "SESIPL-EHS.Blr Prj-03", title: "Hot Work Permit", risk: "HIGH RISK", icon: "🔥", desc: "For welding, cutting, grinding, open flame & spark producing operations." },
-    { code: "WP_NIGHT", docCode: "SESIPL-EHS.Blr Prj-07", title: "Night Work Permit", risk: "HIGH RISK", icon: "🌙", desc: "For operations between 18:00 and 06:00, lighting verification & medical fit." },
-    { code: "WP_SHAFT", docCode: "SESIPL-EHS.Blr Prj-06", title: "Shaft Work Permit", risk: "SPECIAL RISK", icon: "🕳️", desc: "For electrical/plumbing shafts, confined riser entries & fall arrest." },
-    { code: "WP_LIFT", docCode: "SESIPL-EHS.Blr Prj-05", title: "Lifting Activity Permit", risk: "HIGH RISK", icon: "🏗️", desc: "For crane operations, rigging, heavy electrical equipment hoisting." },
-    { code: "WP_GENERAL", docCode: "SESIPL-EHS.Blr Prj-01", title: "General Work Permit", risk: "ROUTINE RISK", icon: "📋", desc: "For general civil, finishing, cable pulling & routine site works." }
-  ];
 
-  function openPtwTemplatesModal() {
-    const modalHtml =
-      '<div style="padding:10px 4px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
-          '<div>' +
-            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">CONTROLLED DOCUMENTS</span>' +
-            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">Download Standard PTW Formats (Blank)</h3>' +
-            '<p class="muted" style="margin:2px 0 0;font-size:12px">Official SESIPL Permit-to-Work templates ready to print, physically sign on site, or fill digitally.</p>' +
-          '</div>' +
-          '<button class="modal-close" type="button" onclick="hideModal()">×</button>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;max-height:60vh;overflow-y:auto;padding:2px">' +
-        PTW_METAS.map(p => {
-          return (
-            '<div class="card" style="padding:14px;border:1.5px solid #cbd5e1;background:#ffffff;border-radius:10px;display:flex;flex-direction:column;justify-content:space-between">' +
-              '<div>' +
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
-                  '<span style="font-size:24px">' + p.icon + '</span>' +
-                  '<span style="font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:4px;background:#fef2f2;color:#991b1b">' + p.risk + '</span>' +
-                '</div>' +
-                '<strong style="font-size:14px;color:#0f172a;display:block">' + esc(p.title) + '</strong>' +
-                '<div style="font-size:11px;font-weight:700;color:#0f766e;margin:2px 0 6px">' + esc(p.docCode) + '</div>' +
-                '<p class="muted" style="font-size:11.5px;margin:0 0 12px;line-height:1.4">' + esc(p.desc) + '</p>' +
-              '</div>' +
-              '<div style="display:flex;flex-direction:column;gap:6px">' +
-                '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printBlankPtwTemplate(\'' + p.code + '\')">' +
-                  '🖨️ Print / Download Blank Format' +
-                '</button>' +
-                '<div style="display:flex;gap:6px">' +
-                  (canUploadRole() ? '<button type="button" class="btn small secondary" style="flex:1" onclick="hideModal();openForm(\'' + p.code + '\')">📝 Fill Online</button>' : '') +
-                  (canUploadRole() ? '<button type="button" class="btn small secondary" style="flex:1" onclick="hideModal();openBulkUpload(\'WP_UPLOAD\')">📤 Upload Scan</button>' : '') +
-                '</div>' +
-              '</div>' +
-            '</div>'
-          );
-        }).join('') +
-        '</div>' +
-      '</div>';
-    showModal(modalHtml);
-  }
-  window.openPtwTemplatesModal = openPtwTemplatesModal;
-
-  async function printBlankPtwTemplate(code) {
-    setLoading(true, "Generating standard blank PTW format...");
-    try {
-      const res = await run("apiGetBlankPtwTemplateHtml", TOKEN, code, currentProjectId());
-      setLoading(false);
-      if (res && res.html) {
-        printHtmlViaIframe_(res.html);
-      } else {
-        alert("Failed to compile PTW format.");
-      }
-    } catch (e) {
-      setLoading(false);
-      alert("Error generating PTW format: " + (e.message || e));
-    }
-  }
-  window.printBlankPtwTemplate = printBlankPtwTemplate;
 
   async function viewSubmissionPdf(submissionId) {
     setLoading(true, "Compiling submission PDF...");
