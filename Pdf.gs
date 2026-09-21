@@ -347,6 +347,16 @@ function buildWorkPermitPdfHtml_(project, def, fields, user, version) {
     '  </table>' +
     '</div>' +
 
+    ((fields.signedPermitUrl || fields.swmsFileUrl || fields.preWorkPhotoUrl || fields.signedPermitFile || fields.swmsFile || fields.preWorkPhoto) ?
+      '<div style="margin-top:10px;border:1px solid #0284c7;padding:6px 10px;border-radius:6px;background:#f0f9ff">' +
+      '  <div style="font-weight:bold;font-size:11px;margin-bottom:4px;color:#0369a1">Attached Supporting Documents &amp; Reference Files:</div>' +
+      '  <table style="width:100%;border-collapse:collapse;font-size:10px">' +
+      (fields.signedPermitUrl || fields.signedPermitFile ? '<tr><td style="width:38%;padding:2px 0"><b>Signed PTW Copy / Scan:</b></td><td>' + escapeHtml_(fields.signedPermitUrl || fields.signedPermitFile) + '</td></tr>' : '') +
+      (fields.swmsFileUrl || fields.swmsFile ? '<tr><td style="width:38%;padding:2px 0"><b>SWMS / JSA Document:</b></td><td>' + escapeHtml_(fields.swmsFileUrl || fields.swmsFile) + '</td></tr>' : '') +
+      (fields.preWorkPhotoUrl || fields.preWorkPhoto ? '<tr><td style="width:38%;padding:2px 0"><b>Site Verification Photo:</b></td><td>' + escapeHtml_(fields.preWorkPhotoUrl || fields.preWorkPhoto) + '</td></tr>' : '') +
+      '  </table>' +
+      '</div>' : '') +
+
     '<table style="width:100%;margin-top:14px;font-size:10px;color:#64748b">' +
     '  <tr>' +
     '    <td style="text-align:left"><b>Controlled Copy©</b></td>' +

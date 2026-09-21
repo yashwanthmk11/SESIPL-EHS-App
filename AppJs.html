@@ -405,13 +405,18 @@
   }
   window.canApproveRole = canApproveRole;
 
+  function canViewChartsRole() {
+    return USER && (USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER");
+  }
+  window.canViewChartsRole = canViewChartsRole;
+
   function canCommentRole() {
     return !!USER;
   }
   window.canCommentRole = canCommentRole;
 
   function canManageProjects() {
-    return USER && (USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER" || USER.role === "ASST_EHS_MANAGER");
+    return USER && (USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER");
   }
   window.canManageProjects = canManageProjects;
 
@@ -420,18 +425,35 @@
     if (!sel) return;
     const prevVal = sel.value;
     sel.innerHTML = "";
-    (STATE.projects || []).forEach((p) => {
+
+    let projs = STATE.projects || [];
+    if (USER && USER.role === "EHS_LEAD") {
+      const mapped = USER.mappedProjects || [];
+      if (mapped.length) {
+        projs = projs.filter((p) => mapped.includes(p.id));
+      } else if (STATE.selectedProjectId) {
+        projs = projs.filter((p) => p.id === STATE.selectedProjectId);
+      }
+      if (!projs.length && STATE.projects && STATE.projects.length) {
+        projs = [STATE.projects[0]];
+      }
+    }
+
+    projs.forEach((p) => {
       const o = document.createElement("option");
       o.value = p.id;
       o.textContent = (p.code || "PRJ") + " — " + (p.name || "Untitled");
       sel.appendChild(o);
     });
-    if (USER.role === "EHS_LEAD") {
+
+    if (USER && USER.role === "EHS_LEAD") {
       sel.disabled = true;
-      if (STATE.selectedProjectId) sel.value = STATE.selectedProjectId;
+      if (projs.length) {
+        sel.value = projs[0].id;
+      }
     } else {
       sel.disabled = false;
-      if (USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR") {
+      if (USER && (USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR")) {
         const all = document.createElement("option");
         all.value = "";
         all.textContent = "All running projects";
@@ -447,17 +469,31 @@
   }
 
   function currentProjectId() {
-    return $("project-select").value;
+    if (USER && USER.role === "EHS_LEAD") {
+      const mapped = (USER.mappedProjects && USER.mappedProjects[0]) || STATE.selectedProjectId;
+      if (mapped) return mapped;
+      if (STATE.projects && STATE.projects.length) return STATE.projects[0].id;
+    }
+    const sel = $("project-select");
+    return sel ? sel.value : "";
   }
 
   function currentProject() {
     const id = currentProjectId();
-    return STATE.projects.find((p) => p.id === id) || null;
+    const p = (STATE.projects || []).find((pr) => pr.id === id);
+    if (p) return p;
+    if (USER && USER.role === "EHS_LEAD" && STATE.projects && STATE.projects.length) {
+      return STATE.projects[0];
+    }
+    return null;
   }
 
   function scopedSubs() {
     const id = currentProjectId();
-    return STATE.submissions.filter((s) => !id || s.projectId === id);
+    if (USER && USER.role === "EHS_LEAD") {
+      return (STATE.submissions || []).filter((s) => s.projectId === id);
+    }
+    return (STATE.submissions || []).filter((s) => !id || s.projectId === id);
   }
 
   function buildNav() {
@@ -696,9 +732,10 @@
   }
 
   function renderLeadDashboard(project, stats) {
+    const pId = currentProjectId();
     const submissions = scopedSubs().slice().reverse();
     const returned = submissions.filter((s) => s.status === "REJECTED");
-    const observations = STATE.observations.filter((o) => o.status === "OPEN" || o.status === "FALLBACK");
+    const observations = (STATE.observations || []).filter((o) => (o.status === "OPEN" || o.status === "FALLBACK") && (o.projectId === pId));
     $("view").innerHTML =
       '<div class="card dashboard-hero"><span class="pill">SITE OPERATIONS</span><h2>' + esc(project ? project.name : "Mapped Site") + '</h2><p class="muted">Site Lead workspace: Fill daily checklists, generate work permits, submit weekly reports, and correct any returned records.</p>' +
       '<div class="row-actions" style="display:flex;gap:8px;flex-wrap:wrap">' +
@@ -1463,13 +1500,31 @@
   function renderModuleForms(moduleIds, title) {
     $("page-title").textContent = title;
     const isOneTime = moduleIds.every((id) => ["TEST_CERT", "EHS_DOCS", "LEGAL", "POLICY", "SWMS"].indexOf(id) >= 0);
+    const isPermit = moduleIds.indexOf("PERMIT") >= 0;
     $("page-sub").textContent = isOneTime
       ? "Bulk upload project documents. Files are stored directly in the project library without approval."
+      : isPermit
+      ? "Digital & physical high-risk safety clearance permits. Download standard blank formats or submit with attached files."
       : "Submit → PDF → approval chain. Rejected items return to Lead with comments.";
     const forms = STATE.catalog.filter((f) => moduleIds.indexOf(f.module) >= 0);
     const needProject = !currentProjectId() && USER.role !== "EHS_LEAD";
+    const permitBanner = isPermit
+      ? '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;background:#f0fdfa;border:1.5px solid #0f766e;flex-wrap:wrap;gap:12px">' +
+        '  <div>' +
+        '    <strong style="color:#0f766e;font-size:14px">Standard Work Permit Blank Formats (SESIPL Controlled Copies)</strong>' +
+        '    <p class="muted" style="margin:3px 0 0;font-size:12px">Need physical on-site sign-offs? Download or print blank standard formats of all 6 permits, or upload scanned copies.</p>' +
+        '  </div>' +
+        '  <div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '    <button class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="openPtwTemplatesModal()">' +
+        '      📄 Download Standard PTW Format (Blank)' +
+        '    </button>' +
+        '    ' + (canUploadRole() ? '<button class="btn small secondary" onclick="openBulkUpload(\'WP_UPLOAD\')">📤 Upload Signed Permit Scan</button>' : '') +
+        '  </div>' +
+        '</div>'
+      : '';
     $("view").innerHTML =
-      needProject && USER.role === "ASST_EHS_MANAGER"
+      permitBanner +
+      (needProject && USER.role === "ASST_EHS_MANAGER"
         ? '<div class="card">Select a mapped project from the dropdown to continue.</div>'
         : forms
             .map((f) => {
@@ -1547,12 +1602,14 @@
                 "</div>"
               );
             })
-            .join("");
+            .join(""));
   }
 
   function documentLibraryRows(moduleId) {
+    const pId = currentProjectId();
+    const isLead = USER && USER.role === "EHS_LEAD";
     const files = (STATE.library || [])
-      .filter((file) => (!currentProjectId() || file.projectId === currentProjectId()) && file.module === moduleId)
+      .filter((file) => (isLead ? (file.projectId === pId || file.projectId === "*") : (!pId || file.projectId === pId || file.projectId === "*")) && file.module === moduleId)
       .slice()
       .reverse();
     if (!files.length) return '<p class="muted">No documents uploaded yet.</p>';
@@ -1631,16 +1688,47 @@
 
     const getVal = (k) => esc(p[k] || "");
 
+    const PERMIT_PLACEHOLDERS = {
+      contractorName: 'e.g. Vinayaka Electricals / Apex Engineering',
+      permitNo: 'e.g. SESIPL/WP/2026/042',
+      emergencyContact1: 'e.g. +91 98450 12345 (Site Safety In-charge)',
+      emergencyContact2: 'e.g. +91 98450 67890 (Site Medical / Ambulance)',
+      area: 'e.g. Building 2, Floor 4, AHU Shaft',
+      location: 'e.g. North Wing Grid C12-D14',
+      workDescription: 'e.g. Cable tray bracket erection and electrical conduits installation at 4.5m height using mobile scaffold and double lanyard harness...',
+      siteEngineer: 'e.g. R. Prakash (Site In-Charge)',
+      siteEngineerSign: 'e.g. Signed - R. Prakash',
+      safetyOfficer: 'e.g. K. Harish (EHS Lead)',
+      safetyOfficerSign: 'e.g. Verified & Signed - K. Harish',
+      contractorInCharge: 'e.g. S. Kumar (Agency Lead)',
+      contactNumber: 'e.g. +91 94480 55667',
+      workmenNames: 'e.g. 1. Rajesh Kumar (ID: 1042), 2. Suresh Babu (ID: 1045), 3. M. Ramesh (ID: 1049)',
+      night_remarks: 'e.g. Dedicated night supervisor present, area tower floodlights active, first aider on standby',
+      lift_other: 'e.g. Outrigger mats placed on concrete slab, tag line deployed with trained rigger',
+      hot_other: 'e.g. Fire blanket installed below welding joint, 5kg DCP cylinder tested & inspected',
+      approvalEhsName: 'e.g. HR Ravikiran',
+      approvalEhsSign: 'e.g. Approved - HR Ravikiran',
+      approvalSiteEngineerName: 'e.g. S. Sharma',
+      approvalSiteEngineerSign: 'e.g. Approved - S. Sharma',
+      closingSiteEngName: 'e.g. R. Prakash',
+      closingSiteEngSign: 'e.g. Work Completed - R. Prakash',
+      closingSafetyOfficerName: 'e.g. K. Harish',
+      closingSafetyOfficerSign: 'e.g. Housekeeping Inspected - K. Harish',
+      closingPmcSiteEngName: 'e.g. CBRE Site Incharge',
+      closingPmcSiteEngSign: 'e.g. Verified & Closed - PMC'
+    };
+
     const inp = (key, label, type, req, fullWidth) => {
       const v = getVal(key);
+      const ph = PERMIT_PLACEHOLDERS[key] || ('Enter ' + esc(label.toLowerCase()));
       return (
         '<div class="form-field' + (fullWidth ? ' full' : '') + '" style="' + (fullWidth ? 'grid-column:1/-1' : '') + '">' +
           '<label style="font-weight:700;font-size:12px;color:#334155;display:block;margin-bottom:4px">' +
             esc(label) + (req ? ' <span style="color:#ef4444">*</span>' : '') +
           '</label>' +
           (type === "textarea"
-            ? '<textarea name="' + key + '" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px;box-sizing:border-box" placeholder="Enter ' + esc(label.toLowerCase()) + '" ' + (req ? 'required' : '') + '>' + v + '</textarea>'
-            : '<input name="' + key + '" type="' + type + '" value="' + v + '" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:13px;box-sizing:border-box" placeholder="Enter ' + esc(label.toLowerCase()) + '" ' + (req ? 'required' : '') + '>') +
+            ? '<textarea name="' + key + '" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px;box-sizing:border-box" placeholder="' + esc(ph) + '" ' + (req ? 'required' : '') + '>' + v + '</textarea>'
+            : '<input name="' + key + '" type="' + type + '" value="' + v + '" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:13px;box-sizing:border-box" placeholder="' + esc(ph) + '" ' + (req ? 'required' : '') + '>') +
         '</div>'
       );
     };
@@ -1806,6 +1894,38 @@
             '</div>' +
           '</div>' +
 
+          '<!-- 6. Work Permit File Attachments & Documentation Placeholders -->' +
+          '<div style="background:#ffffff;border:1.5px solid #0284c7;border-radius:10px;padding:16px;margin-bottom:16px">' +
+            '<div style="font-size:13px;font-weight:800;color:#0284c7;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0f2fe;padding-bottom:6px">' +
+              '<span>📎 6. Work Permit File Attachments &amp; Documentation Placeholders</span>' +
+              '<span class="pill" style="font-size:10.5px;background:#e0f2fe;color:#0369a1">Optional Attachments</span>' +
+            '</div>' +
+            '<p class="muted" style="font-size:12px;margin:0 0 12px">Upload or provide file placeholders for signed hardcopy PTW, Safe Work Method Statement (SWMS), and site inspection photos.</p>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px">' +
+              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1">' +
+                '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📄 Signed Permit Copy / Scan (PDF/Image)</label>' +
+                '<input type="file" id="wp-signed-file" accept=".pdf,image/*" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'signedPermitFile\')">' +
+                '<input type="hidden" name="signedPermitFile" id="wp-hidden-signedPermitFile" value="' + esc(p.signedPermitFile || '') + '">' +
+                '<input type="text" name="signedPermitUrl" id="wp-url-signedPermitFile" value="' + esc(p.signedPermitUrl || '') + '" placeholder="e.g. Scan of signed physical permit copy or paste Drive link" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
+                '<div id="wp-preview-signedPermitFile" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.signedPermitFile ? 'Attached: ' + esc(p.signedPermitFileName || 'Signed Permit File') : '') + '</div>' +
+              '</div>' +
+              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1">' +
+                '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📋 SWMS / JSA Risk Assessment File</label>' +
+                '<input type="file" id="wp-swms-file" accept=".pdf,image/*" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'swmsFile\')">' +
+                '<input type="hidden" name="swmsFile" id="wp-hidden-swmsFile" value="' + esc(p.swmsFile || '') + '">' +
+                '<input type="text" name="swmsFileUrl" id="wp-url-swmsFile" value="' + esc(p.swmsFileUrl || '') + '" placeholder="e.g. SWMS-HT-01_Rev3.pdf / Drive link" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
+                '<div id="wp-preview-swmsFile" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.swmsFile ? 'Attached: ' + esc(p.swmsFileName || 'SWMS Document') : '') + '</div>' +
+              '</div>' +
+              '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1">' +
+                '<label style="font-weight:700;font-size:12px;color:#0f172a;display:block;margin-bottom:4px">📷 Site Area / Pre-Task Verification Photo</label>' +
+                '<input type="file" id="wp-photo-file" accept="image/*,.pdf" style="font-size:12px;margin-bottom:6px;width:100%" onchange="handleWpFilePlaceholder(this, \'preWorkPhoto\')">' +
+                '<input type="hidden" name="preWorkPhoto" id="wp-hidden-preWorkPhoto" value="' + esc(p.preWorkPhoto || '') + '">' +
+                '<input type="text" name="preWorkPhotoUrl" id="wp-url-preWorkPhoto" value="' + esc(p.preWorkPhotoUrl || '') + '" placeholder="e.g. Photo link showing barricading & PPE" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">' +
+                '<div id="wp-preview-preWorkPhoto" style="margin-top:4px;font-size:11px;color:#0284c7">' + (p.preWorkPhoto ? 'Attached: ' + esc(p.preWorkPhotoName || 'Verification Photo') : '') + '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
           (upload ? '<div class="full" style="margin-bottom:16px"><label style="font-weight:700">Attach Document / Scan</label><input type="file" id="up-file"></div>' : '') +
 
           '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid #e2e8f0">' +
@@ -1816,6 +1936,20 @@
       '</div>'
     );
   }
+
+  function handleWpFilePlaceholder(inputEl, key) {
+    if (!inputEl || !inputEl.files || !inputEl.files[0]) return;
+    const f = inputEl.files[0];
+    const previewEl = document.getElementById("wp-preview-" + key);
+    if (previewEl) {
+      previewEl.textContent = "Selected: " + f.name + " (" + Math.round(f.size / 1024) + " KB)";
+    }
+    const urlInput = document.getElementById("wp-url-" + key);
+    if (urlInput && !urlInput.value) {
+      urlInput.value = f.name;
+    }
+  }
+  window.handleWpFilePlaceholder = handleWpFilePlaceholder;
 
   async function openForm(formCode, submissionId) {
     if (!currentProjectId()) {
@@ -1933,6 +2067,69 @@
             base64: b64.split(",")[1],
             tags: meta.def.formCode,
           });
+        }
+        const signedFileEl = $("wp-signed-file");
+        if (signedFileEl && signedFileEl.files && signedFileEl.files[0]) {
+          const sf = signedFileEl.files[0];
+          const b64 = await blobToB64(sf);
+          const upRes = await run("apiUploadMeta", TOKEN, {
+            projectId: currentProjectId(),
+            kind: "LIBRARY",
+            module: "PERMIT",
+            moduleTitle: "Work Permit",
+            title: "Signed PTW - " + (obj.permitNo || meta.def.title) + " (" + sf.name + ")",
+            fileName: sf.name,
+            mimeType: sf.type || "application/pdf",
+            base64: b64.split(",")[1],
+            tags: meta.def.formCode + ",SIGNED_PTW"
+          });
+          if (upRes && upRes.url) {
+            obj.signedPermitUrl = upRes.url;
+            obj.signedPermitFile = sf.name;
+            obj.signedPermitFileName = sf.name;
+          }
+        }
+        const swmsFileEl = $("wp-swms-file");
+        if (swmsFileEl && swmsFileEl.files && swmsFileEl.files[0]) {
+          const swf = swmsFileEl.files[0];
+          const b64 = await blobToB64(swf);
+          const upRes = await run("apiUploadMeta", TOKEN, {
+            projectId: currentProjectId(),
+            kind: "LIBRARY",
+            module: "PERMIT",
+            moduleTitle: "Work Permit",
+            title: "SWMS Document - " + (obj.permitNo || meta.def.title) + " (" + swf.name + ")",
+            fileName: swf.name,
+            mimeType: swf.type || "application/pdf",
+            base64: b64.split(",")[1],
+            tags: meta.def.formCode + ",SWMS"
+          });
+          if (upRes && upRes.url) {
+            obj.swmsFileUrl = upRes.url;
+            obj.swmsFile = swf.name;
+            obj.swmsFileName = swf.name;
+          }
+        }
+        const photoFileEl = $("wp-photo-file");
+        if (photoFileEl && photoFileEl.files && photoFileEl.files[0]) {
+          const pf = photoFileEl.files[0];
+          const b64 = await blobToB64(pf);
+          const upRes = await run("apiUploadMeta", TOKEN, {
+            projectId: currentProjectId(),
+            kind: "LIBRARY",
+            module: "PERMIT",
+            moduleTitle: "Work Permit",
+            title: "Pre-Work Verification Photo - " + (obj.permitNo || meta.def.title) + " (" + pf.name + ")",
+            fileName: pf.name,
+            mimeType: pf.type || "image/jpeg",
+            base64: b64.split(",")[1],
+            tags: meta.def.formCode + ",PRE_WORK_PHOTO"
+          });
+          if (upRes && upRes.url) {
+            obj.preWorkPhotoUrl = upRes.url;
+            obj.preWorkPhoto = pf.name;
+            obj.preWorkPhotoName = pf.name;
+          }
         }
         const res = await run("apiSubmitForm", TOKEN, {
           projectId: currentProjectId(),
@@ -2052,7 +2249,8 @@
       if (!grouped[submission.module]) grouped[submission.module] = [];
       grouped[submission.module].push(submission);
     });
-    STATE.library.filter((file) => !projectId || file.projectId === projectId).forEach((file) => {
+    const isLead = USER && USER.role === "EHS_LEAD";
+    (STATE.library || []).filter((file) => isLead ? (file.projectId === projectId || file.projectId === "*") : (!projectId || file.projectId === projectId || file.projectId === "*")).forEach((file) => {
       if (!grouped[file.module]) grouped[file.module] = [];
       grouped[file.module].push({ title: file.title, status: "UPLOAD", pdfFileId: file.fileId, uploadedFile: file, submittedAt: file.uploadedAt });
     });
@@ -2093,8 +2291,9 @@
     $("page-sub").textContent =
       "Consolidated daily performance report: Manpower, Safe Hours, Safety Inductions, TBT, Permits, and Zero-Harm Accident Statistics.";
     const pId = currentProjectId();
-    const rows = STATE.dailyLog.filter(
-      (r) => !pId || r.projectId === pId,
+    const isLead = USER && USER.role === "EHS_LEAD";
+    const rows = (STATE.dailyLog || []).filter(
+      (r) => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId),
     );
 
     // Sums for active project scope
@@ -2106,6 +2305,8 @@
     const totalInductions = rows.reduce((a, r) => a + Number(r.inductions || 0), 0);
     const totalTbtPersons = rows.reduce((a, r) => a + Number(r.tbtPersons || 0), 0);
     const avgDailyMp = rows.length ? Math.round((totalStaff + totalWorkers) / rows.length) : (totalStaff + totalWorkers);
+
+    const canViewCharts = canViewChartsRole();
 
     $("view").innerHTML =
       '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:12px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
@@ -2136,54 +2337,95 @@
       kpi(latestCumSafe.toLocaleString('en-IN') + ' hrs', "Cumulative Safe Hours") +
       kpi('<span class="badge-zeroharm">0 LTI</span>', "Accident Benchmark") +
       '</div>' +
-      '<div class="charts" style="margin-top:14px">' +
-      '<div class="card" style="display:flex;flex-direction:column;align-items:center">' +
-      '  <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Manpower Trend</b><span class="muted" style="font-size:12px">Consolidated site tracking</span></div>' +
-      '  <div style="width:100%;max-width:260px;max-height:190px;margin:6px auto;position:relative;display:flex;justify-content:center">' +
-      '    <canvas id="dl-manpower-chart" style="max-height:180px;max-width:100%"></canvas>' +
-      '  </div>' +
-      '</div>' +
-      (canUploadRole() ?
-        '<div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
-        field("date", "Date", "date") +
-        field("workingHours", "Working Hours", "number") +
-        field("staff", "Staff Count", "number") +
-        field("workers", "Workers Count", "number") +
-        field("safeManHours", "Safe Man Hours", "number") +
-        field("cumSafeManHours", "Cumulative Safe Hours", "number") +
-        field("inductions", "Total Inductions", "number") +
-        field("indStaff", "Induction Staff", "number") +
-        field("indWorkers", "Induction Workers", "number") +
-        field("tbtCount", "TBT Count", "number") +
-        field("tbtPersons", "TBT Persons Attended", "number") +
-        field("trainingTopic", "Training Topic", "text") +
-        field("trainingPersons", "Training Persons Attended", "number") +
-        field("permitHot", "Hot Work Permits", "number") +
-        field("permitElectrical", "Electrical Permits", "number") +
-        field("permitCold", "Cold Work Permits", "number") +
-        field("permitGeneral", "General Permits", "number") +
-        field("firstAid", "First Aid Cases", "number") +
-        field("nearMiss", "Near Miss / Incidents", "number") +
-        field("ltiCount", "No. of LTI (Target: 0)", "number") +
-        '<div class="full"><label>Accident Details / Zero-Harm Status</label><input name="accidentDetails" placeholder="Nil - Safe day or details"></div>' +
-        field("verifiedBy", "Report Verified By", "text") +
-        field("approvedBy", "Report Approved By", "text") +
-        '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
-        '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div>' :
-        '<div class="card" style="display:flex;flex-direction:column;justify-content:center">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
-            '<strong style="font-size:15px;color:#0f172a">Performance &amp; Safety Highlights</strong>' +
-            '<span class="badge-zeroharm" style="font-size:11px">Zero-Harm Target</span>' +
-          '</div>' +
-          '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px">' +
-            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Staff Logged</div><strong style="font-size:16px;color:#0f172a">' + totalStaff + '</strong></div>' +
-            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Workers Logged</div><strong style="font-size:16px;color:#0f172a">' + totalWorkers + '</strong></div>' +
-            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Avg Daily Manpower</div><strong style="font-size:16px;color:#0f172a">' + avgDailyMp + '</strong></div>' +
-            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Safety Inductions</div><strong style="font-size:16px;color:#0f766e">' + totalInductions + '</strong></div>' +
-            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0;grid-column:1/-1"><div class="muted" style="font-size:11px">TBT Persons Trained</div><strong style="font-size:16px;color:#0f766e">' + totalTbtPersons + ' personnel</strong></div>' +
-          '</div>' +
-        '</div>') +
-      '</div>' +
+      (canViewCharts ?
+        '<div class="charts" style="margin-top:14px">' +
+        '<div class="card" style="display:flex;flex-direction:column;align-items:center">' +
+        '  <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Manpower Trend</b><span class="muted" style="font-size:12px">Consolidated site tracking</span></div>' +
+        '  <div style="width:100%;max-width:260px;max-height:190px;margin:6px auto;position:relative;display:flex;justify-content:center">' +
+        '    <canvas id="dl-manpower-chart" style="max-height:180px;max-width:100%"></canvas>' +
+        '  </div>' +
+        '</div>' +
+        (canUploadRole() ?
+          '<div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
+          field("date", "Date", "date") +
+          field("workingHours", "Working Hours", "number") +
+          field("staff", "Staff Count", "number") +
+          field("workers", "Workers Count", "number") +
+          field("safeManHours", "Safe Man Hours", "number") +
+          field("cumSafeManHours", "Cumulative Safe Hours", "number") +
+          field("inductions", "Total Inductions", "number") +
+          field("indStaff", "Induction Staff", "number") +
+          field("indWorkers", "Induction Workers", "number") +
+          field("tbtCount", "TBT Count", "number") +
+          field("tbtPersons", "TBT Persons Attended", "number") +
+          field("trainingTopic", "Training Topic", "text") +
+          field("trainingPersons", "Training Persons Attended", "number") +
+          field("permitHot", "Hot Work Permits", "number") +
+          field("permitElectrical", "Electrical Permits", "number") +
+          field("permitCold", "Cold Work Permits", "number") +
+          field("permitGeneral", "General Permits", "number") +
+          field("firstAid", "First Aid Cases", "number") +
+          field("nearMiss", "Near Miss / Incidents", "number") +
+          field("ltiCount", "No. of LTI (Target: 0)", "number") +
+          '<div class="full"><label>Accident Details / Zero-Harm Status</label><input name="accidentDetails" placeholder="Nil - Safe day or details"></div>' +
+          field("verifiedBy", "Report Verified By", "text") +
+          field("approvedBy", "Report Approved By", "text") +
+          '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
+          '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div>' :
+          '<div class="card" style="display:flex;flex-direction:column;justify-content:center">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+              '<strong style="font-size:15px;color:#0f172a">Performance &amp; Safety Highlights</strong>' +
+              '<span class="badge-zeroharm" style="font-size:11px">Zero-Harm Target</span>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px">' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Staff Logged</div><strong style="font-size:16px;color:#0f172a">' + totalStaff + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Workers Logged</div><strong style="font-size:16px;color:#0f172a">' + totalWorkers + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Avg Daily Manpower</div><strong style="font-size:16px;color:#0f172a">' + avgDailyMp + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Safety Inductions</div><strong style="font-size:16px;color:#0f766e">' + totalInductions + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0;grid-column:1/-1"><div class="muted" style="font-size:11px">TBT Persons Trained</div><strong style="font-size:16px;color:#0f766e">' + totalTbtPersons + ' personnel</strong></div>' +
+            '</div>' +
+          '</div>') +
+        '</div>' :
+        (canUploadRole() ?
+          '<div class="card" style="margin-top:14px"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
+          field("date", "Date", "date") +
+          field("workingHours", "Working Hours", "number") +
+          field("staff", "Staff Count", "number") +
+          field("workers", "Workers Count", "number") +
+          field("safeManHours", "Safe Man Hours", "number") +
+          field("cumSafeManHours", "Cumulative Safe Hours", "number") +
+          field("inductions", "Total Inductions", "number") +
+          field("indStaff", "Induction Staff", "number") +
+          field("indWorkers", "Induction Workers", "number") +
+          field("tbtCount", "TBT Count", "number") +
+          field("tbtPersons", "TBT Persons Attended", "number") +
+          field("trainingTopic", "Training Topic", "text") +
+          field("trainingPersons", "Training Persons Attended", "number") +
+          field("permitHot", "Hot Work Permits", "number") +
+          field("permitElectrical", "Electrical Permits", "number") +
+          field("permitCold", "Cold Work Permits", "number") +
+          field("permitGeneral", "General Permits", "number") +
+          field("firstAid", "First Aid Cases", "number") +
+          field("nearMiss", "Near Miss / Incidents", "number") +
+          field("ltiCount", "No. of LTI (Target: 0)", "number") +
+          '<div class="full"><label>Accident Details / Zero-Harm Status</label><input name="accidentDetails" placeholder="Nil - Safe day or details"></div>' +
+          field("verifiedBy", "Report Verified By", "text") +
+          field("approvedBy", "Report Approved By", "text") +
+          '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
+          '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div>' :
+          '<div class="card" style="margin-top:14px;display:flex;flex-direction:column;justify-content:center">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+              '<strong style="font-size:15px;color:#0f172a">Performance &amp; Safety Highlights</strong>' +
+              '<span class="badge-zeroharm" style="font-size:11px">Zero-Harm Target</span>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px">' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Staff Logged</div><strong style="font-size:16px;color:#0f172a">' + totalStaff + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Workers Logged</div><strong style="font-size:16px;color:#0f172a">' + totalWorkers + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Avg Daily Manpower</div><strong style="font-size:16px;color:#0f172a">' + avgDailyMp + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Safety Inductions</div><strong style="font-size:16px;color:#0f766e">' + totalInductions + '</strong></div>' +
+              '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0;grid-column:1/-1"><div class="muted" style="font-size:11px">TBT Persons Trained</div><strong style="font-size:16px;color:#0f766e">' + totalTbtPersons + ' personnel</strong></div>' +
+            '</div>' +
+          '</div>')) +
       '<div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Daily Performance Log Records</h3><span class="badge-zeroharm">Zero-Harm (0 LTI)</span></div>' +
       '<div class="table-responsive-wrap"><table><thead><tr>' +
       '<th>Date</th><th>Staff</th><th>Workers</th><th>Total MP</th><th>Hours</th><th>Total Man-Hours</th><th>Safe Hours</th><th>Cum. Safe Hours</th><th>Inductions</th><th>TBT (Count/Pers)</th><th>Training Topic</th><th>Permits (H/E/C/G)</th><th>Accidents (FA/NM/LTI)</th><th>Verified By</th><th>Approved By</th>' +
@@ -2224,38 +2466,40 @@
       '</tr>' +
       '</tbody></table></div></div>';
 
-    // Average Manpower Chart (Slide 8)
-    const dlChartEl = $("dl-manpower-chart");
-    if (dlChartEl) {
-      const recent = rows.slice(-10);
-      CHARTS.push(new Chart(dlChartEl, {
-        type: "doughnut",
-        data: {
-          labels: recent.length ? recent.map(r => displayDate(r.date)) : ["Staff", "Workers"],
-          datasets: [{
-            data: recent.length ? recent.map(r => Number(r.totalManpower || 0)) : [totalStaff || 6, totalWorkers || 48],
-            backgroundColor: ["#147d6f", "#efb84b", "#0284c7", "#16a34a", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#10b981", "#6366f1"],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          cutout: "60%",
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: { boxWidth: 10, padding: 6, font: { size: 10 } }
-            },
-            title: {
-              display: true,
-              text: "Average Manpower Distribution (Slide 8)",
-              font: { size: 11, weight: "bold" },
-              padding: { top: 2, bottom: 4 }
+    // Average Manpower Chart (Slide 8) - shown only to Director and Manager
+    if (canViewCharts) {
+      const dlChartEl = $("dl-manpower-chart");
+      if (dlChartEl) {
+        const recent = rows.slice(-10);
+        CHARTS.push(new Chart(dlChartEl, {
+          type: "doughnut",
+          data: {
+            labels: recent.length ? recent.map(r => displayDate(r.date)) : ["Staff", "Workers"],
+            datasets: [{
+              data: recent.length ? recent.map(r => Number(r.totalManpower || 0)) : [totalStaff || 6, totalWorkers || 48],
+              backgroundColor: ["#147d6f", "#efb84b", "#0284c7", "#16a34a", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#10b981", "#6366f1"],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: "60%",
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { boxWidth: 10, padding: 6, font: { size: 10 } }
+              },
+              title: {
+                display: true,
+                text: "Average Manpower Distribution (Slide 8)",
+                font: { size: 11, weight: "bold" },
+                padding: { top: 2, bottom: 4 }
+              }
             }
           }
-        }
-      }));
+        }));
+      }
     }
 
     const dlForm = $("dl-form");
@@ -2295,13 +2539,24 @@
     $("page-sub").textContent =
       "Report directly addressed to concerned Department / Person. Reminder notifications sent within 24 hours, auto-escalating at hour 25.";
     const pId = currentProjectId();
-    const rows = STATE.observations.filter(
-      (r) => !pId || r.projectId === pId,
+    const isLead = USER && USER.role === "EHS_LEAD";
+    const rows = (STATE.observations || []).filter(
+      (r) => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId),
     );
     $("view").innerHTML =
-      '<div class="card" style="display:flex;justify-content:space-between;align-items:center">' +
-      '<div><strong>Daily Safety Audit Observation Log</strong><p class="muted" style="margin:4px 0 0">Note: This report is considered as true records and will be closed on High priority.</p></div>' +
-      (canUploadRole() ? '<button class="btn small" onclick="openObsForm()">+ Log New Observation</button>' : '') +
+      '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">' +
+      '  <div><strong>Daily Safety Audit Observation Log</strong><p class="muted" style="margin:4px 0 0">Note: This report is considered as true records and will be closed on High priority.</p></div>' +
+      '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+      '    <button class="btn" style="background:#107c41;color:#fff;display:inline-flex;align-items:center;gap:6px;font-weight:700;box-shadow:0 2px 6px rgba(16,124,65,0.2)" onclick="exportObservationsExcel()">' +
+      '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
+      '      Export Observations (Excel)' +
+      '    </button>' +
+      '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="printObservationsPreview()">' +
+      '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
+      '      Print / PDF' +
+      '    </button>' +
+      (canUploadRole() ? '    <button class="btn small" onclick="openObsForm()">+ Log New Observation</button>' : '') +
+      '  </div>' +
       '</div>' +
       '<div class="card" style="margin-top:12px">' +
       '<div class="table-responsive-wrap"><table><thead><tr>' +
@@ -2369,6 +2624,309 @@
       await refresh();
     };
   }
+
+  /* =========================================================
+     SLIDE 9 DAILY SAFETY OBSERVATIONS EXPORT & PRINT
+     ========================================================= */
+  async function exportObservationsExcel() {
+    setLoading(true, "Compiling Slide 9 Daily Safety Observations Log...");
+    const pId = currentProjectId();
+    const proj = (STATE.projects || []).find(p => p.id === pId) || { name: "SESIPL Site", code: "PRJ" };
+    const isLead = USER && USER.role === "EHS_LEAD";
+    const rows = (STATE.observations || []).filter(r => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId));
+
+    try {
+      const res = await run("apiExportObservationsExcel", TOKEN, pId);
+      setLoading(false);
+      if (res && res.downloadUrl) {
+        const link = document.createElement("a");
+        link.href = res.downloadUrl;
+        link.download = res.name || "Observations_Log.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      openObservationsExportSuccessModal(res);
+    } catch (e) {
+      setLoading(false);
+      console.warn("Server observations export error, using client fallback:", e);
+      downloadObservationsExcelClientSide(rows, proj);
+      showToast("Observations Log exported to Excel (client download)! 📊", "success");
+    }
+  }
+  window.exportObservationsExcel = exportObservationsExcel;
+
+  function downloadObservationsExcelClientSide(rows, project) {
+    const pId = currentProjectId();
+    const proj = project || (STATE.projects || []).find(p => p.id === pId) || { name: "SESIPL Site", code: "PRJ" };
+    const isLead = USER && USER.role === "EHS_LEAD";
+    const obsRows = rows || (STATE.observations || []).filter(r => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId));
+
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>Daily Observations Log</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+      '<style>body{font-family:Calibri,Arial,sans-serif;font-size:10pt;} table{border-collapse:collapse;width:100%;} th,td{padding:6px 8px;border:0.5pt solid #cbd5e1;vertical-align:middle;}</style>' +
+      '</head><body><table>' +
+      '<tr>' +
+      '  <th colspan="11" style="font-size:13pt;font-weight:bold;text-align:center;padding:10px;background:#0f766e;color:#ffffff;border:0.5pt solid #0f766e">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</th>' +
+      '</tr>' +
+      '<tr>' +
+      '  <th colspan="11" style="font-size:11pt;font-weight:bold;text-align:center;padding:8px;background:#e2e8f0;color:#0f172a;border:0.5pt solid #cbd5e1">DAILY SAFETY AUDIT OBSERVATION LOG - SLIDE 9 STANDARD</th>' +
+      '</tr>' +
+      '<tr style="background:#f8fafc;font-size:9.5pt">' +
+      '  <th colspan="4" style="text-align:left;border:0.5pt solid #cbd5e1"><b>Project:</b> ' + esc(proj.name || 'SESIPL Site') + ' (' + esc(proj.code || 'PRJ') + ')</th>' +
+      '  <th colspan="3" style="text-align:center;border:0.5pt solid #cbd5e1"><b>Export Date:</b> ' + new Date().toISOString().slice(0, 10) + '</th>' +
+      '  <th colspan="4" style="text-align:right;border:0.5pt solid #cbd5e1"><b>Audited By:</b> ' + esc((USER ? USER.name : 'EHS In-Charge')) + '</th>' +
+      '</tr>' +
+      '<tr style="background:#1e293b;color:#ffffff;font-weight:bold;font-size:9.5pt;text-align:center">' +
+      '  <th style="width:40pt;border:0.5pt solid #000">Sl.No</th>' +
+      '  <th style="width:90pt;border:0.5pt solid #000">Report No</th>' +
+      '  <th style="width:70pt;border:0.5pt solid #000">Date</th>' +
+      '  <th style="width:100pt;border:0.5pt solid #000">Audited By</th>' +
+      '  <th style="width:100pt;border:0.5pt solid #000">Contractor</th>' +
+      '  <th style="width:100pt;border:0.5pt solid #000">Location</th>' +
+      '  <th style="width:200pt;border:0.5pt solid #000">Observations</th>' +
+      '  <th style="width:200pt;border:0.5pt solid #000">Preventive Measures Recommended by PMC</th>' +
+      '  <th style="width:100pt;border:0.5pt solid #000">Communicated To</th>' +
+      '  <th style="width:65pt;border:0.5pt solid #000">Status</th>' +
+      '  <th style="width:120pt;border:0.5pt solid #000">Action / Remarks</th>' +
+      '</tr>' +
+      (obsRows.length ? obsRows.map(function(r, idx) {
+        const isClosed = String(r.status || '').toUpperCase() === 'CLOSED';
+        const stBg = isClosed ? '#dcfce7' : '#fef3c7';
+        const stColor = isClosed ? '#166534' : '#92400e';
+        return '<tr>' +
+          '<td style="text-align:center;font-weight:bold">' + (idx + 1) + '</td>' +
+          '<td style="text-align:center"><b>' + esc(r.reportNo || r.id || ('OBS-' + (idx + 1))) + '</b></td>' +
+          '<td style="text-align:center">' + (r.date ? displayDate(r.date) : '') + '</td>' +
+          '<td>' + esc(r.auditedBy || 'Lead In-Charge') + '</td>' +
+          '<td>' + esc(r.contractor || 'General Site') + '</td>' +
+          '<td>' + esc(r.location || 'Site Area') + '</td>' +
+          '<td style="text-align:left">' + esc(r.observation || '') + '</td>' +
+          '<td style="text-align:left">' + esc(r.preventive || 'Implement corrective safety measures per SOP') + '</td>' +
+          '<td style="text-align:center">' + esc(r.ownerEmployeeId || 'Department In-Charge') + '</td>' +
+          '<td style="text-align:center;font-weight:bold;background:' + stBg + ';color:' + stColor + '">' + esc(r.status || 'OPEN') + '</td>' +
+          '<td>' + esc(r.remarks || (isClosed ? 'Resolved & verified' : 'Action in progress (24h SLA)')) + '</td>' +
+          '</tr>';
+      }).join('') : '<tr><td colspan="11" style="text-align:center;color:#64748b;padding:16px">No observations recorded yet.</td></tr>') +
+      '</table></body></html>';
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (proj.code || 'SESIPL') + '_Daily_Safety_Observations_Log_' + new Date().toISOString().slice(0, 10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  window.downloadObservationsExcelClientSide = downloadObservationsExcelClientSide;
+
+  function openObservationsExportSuccessModal(res) {
+    const modalHtml =
+      '<div style="padding:10px 4px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
+          '<div>' +
+            '<span class="badge" style="background:#dcfce7;color:#166534;font-size:11px;font-weight:800">SUCCESS</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">Daily Observations Log Export Ready</h3>' +
+          '</div>' +
+          '<button class="modal-close" type="button" onclick="hideModal()">×</button>' +
+        '</div>' +
+        '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px;margin-bottom:16px">' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div style="font-size:28px">📊</div>' +
+            '<div>' +
+              '<strong style="font-size:14px;color:#166534">' + esc(res.name || "Daily_Safety_Observations_Log.xlsx") + '</strong>' +
+              '<p style="margin:2px 0 0;font-size:12px;color:#15803d">Compiled strictly matching Slide 9 corporate specifications with 11 standard columns.</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+          '<a href="' + esc(res.downloadUrl || '#') + '" target="_blank" class="btn" style="background:#107c41;color:#fff;text-align:center;padding:10px;font-weight:800;border-radius:8px;text-decoration:none;display:block">' +
+            '📥 Download Excel File (.xlsx)' +
+          '</a>' +
+          (res.url ? '<a href="' + esc(res.url) + '" target="_blank" class="btn secondary" style="text-align:center;padding:10px;font-weight:700;border-radius:8px;text-decoration:none;display:block">' +
+            '📊 Open in Google Drive / Sheets' +
+          '</a>' : '') +
+          '<button type="button" class="btn secondary" onclick="printObservationsPreview()" style="width:100%">' +
+            '🖨️ Print / Save as PDF Preview' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+    showModal(modalHtml);
+  }
+  window.openObservationsExportSuccessModal = openObservationsExportSuccessModal;
+
+  function printObservationsPreview() {
+    const pId = currentProjectId();
+    const proj = (STATE.projects || []).find(p => p.id === pId) || { name: "SESIPL Site", code: "PRJ" };
+    const isLead = USER && USER.role === "EHS_LEAD";
+    const obsRows = (STATE.observations || []).filter(r => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId));
+
+    const html = '<!DOCTYPE html><html><head><title>Daily Safety Observations Log</title>' +
+      '<style>' +
+      '@page { size: A4 landscape; margin: 10mm; }' +
+      'body { font-family: Arial, sans-serif; font-size: 10px; color: #0f172a; margin: 0; padding: 10px; }' +
+      'table { width: 100%; border-collapse: collapse; margin-top: 10px; }' +
+      'th, td { border: 1px solid #334155; padding: 5px 6px; vertical-align: top; }' +
+      'th { background: #1e293b; color: #ffffff; text-align: center; font-size: 9.5px; font-weight: bold; }' +
+      '.header-bar { text-align: center; background: #0f766e; color: #fff; padding: 8px; font-size: 14px; font-weight: bold; border-radius: 4px; }' +
+      '.sub-bar { text-align: center; background: #e2e8f0; color: #0f172a; padding: 5px; font-size: 11px; font-weight: bold; margin-top: 4px; }' +
+      '.status-closed { background: #dcfce7; color: #166534; font-weight: bold; text-align: center; }' +
+      '.status-open { background: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }' +
+      '</style></head><body>' +
+      '<div class="header-bar">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+      '<div class="sub-bar">DAILY SAFETY AUDIT OBSERVATION LOG - SLIDE 9 STANDARD</div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;padding:4px 0;border-bottom:1px solid #cbd5e1">' +
+      '  <div><b>Project:</b> ' + esc(proj.name) + ' (' + esc(proj.code) + ')</div>' +
+      '  <div><b>Date:</b> ' + new Date().toISOString().slice(0, 10) + '</div>' +
+      '  <div><b>Audited By:</b> ' + esc(USER ? USER.name : 'EHS In-Charge') + '</div>' +
+      '</div>' +
+      '<table><thead><tr>' +
+      '  <th style="width:4%">Sl.No</th>' +
+      '  <th style="width:10%">Report No</th>' +
+      '  <th style="width:8%">Date</th>' +
+      '  <th style="width:10%">Audited By</th>' +
+      '  <th style="width:10%">Contractor</th>' +
+      '  <th style="width:10%">Location</th>' +
+      '  <th style="width:18%">Observations</th>' +
+      '  <th style="width:18%">Preventive Measures Recommended by PMC</th>' +
+      '  <th style="width:10%">Communicated To</th>' +
+      '  <th style="width:6%">Status</th>' +
+      '  <th style="width:10%">Action</th>' +
+      '</tr></thead><tbody>' +
+      (obsRows.length ? obsRows.map((r, idx) => {
+        const isClosed = String(r.status || '').toUpperCase() === 'CLOSED';
+        return '<tr>' +
+          '<td style="text-align:center">' + (idx + 1) + '</td>' +
+          '<td style="text-align:center"><b>' + esc(r.reportNo || r.id) + '</b></td>' +
+          '<td style="text-align:center">' + displayDate(r.date) + '</td>' +
+          '<td>' + esc(r.auditedBy || '—') + '</td>' +
+          '<td>' + esc(r.contractor || '—') + '</td>' +
+          '<td>' + esc(r.location || '—') + '</td>' +
+          '<td>' + esc(r.observation) + '</td>' +
+          '<td>' + esc(r.preventive || '—') + '</td>' +
+          '<td>' + esc(r.ownerEmployeeId || 'Lead In-Charge') + '</td>' +
+          '<td class="' + (isClosed ? 'status-closed' : 'status-open') + '">' + esc(r.status || 'OPEN') + '</td>' +
+          '<td>' + esc(r.remarks || (isClosed ? 'Resolved & verified' : 'Action in progress')) + '</td>' +
+          '</tr>';
+      }).join('') : '<tr><td colspan="11" style="text-align:center;padding:15px;color:#64748b">No observations recorded yet.</td></tr>') +
+      '</tbody></table>' +
+      '<div style="margin-top:20px;display:flex;justify-content:space-between;font-size:10px;color:#475569">' +
+      '  <div><b>Controlled Copy© SESIPL EHS System</b></div>' +
+      '  <div>Verified by Site Safety Officer: ______________________</div>' +
+      '  <div>PMC Acknowledgement: ______________________</div>' +
+      '</div>' +
+      '</body></html>';
+
+    printHtmlViaIframe_(html);
+  }
+  window.printObservationsPreview = printObservationsPreview;
+
+  function printHtmlViaIframe_(html) {
+    let frame = $("sesipl-print-frame");
+    if (!frame) {
+      frame = document.createElement("iframe");
+      frame.id = "sesipl-print-frame";
+      frame.style.position = "fixed";
+      frame.style.right = "0";
+      frame.style.bottom = "0";
+      frame.style.width = "0";
+      frame.style.height = "0";
+      frame.style.border = "0";
+      document.body.appendChild(frame);
+    }
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => {
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      } catch (err) {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(html);
+          w.document.close();
+          w.focus();
+          w.print();
+        }
+      }
+    }, 400);
+  }
+
+  /* =========================================================
+     WORK PERMITS: BLANK TEMPLATES DOWNLOAD & PRINT MODAL
+     ========================================================= */
+  const PTW_METAS = [
+    { code: "WP_HEIGHT", docCode: "SESIPL-EHS.Blr Prj-04", title: "Working At Height Permit", risk: "CRITICAL RISK", icon: "🪜", desc: "For work above 1.8m, scaffolding, mobile elevated work platforms & edge work." },
+    { code: "WP_HOT", docCode: "SESIPL-EHS.Blr Prj-03", title: "Hot Work Permit", risk: "HIGH RISK", icon: "🔥", desc: "For welding, cutting, grinding, open flame & spark producing operations." },
+    { code: "WP_NIGHT", docCode: "SESIPL-EHS.Blr Prj-07", title: "Night Work Permit", risk: "HIGH RISK", icon: "🌙", desc: "For operations between 18:00 and 06:00, lighting verification & medical fit." },
+    { code: "WP_SHAFT", docCode: "SESIPL-EHS.Blr Prj-06", title: "Shaft Work Permit", risk: "SPECIAL RISK", icon: "🕳️", desc: "For electrical/plumbing shafts, confined riser entries & fall arrest." },
+    { code: "WP_LIFT", docCode: "SESIPL-EHS.Blr Prj-05", title: "Lifting Activity Permit", risk: "HIGH RISK", icon: "🏗️", desc: "For crane operations, rigging, heavy electrical equipment hoisting." },
+    { code: "WP_GENERAL", docCode: "SESIPL-EHS.Blr Prj-01", title: "General Work Permit", risk: "ROUTINE RISK", icon: "📋", desc: "For general civil, finishing, cable pulling & routine site works." }
+  ];
+
+  function openPtwTemplatesModal() {
+    const modalHtml =
+      '<div style="padding:10px 4px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
+          '<div>' +
+            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">CONTROLLED DOCUMENTS</span>' +
+            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">Download Standard PTW Formats (Blank)</h3>' +
+            '<p class="muted" style="margin:2px 0 0;font-size:12px">Official SESIPL Permit-to-Work templates ready to print, physically sign on site, or fill digitally.</p>' +
+          '</div>' +
+          '<button class="modal-close" type="button" onclick="hideModal()">×</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;max-height:60vh;overflow-y:auto;padding:2px">' +
+        PTW_METAS.map(p => {
+          return (
+            '<div class="card" style="padding:14px;border:1.5px solid #cbd5e1;background:#ffffff;border-radius:10px;display:flex;flex-direction:column;justify-content:space-between">' +
+              '<div>' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+                  '<span style="font-size:24px">' + p.icon + '</span>' +
+                  '<span style="font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:4px;background:#fef2f2;color:#991b1b">' + p.risk + '</span>' +
+                '</div>' +
+                '<strong style="font-size:14px;color:#0f172a;display:block">' + esc(p.title) + '</strong>' +
+                '<div style="font-size:11px;font-weight:700;color:#0f766e;margin:2px 0 6px">' + esc(p.docCode) + '</div>' +
+                '<p class="muted" style="font-size:11.5px;margin:0 0 12px;line-height:1.4">' + esc(p.desc) + '</p>' +
+              '</div>' +
+              '<div style="display:flex;flex-direction:column;gap:6px">' +
+                '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printBlankPtwTemplate(\'' + p.code + '\')">' +
+                  '🖨️ Print / Download Blank Format' +
+                '</button>' +
+                '<div style="display:flex;gap:6px">' +
+                  (canUploadRole() ? '<button type="button" class="btn small secondary" style="flex:1" onclick="hideModal();openForm(\'' + p.code + '\')">📝 Fill Online</button>' : '') +
+                  (canUploadRole() ? '<button type="button" class="btn small secondary" style="flex:1" onclick="hideModal();openBulkUpload(\'WP_UPLOAD\')">📤 Upload Scan</button>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>'
+          );
+        }).join('') +
+        '</div>' +
+      '</div>';
+    showModal(modalHtml);
+  }
+  window.openPtwTemplatesModal = openPtwTemplatesModal;
+
+  async function printBlankPtwTemplate(code) {
+    setLoading(true, "Generating standard blank PTW format...");
+    try {
+      const res = await run("apiGetBlankPtwTemplateHtml", TOKEN, code, currentProjectId());
+      setLoading(false);
+      if (res && res.html) {
+        printHtmlViaIframe_(res.html);
+      } else {
+        alert("Failed to compile PTW format.");
+      }
+    } catch (e) {
+      setLoading(false);
+      alert("Error generating PTW format: " + (e.message || e));
+    }
+  }
+  window.printBlankPtwTemplate = printBlankPtwTemplate;
 
   async function closeObs(id, fallback) {
     let note = "";
@@ -3234,12 +3792,104 @@
   }
   window.exportPpeRegisterExcel = exportPpeRegisterExcel;
 
+  function getPpeTableData(ppeRows) {
+    const today = new Date().toISOString().slice(0, 10);
+    const d = {
+      helmet: { totalReceived: 10, dcNo: "274", issuedQty: 2, balanceStock: 8, white: 3, green: 2, blue: 3, red: 2, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", remarks: "Store In-charge inspected" },
+      jacket: { totalReceived: 7, dcNo: "274", issuedQty: 0, balanceStock: 7, green: 3, orange: 4, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", remarks: "High-visibility reflective" },
+      gloves: { totalReceived: 28, dcNo: "274", issuedQty: 4, balanceStock: 24, cotton: 20, leather: 8, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "No", remarks: "Electrical tested pairs" },
+      shoes: { totalReceived: 15, dcNo: "274", issuedQty: 2, balanceStock: 13, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "No", remarks: "Size 7-10 distribution" },
+      harness: { totalReceived: 12, dcNo: "274", issuedQty: 3, balanceStock: 9, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", remarks: "Scaffold & height operations" },
+      storeIncharge: "Mr. Harish",
+      stockDetailsUpTo: "2026-09-15",
+      lastUpdated: today
+    };
+    if (!ppeRows || !ppeRows.length) return d;
+    ppeRows.forEach(function(r) {
+      if (!r) return;
+      const cat = String(r.itemCategory || r.item || '').toUpperCase();
+      if (r.storeIncharge) d.storeIncharge = r.storeIncharge;
+      else if (r.remarks && /store\s*in-?charge\s*:\s*([^,;\n]+)/i.test(r.remarks)) d.storeIncharge = RegExp.$1.trim();
+      if (r.date) { d.stockDetailsUpTo = r.date; d.lastUpdated = r.date; }
+
+      if (cat === 'HELMET' || cat === 'HELMETS' || (!cat && (r.helmetWhite != null || r.helmetGreen != null))) {
+        if (r.dcNo) d.helmet.dcNo = r.dcNo;
+        if (r.date) d.helmet.date = r.date;
+        if (r.contractor) d.helmet.contractor = r.contractor;
+        if (r.receivedBy) d.helmet.receivedBy = r.receivedBy;
+        if (r.returnable) d.helmet.returnable = r.returnable;
+        if (r.remarks) d.helmet.remarks = r.remarks;
+        if (r.helmetWhite != null && r.helmetWhite !== '') d.helmet.white = Number(r.helmetWhite);
+        if (r.helmetGreen != null && r.helmetGreen !== '') d.helmet.green = Number(r.helmetGreen);
+        if (r.helmetBlue != null && r.helmetBlue !== '') d.helmet.blue = Number(r.helmetBlue);
+        if (r.helmetRed != null && r.helmetRed !== '') d.helmet.red = Number(r.helmetRed);
+        const subTot = (Number(d.helmet.white) || 0) + (Number(d.helmet.green) || 0) + (Number(d.helmet.blue) || 0) + (Number(d.helmet.red) || 0);
+        if (r.totalReceived != null && r.totalReceived !== '') d.helmet.totalReceived = Number(r.totalReceived);
+        else if (subTot > 0) d.helmet.totalReceived = subTot;
+        if (r.issuedQty != null && r.issuedQty !== '') d.helmet.issuedQty = Number(r.issuedQty);
+        d.helmet.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.helmet.totalReceived - d.helmet.issuedQty);
+      }
+      if (cat === 'JACKET' || cat === 'JACKETS' || (!cat && (r.jacketGreen != null || r.jacketOrange != null))) {
+        if (r.dcNo) d.jacket.dcNo = r.dcNo;
+        if (r.date) d.jacket.date = r.date;
+        if (r.contractor) d.jacket.contractor = r.contractor;
+        if (r.receivedBy) d.jacket.receivedBy = r.receivedBy;
+        if (r.returnable) d.jacket.returnable = r.returnable;
+        if (r.remarks) d.jacket.remarks = r.remarks;
+        if (r.jacketGreen != null && r.jacketGreen !== '') d.jacket.green = Number(r.jacketGreen);
+        if (r.jacketOrange != null && r.jacketOrange !== '') d.jacket.orange = Number(r.jacketOrange);
+        const subTot = (Number(d.jacket.green) || 0) + (Number(d.jacket.orange) || 0);
+        if (r.totalReceived != null && r.totalReceived !== '') d.jacket.totalReceived = Number(r.totalReceived);
+        else if (subTot > 0 && cat === 'JACKET') d.jacket.totalReceived = subTot;
+        if (r.issuedQty != null && r.issuedQty !== '') d.jacket.issuedQty = Number(r.issuedQty);
+        d.jacket.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.jacket.totalReceived - d.jacket.issuedQty);
+      }
+      if (cat === 'GLOVES' || cat === 'HAND GLOVES' || (!cat && (r.cottonGloves != null || r.leatherGloves != null))) {
+        if (r.dcNo) d.gloves.dcNo = r.dcNo;
+        if (r.date) d.gloves.date = r.date;
+        if (r.contractor) d.gloves.contractor = r.contractor;
+        if (r.receivedBy) d.gloves.receivedBy = r.receivedBy;
+        if (r.returnable) d.gloves.returnable = r.returnable;
+        if (r.remarks) d.gloves.remarks = r.remarks;
+        if (r.cottonGloves != null && r.cottonGloves !== '') d.gloves.cotton = Number(r.cottonGloves);
+        if (r.leatherGloves != null && r.leatherGloves !== '') d.gloves.leather = Number(r.leatherGloves);
+        const subTot = (Number(d.gloves.cotton) || 0) + (Number(d.gloves.leather) || 0);
+        if (r.totalReceived != null && r.totalReceived !== '') d.gloves.totalReceived = Number(r.totalReceived);
+        else if (subTot > 0 && cat === 'GLOVES') d.gloves.totalReceived = subTot;
+        if (r.issuedQty != null && r.issuedQty !== '') d.gloves.issuedQty = Number(r.issuedQty);
+        d.gloves.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.gloves.totalReceived - d.gloves.issuedQty);
+      }
+      if (cat === 'SHOES' || cat === 'SAFETY SHOES') {
+        if (r.dcNo) d.shoes.dcNo = r.dcNo;
+        if (r.date) d.shoes.date = r.date;
+        if (r.contractor) d.shoes.contractor = r.contractor;
+        if (r.receivedBy) d.shoes.receivedBy = r.receivedBy;
+        if (r.returnable) d.shoes.returnable = r.returnable;
+        if (r.remarks) d.shoes.remarks = r.remarks;
+        if (r.totalReceived != null && r.totalReceived !== '') d.shoes.totalReceived = Number(r.totalReceived);
+        if (r.issuedQty != null && r.issuedQty !== '') d.shoes.issuedQty = Number(r.issuedQty);
+        d.shoes.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.shoes.totalReceived - d.shoes.issuedQty);
+      }
+      if (cat === 'HARNESS' || cat === 'FULL BODY HARNESS' || cat === 'SAFETY HARNESS') {
+        if (r.dcNo) d.harness.dcNo = r.dcNo;
+        if (r.date) d.harness.date = r.date;
+        if (r.contractor) d.harness.contractor = r.contractor;
+        if (r.receivedBy) d.harness.receivedBy = r.receivedBy;
+        if (r.returnable) d.harness.returnable = r.returnable;
+        if (r.remarks) d.harness.remarks = r.remarks;
+        if (r.totalReceived != null && r.totalReceived !== '') d.harness.totalReceived = Number(r.totalReceived);
+        if (r.issuedQty != null && r.issuedQty !== '') d.harness.issuedQty = Number(r.issuedQty);
+        d.harness.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.harness.totalReceived - d.harness.issuedQty);
+      }
+    });
+    return d;
+  }
+  window.getPpeTableData = getPpeTableData;
+
   function downloadPpeRegisterExcelClientSide(allRows, project) {
     const proj = project || currentProject() || { name: 'SESIPL Site', code: 'BLR-01' };
-    const curRow = (allRows && allRows.length ? allRows[0] : null) || {
-      dcNo: "274", totalReceived: 10, issuedQty: 2, date: new Date().toISOString().slice(0, 10), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", balanceStock: 8, remarks: "Store In-charge: Mr. Harish"
-    };
-    const storeIncharge = (curRow.remarks && curRow.remarks.includes(':')) ? curRow.remarks.split(':')[1].trim() : 'Mr. Harish';
+    const d = getPpeTableData(allRows);
+    const storeIncharge = d.storeIncharge;
 
     const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
       '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
@@ -3274,51 +3924,77 @@
       '<tr>' +
       '  <td rowspan="5" style="text-align:center;font-weight:bold;border:0.5pt solid #000">1</td>' +
       '  <td colspan="2" style="font-weight:bold;background:#f8fafc;border:0.5pt solid #000">Helmet</td>' +
-      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.totalReceived || 10) + '</td>' +
-      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.dcNo || 274) + '</td>' +
-      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.issuedQty || 2) + '</td>' +
-      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.date || '2026-09-15') + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-      '  <td style="text-align:center;background:#22c55e;color:#fff;font-weight:bold;border:0.5pt solid #000">✔</td>' +
-      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(curRow.balanceStock || 8) + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.remarks || 'Store In-charge inspected') + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.helmet.totalReceived) + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.helmet.dcNo) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.helmet.issuedQty) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.helmet.date) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.helmet.contractor) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.helmet.receivedBy) + '</td>' +
+      '  <td style="text-align:center;' + (d.helmet.returnable === 'No' ? 'background:#ef4444' : 'background:#22c55e') + ';color:#fff;font-weight:bold;border:0.5pt solid #000">' + (d.helmet.returnable === 'No' ? '✖' : '✔') + '</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(d.helmet.balanceStock) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.helmet.remarks) + '</td>' +
       '</tr>' +
-      '<tr><td style="border:0.5pt solid #000;padding-left:14px">White</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetWhite || 3) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
-      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Green</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetGreen || 2) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
-      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Blue</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetBlue || 3) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
-      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Red</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.helmetRed || 2) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">White</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.helmet.white) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Green</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.helmet.green) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Blue</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.helmet.blue) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Red</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.helmet.red) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
       '<tr>' +
       '  <td rowspan="3" style="text-align:center;font-weight:bold;border:0.5pt solid #000">2</td>' +
       '  <td colspan="2" style="font-weight:bold;background:#f8fafc;border:0.5pt solid #000">Jacket</td>' +
-      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">7</td>' +
-      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">274</td>' +
-      '  <td style="text-align:center;border:0.5pt solid #000">0</td>' +
-      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.date || '2026-09-15') + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-      '  <td style="text-align:center;background:#22c55e;color:#fff;font-weight:bold;border:0.5pt solid #000">✔</td>' +
-      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">7</td>' +
-      '  <td style="border:0.5pt solid #000">High-visibility reflective</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.jacket.totalReceived) + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.jacket.dcNo) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.jacket.issuedQty) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.jacket.date) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.jacket.contractor) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.jacket.receivedBy) + '</td>' +
+      '  <td style="text-align:center;' + (d.jacket.returnable === 'No' ? 'background:#ef4444' : 'background:#22c55e') + ';color:#fff;font-weight:bold;border:0.5pt solid #000">' + (d.jacket.returnable === 'No' ? '✖' : '✔') + '</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(d.jacket.balanceStock) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.jacket.remarks) + '</td>' +
       '</tr>' +
-      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Green</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.jacketGreen || 3) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
-      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Orange/Red</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(curRow.jacketOrange || 4) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Green</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.jacket.green) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
+      '<tr><td style="border:0.5pt solid #000;padding-left:14px">Orange/Red</td><td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.jacket.orange) + '</td><td colspan="9" style="border:0.5pt solid #000"></td></tr>' +
       '<tr>' +
       '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">3</td>' +
       '  <td colspan="2" style="font-weight:bold;border:0.5pt solid #000">Hand gloves (Cotton / Leather)</td>' +
-      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">28</td>' +
-      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">274</td>' +
-      '  <td style="text-align:center;border:0.5pt solid #000">4</td>' +
-      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(curRow.date || '2026-09-15') + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-      '  <td style="border:0.5pt solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-      '  <td style="text-align:center;background:#ef4444;color:#fff;font-weight:bold;border:0.5pt solid #000">✖</td>' +
-      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">24</td>' +
-      '  <td style="border:0.5pt solid #000">Electrical tested pairs</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.gloves.totalReceived) + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.gloves.dcNo) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.gloves.issuedQty) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.gloves.date) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.gloves.contractor) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.gloves.receivedBy) + '</td>' +
+      '  <td style="text-align:center;' + (d.gloves.returnable === 'Yes' ? 'background:#22c55e' : 'background:#ef4444') + ';color:#fff;font-weight:bold;border:0.5pt solid #000">' + (d.gloves.returnable === 'Yes' ? '✔' : '✖') + '</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(d.gloves.balanceStock) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.gloves.remarks) + '</td>' +
+      '</tr>' +
+      '<tr>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">4</td>' +
+      '  <td colspan="2" style="font-weight:bold;border:0.5pt solid #000">Safety Shoes (Steel Toe)</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.shoes.totalReceived) + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.shoes.dcNo) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.shoes.issuedQty) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.shoes.date) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.shoes.contractor) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.shoes.receivedBy) + '</td>' +
+      '  <td style="text-align:center;' + (d.shoes.returnable === 'Yes' ? 'background:#22c55e' : 'background:#ef4444') + ';color:#fff;font-weight:bold;border:0.5pt solid #000">' + (d.shoes.returnable === 'Yes' ? '✔' : '✖') + '</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(d.shoes.balanceStock) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.shoes.remarks) + '</td>' +
+      '</tr>' +
+      '<tr>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">5</td>' +
+      '  <td colspan="2" style="font-weight:bold;border:0.5pt solid #000">Full Body Safety Harness (Double Lanyard)</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.harness.totalReceived) + '</td>' +
+      '  <td style="text-align:center;font-weight:bold;border:0.5pt solid #000">' + esc(d.harness.dcNo) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.harness.issuedQty) + '</td>' +
+      '  <td style="text-align:center;border:0.5pt solid #000">' + esc(d.harness.date) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.harness.contractor) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.harness.receivedBy) + '</td>' +
+      '  <td style="text-align:center;' + (d.harness.returnable === 'No' ? 'background:#ef4444' : 'background:#22c55e') + ';color:#fff;font-weight:bold;border:0.5pt solid #000">' + (d.harness.returnable === 'No' ? '✖' : '✔') + '</td>' +
+      '  <td style="text-align:center;background:#4472c4;color:#fff;font-weight:bold;font-size:12pt;border:0.5pt solid #000">' + esc(d.harness.balanceStock) + '</td>' +
+      '  <td style="border:0.5pt solid #000">' + esc(d.harness.remarks) + '</td>' +
       '</tr>' +
       '<tr style="background:#c5d9b8;font-weight:bold">' +
-      '  <td colspan="5" style="border:0.5pt solid #000">Stock details up to : ' + esc(curRow.date || '2026-09-15') + '</td>' +
-      '  <td colspan="7" style="text-align:right;border:0.5pt solid #000">Last date of updated: ' + new Date().toISOString().slice(0, 10) + '</td>' +
+      '  <td colspan="5" style="border:0.5pt solid #000">Stock details up to : ' + esc(d.stockDetailsUpTo) + '</td>' +
+      '  <td colspan="7" style="text-align:right;border:0.5pt solid #000">Last date of updated: ' + esc(d.lastUpdated) + '</td>' +
       '</tr>' +
       '</table></body></html>';
 
@@ -3371,32 +4047,112 @@
     showModal(modalHtml);
   }
 
-  function openPpeEntryModal() {
+  function openPpeEntryModal(preselectedCat) {
     const proj = currentProject() || (STATE.projects && STATE.projects[0]);
     if (!proj) { showToast("Select a project first.", "warning"); return; }
 
+    const ppeRows = STATE.ppe ? STATE.ppe.filter(r => !proj.id || r.projectId === proj.id) : [];
+    const ppeData = getPpeTableData(ppeRows);
+    const initialCat = (preselectedCat || "HELMET").toUpperCase();
+
     const modalHtml =
       '<div>' +
-        '<h3 style="margin:0 0 6px 0;font-size:18px;color:#0f172a;font-weight:900">Log PPE Stock Receipt / Issue</h3>' +
-        '<p class="muted" style="margin:0 0 16px 0;font-size:12.5px">Record material receipts, contractor issuance, and update live stock balance.</p>' +
-        '<form id="modal-ppe-form" class="form-grid">' +
-          field("date", "Transaction Date", "date") +
-          field("dcNo", "Delivery Challan (DC No)", "text") +
-          field("totalReceived", "Total Received Qty", "number") +
-          field("issuedQty", "Issued Qty", "number") +
-          field("contractor", "Receiver / Contractor Name", "text") +
-          field("receivedBy", "Name / Signature", "text") +
-          '<div><label>Returnable?</label><select name="returnable"><option value="Yes">Yes (Green ✔)</option><option value="No">No (Red ✖)</option></select></div>' +
-          field("helmetWhite", "Helmets White Count", "number") +
-          field("helmetGreen", "Helmets Green Count", "number") +
-          field("helmetBlue", "Helmets Blue Count", "number") +
-          field("helmetRed", "Helmets Red Count", "number") +
-          field("jacketGreen", "Jackets Green Count", "number") +
-          field("jacketOrange", "Jackets Orange Count", "number") +
-          '<div class="full"><label>Remarks & Store In-Charge</label><input name="remarks" placeholder="Store In-charge: Mr. Harish..."></div>' +
-          '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+          '<div style="width:36px;height:36px;border-radius:8px;background:#e0f2fe;color:#0284c7;display:inline-flex;align-items:center;justify-content:center;font-size:20px">📦</div>' +
+          '<div>' +
+            '<h3 style="margin:0;font-size:18px;color:#0f172a;font-weight:900">Log PPE Stock Receipt / Issue</h3>' +
+            '<p class="muted" style="margin:0;font-size:12px">Update company inventory, contractor issuances, and balance stock (Slide 10).</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<form id="modal-ppe-form" style="margin-top:12px;display:flex;flex-direction:column;gap:12px">' +
+          '<div style="background:#f1f5f9;padding:9px 12px;border-radius:8px;border:1px solid #cbd5e1;display:flex;justify-content:space-between;align-items:center;font-size:12.5px">' +
+            '<div>Project: <strong style="color:#0f172a">' + esc(proj.name) + ' (' + esc(proj.code || '') + ')</strong></div>' +
+            '<div>Store In-charge: <strong style="color:#0284c7">' + esc(ppeData.storeIncharge) + '</strong></div>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">PPE Item Category <span style="color:#ef4444">*</span></label>' +
+              '<select id="modal-ppe-item-cat" name="itemCategory" style="width:100%;font-weight:700;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px">' +
+                '<option value="HELMET">1. Helmet (White, Green, Blue, Red)</option>' +
+                '<option value="JACKET">2. Jacket (Green, Orange/Red)</option>' +
+                '<option value="GLOVES">3. Hand gloves (Cotton / Leather)</option>' +
+                '<option value="SHOES">4. Safety Shoes (Steel Toe)</option>' +
+                '<option value="HARNESS">5. Full Body Safety Harness (Double Lanyard)</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Transaction Date <span style="color:#ef4444">*</span></label>' +
+              '<input type="date" name="date" id="modal-ppe-date" required style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px">' +
+            '</div>' +
+          '</div>' +
+
+          '<!-- Dynamic Sub-items Breakdown Container -->' +
+          '<div id="modal-ppe-breakdown-box" style="background:#f8fafc;border:1.5px dashed #94a3b8;border-radius:8px;padding:10px 12px">' +
+          '</div>' +
+
+          '<!-- Quantities & Challan Details -->' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Total Received Qty <span style="color:#ef4444">*</span></label>' +
+              '<input type="number" min="0" name="totalReceived" id="modal-ppe-total-rec" required style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px;font-weight:bold">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Delivery Challan (DC No)</label>' +
+              '<input type="text" name="dcNo" id="modal-ppe-dcno" placeholder="e.g. 274" style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px;font-weight:bold">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Issued Qty to Site</label>' +
+              '<input type="number" min="0" name="issuedQty" id="modal-ppe-issued-qty" value="0" style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px;font-weight:bold">' +
+            '</div>' +
+          '</div>' +
+
+          '<!-- Live Stock Balance Calculation Banner -->' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;background:#eff6ff;border:1.5px solid #3b82f6;border-radius:8px;padding:9px 12px">' +
+            '<div style="font-size:12.5px;color:#1e40af;font-weight:700">' +
+              'Live Balance in Stock: <span id="modal-ppe-balance-preview" style="font-size:17px;font-weight:900;color:#1d4ed8;margin-left:6px">0</span>' +
+              '<span style="font-size:11px;font-weight:normal;color:#64748b;margin-left:8px">(Total Received − Issued Qty)</span>' +
+            '</div>' +
+            '<div id="modal-ppe-returnable-badge" style="font-size:12px;font-weight:700"></div>' +
+          '</div>' +
+
+          '<!-- Receiver / Contractor / Store Incharge -->' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Receiver / Contractor Name</label>' +
+              '<input type="text" name="contractor" id="modal-ppe-contractor" placeholder="e.g. Vinayaka Electricals" style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Received By (Name / Sign)</label>' +
+              '<input type="text" name="receivedBy" id="modal-ppe-received-by" placeholder="e.g. R. Prakash" style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px">' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Returnable?</label>' +
+              '<select name="returnable" id="modal-ppe-returnable" style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px;font-weight:700">' +
+                '<option value="Yes">Yes (Returnable ✔)</option>' +
+                '<option value="No">No (Non-Returnable ✖)</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Store In-charge Name</label>' +
+              '<input type="text" name="storeIncharge" id="modal-ppe-store-incharge" placeholder="e.g. Mr. Harish" style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px">' +
+            '</div>' +
+          '</div>' +
+
+          '<div>' +
+            '<label style="font-weight:700;font-size:12px;display:block;margin-bottom:4px">Remarks / Inspection Notes</label>' +
+            '<input type="text" name="remarks" id="modal-ppe-remarks" placeholder="Inspection notes, tested pairs, etc." style="width:100%;padding:7px 9px;border:1.5px solid #94a3b8;border-radius:6px">' +
+          '</div>' +
+
+          '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;border-top:1px solid #e2e8f0;padding-top:10px">' +
             '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
-            '<button type="submit" class="btn" style="background:#107c41;color:#fff;font-weight:800">Save Stock Entry</button>' +
+            '<button type="submit" class="btn" style="background:#107c41;color:#fff;font-weight:800;padding:8px 20px">' +
+              'Save Stock Entry' +
+            '</button>' +
           '</div>' +
         '</form>' +
       '</div>';
@@ -3404,22 +4160,202 @@
     showModal(modalHtml);
 
     const f = $("modal-ppe-form");
-    if (f) {
-      f.elements.date.value = new Date().toISOString().slice(0, 10);
-      f.onsubmit = async function(ev) {
-        ev.preventDefault();
-        const fd = new FormData(this);
-        const row = { projectId: proj.id };
-        fd.forEach((v, k) => (row[k] = v));
-        const rec = Number(row.totalReceived || 0);
-        const iss = Number(row.issuedQty || 0);
-        row.balanceStock = Math.max(0, rec - iss);
-        await run("apiSavePpe", TOKEN, row);
-        hideModal();
-        showToast("PPE stock entry saved successfully!", "success");
-        await refresh();
-      };
+    if (!f) return;
+
+    const catSel = $("modal-ppe-item-cat");
+    const dateInput = $("modal-ppe-date");
+    const totalRecInput = $("modal-ppe-total-rec");
+    const dcNoInput = $("modal-ppe-dcno");
+    const issuedQtyInput = $("modal-ppe-issued-qty");
+    const balPreview = $("modal-ppe-balance-preview");
+    const retBadge = $("modal-ppe-returnable-badge");
+    const contractorInput = $("modal-ppe-contractor");
+    const receivedByInput = $("modal-ppe-received-by");
+    const returnableSel = $("modal-ppe-returnable");
+    const storeInchargeInput = $("modal-ppe-store-incharge");
+    const remarksInput = $("modal-ppe-remarks");
+    const breakdownBox = $("modal-ppe-breakdown-box");
+
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    storeInchargeInput.value = ppeData.storeIncharge || "Mr. Harish";
+
+    function updateBalance() {
+      const rec = Number(totalRecInput.value || 0);
+      const iss = Number(issuedQtyInput.value || 0);
+      const bal = Math.max(0, rec - iss);
+      if (balPreview) balPreview.textContent = bal;
+      if (retBadge) {
+        const isRet = returnableSel.value === "Yes";
+        retBadge.innerHTML = isRet ?
+          '<span style="background:#22c55e;color:#fff;padding:2px 8px;border-radius:4px">Returnable ✔</span>' :
+          '<span style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:4px">Consumable ✖</span>';
+      }
     }
+
+    totalRecInput.oninput = updateBalance;
+    issuedQtyInput.oninput = updateBalance;
+    returnableSel.onchange = updateBalance;
+
+    function populateCategory(cat) {
+      cat = (cat || "HELMET").toUpperCase();
+      catSel.value = cat;
+
+      if (cat === "HELMET") {
+        const itm = ppeData.helmet;
+        breakdownBox.style.display = "block";
+        breakdownBox.innerHTML =
+          '<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Helmet Color Breakdown (Auto-sums to Total Received):</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px">' +
+            '<div><label style="font-size:11px;font-weight:700">White</label><input type="number" min="0" name="helmetWhite" id="sub-h-white" value="' + itm.white + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+            '<div><label style="font-size:11px;font-weight:700">Green</label><input type="number" min="0" name="helmetGreen" id="sub-h-green" value="' + itm.green + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+            '<div><label style="font-size:11px;font-weight:700">Blue</label><input type="number" min="0" name="helmetBlue" id="sub-h-blue" value="' + itm.blue + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+            '<div><label style="font-size:11px;font-weight:700">Red</label><input type="number" min="0" name="helmetRed" id="sub-h-red" value="' + itm.red + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+          '</div>';
+
+        const subInputs = breakdownBox.querySelectorAll("input");
+        subInputs.forEach(inp => {
+          inp.oninput = function() {
+            const w = Number($("sub-h-white") ? $("sub-h-white").value : 0);
+            const g = Number($("sub-h-green") ? $("sub-h-green").value : 0);
+            const b = Number($("sub-h-blue") ? $("sub-h-blue").value : 0);
+            const r = Number($("sub-h-red") ? $("sub-h-red").value : 0);
+            totalRecInput.value = w + g + b + r;
+            updateBalance();
+          };
+        });
+
+        totalRecInput.value = itm.totalReceived;
+        dcNoInput.value = itm.dcNo || "274";
+        issuedQtyInput.value = itm.issuedQty || 0;
+        contractorInput.value = itm.contractor || "";
+        receivedByInput.value = itm.receivedBy || "";
+        returnableSel.value = itm.returnable || "Yes";
+        remarksInput.value = itm.remarks || "Store In-charge inspected";
+      } else if (cat === "JACKET") {
+        const itm = ppeData.jacket;
+        breakdownBox.style.display = "block";
+        breakdownBox.innerHTML =
+          '<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Jacket Color Breakdown (Auto-sums to Total Received):</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">' +
+            '<div><label style="font-size:11px;font-weight:700">Green</label><input type="number" min="0" name="jacketGreen" id="sub-j-green" value="' + itm.green + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+            '<div><label style="font-size:11px;font-weight:700">Orange / Red</label><input type="number" min="0" name="jacketOrange" id="sub-j-orange" value="' + itm.orange + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+          '</div>';
+
+        const subInputs = breakdownBox.querySelectorAll("input");
+        subInputs.forEach(inp => {
+          inp.oninput = function() {
+            const g = Number($("sub-j-green") ? $("sub-j-green").value : 0);
+            const o = Number($("sub-j-orange") ? $("sub-j-orange").value : 0);
+            totalRecInput.value = g + o;
+            updateBalance();
+          };
+        });
+
+        totalRecInput.value = itm.totalReceived;
+        dcNoInput.value = itm.dcNo || "274";
+        issuedQtyInput.value = itm.issuedQty || 0;
+        contractorInput.value = itm.contractor || "";
+        receivedByInput.value = itm.receivedBy || "";
+        returnableSel.value = itm.returnable || "Yes";
+        remarksInput.value = itm.remarks || "High-visibility reflective";
+      } else if (cat === "GLOVES") {
+        const itm = ppeData.gloves;
+        breakdownBox.style.display = "block";
+        breakdownBox.innerHTML =
+          '<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Hand Gloves Breakdown (Auto-sums to Total Received):</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">' +
+            '<div><label style="font-size:11px;font-weight:700">Cotton Gloves</label><input type="number" min="0" name="cottonGloves" id="sub-g-cotton" value="' + itm.cotton + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+            '<div><label style="font-size:11px;font-weight:700">Leather Gloves</label><input type="number" min="0" name="leatherGloves" id="sub-g-leather" value="' + itm.leather + '" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-weight:bold"></div>' +
+          '</div>';
+
+        const subInputs = breakdownBox.querySelectorAll("input");
+        subInputs.forEach(inp => {
+          inp.oninput = function() {
+            const c = Number($("sub-g-cotton") ? $("sub-g-cotton").value : 0);
+            const l = Number($("sub-g-leather") ? $("sub-g-leather").value : 0);
+            totalRecInput.value = c + l;
+            updateBalance();
+          };
+        });
+
+        totalRecInput.value = itm.totalReceived;
+        dcNoInput.value = itm.dcNo || "274";
+        issuedQtyInput.value = itm.issuedQty || 0;
+        contractorInput.value = itm.contractor || "";
+        receivedByInput.value = itm.receivedBy || "";
+        returnableSel.value = itm.returnable || "No";
+        remarksInput.value = itm.remarks || "Electrical tested pairs";
+      } else if (cat === "SHOES") {
+        const itm = ppeData.shoes;
+        breakdownBox.style.display = "block";
+        breakdownBox.innerHTML =
+          '<div style="font-size:12px;color:#475569;font-weight:600">Safety Shoes (Steel Toe) — Standard sizes 7-10 distribution</div>';
+
+        totalRecInput.value = itm.totalReceived;
+        dcNoInput.value = itm.dcNo || "274";
+        issuedQtyInput.value = itm.issuedQty || 0;
+        contractorInput.value = itm.contractor || "";
+        receivedByInput.value = itm.receivedBy || "";
+        returnableSel.value = itm.returnable || "No";
+        remarksInput.value = itm.remarks || "Size 7-10 distribution";
+      } else if (cat === "HARNESS") {
+        const itm = ppeData.harness;
+        breakdownBox.style.display = "block";
+        breakdownBox.innerHTML =
+          '<div style="font-size:12px;color:#475569;font-weight:600">Full Body Safety Harness (Double Lanyard) — Scaffold & height operations</div>';
+
+        totalRecInput.value = itm.totalReceived;
+        dcNoInput.value = itm.dcNo || "274";
+        issuedQtyInput.value = itm.issuedQty || 0;
+        contractorInput.value = itm.contractor || "";
+        receivedByInput.value = itm.receivedBy || "";
+        returnableSel.value = itm.returnable || "Yes";
+        remarksInput.value = itm.remarks || "Scaffold & height operations";
+      }
+      updateBalance();
+    }
+
+    catSel.onchange = function() {
+      populateCategory(this.value);
+    };
+
+    populateCategory(initialCat);
+
+    f.onsubmit = async function(ev) {
+      ev.preventDefault();
+      const fd = new FormData(this);
+      const row = { projectId: proj.id };
+      fd.forEach((v, k) => (row[k] = v));
+      row.totalReceived = Number(row.totalReceived || 0);
+      row.issuedQty = Number(row.issuedQty || 0);
+      row.balanceStock = Math.max(0, row.totalReceived - row.issuedQty);
+      row.item = row.itemCategory;
+      if (!row.remarks && row.storeIncharge) {
+        row.remarks = "Store In-charge: " + row.storeIncharge;
+      }
+
+      // Optimistic update to STATE.ppe so UI updates instantly
+      if (!STATE.ppe) STATE.ppe = [];
+      STATE.ppe.push(row);
+
+      // Immediately re-render trackers if on PPE tab
+      if (window.TRACKER_TAB === "PPE") {
+        renderTrackers();
+      }
+
+      hideModal();
+      showToast("PPE stock entry saved successfully!", "success");
+
+      try {
+        await run("apiSavePpe", TOKEN, row);
+        await refresh();
+        if (window.TRACKER_TAB === "PPE") {
+          renderTrackers();
+        }
+      } catch (err) {
+        showToast("Error saving PPE stock: " + (err.message || err), "error");
+      }
+    };
   }
   window.openPpeEntryModal = openPpeEntryModal;
 
@@ -4376,16 +5312,26 @@
     window.TRACKER_TAB = window.TRACKER_TAB || "PPE";
 
     const pId = currentProjectId();
-    const ppeRows = STATE.ppe.filter((r) => !pId || r.projectId === pId);
-    const scfRows = STATE.scaffold.filter((r) => !pId || r.projectId === pId);
+    const isLead = USER && USER.role === "EHS_LEAD";
+    const ppeRows = (STATE.ppe || []).filter((r) => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId));
+    const scfRows = (STATE.scaffold || []).filter((r) => isLead ? (r.projectId === pId) : (!pId || r.projectId === pId));
     const movRows = STATE.movement || [];
 
-    const tabs = [
-      { id: "PPE", label: "PPE Stock Register (Slide 10)" },
-      { id: "MASTER_SCF", label: "Master Scaffolding Tracker (Slide 11)" },
-      { id: "PROJECT_SCF", label: "Project Scaffolding Tracker (Slide 12)" },
-      { id: "MOVEMENT", label: "Scaffold Movement Tracker (Slide 13)" }
-    ];
+    const tabs = isLead
+      ? [
+          { id: "PPE", label: "PPE Stock Register (Slide 10)" },
+          { id: "PROJECT_SCF", label: "Project Scaffolding Tracker (Slide 12)" }
+        ]
+      : [
+          { id: "PPE", label: "PPE Stock Register (Slide 10)" },
+          { id: "MASTER_SCF", label: "Master Scaffolding Tracker (Slide 11)" },
+          { id: "PROJECT_SCF", label: "Project Scaffolding Tracker (Slide 12)" },
+          { id: "MOVEMENT", label: "Scaffold Movement Tracker (Slide 13)" }
+        ];
+
+    if (isLead && (window.TRACKER_TAB === "MASTER_SCF" || window.TRACKER_TAB === "MOVEMENT")) {
+      window.TRACKER_TAB = "PPE";
+    }
 
     const tabHtml = '<div class="sub-tabs-bar">' + tabs.map((t) => {
       const isAct = window.TRACKER_TAB === t.id;
@@ -4396,10 +5342,9 @@
     if (window.TRACKER_TAB === "PPE") {
       // Slide 10: PPE Stock Register (Exact 1:1 format from media_1789964044193.png)
       const proj = currentProject() || (STATE.projects && STATE.projects[0]) || { name: "SESIPL Site", code: "BLR-01" };
-      const curRow = (ppeRows.length ? ppeRows[0] : null) || {
-        dcNo: "274", totalReceived: 10, issuedQty: 2, date: "2026-09-15", contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", balanceStock: 8, remarks: "Store In-charge: Mr. Harish"
-      };
-      const storeIncharge = (curRow.remarks && curRow.remarks.includes(":")) ? curRow.remarks.split(":")[1].trim() : "Mr. Harish";
+      const d = getPpeTableData(ppeRows);
+      const storeIncharge = d.storeIncharge;
+      const canEdit = canUploadRole();
 
       contentHtml =
         '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
@@ -4412,7 +5357,7 @@
         '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
         '      Export PPE Register (Excel)' +
         '    </button>' +
-        (canUploadRole() ?
+        (canEdit ?
           '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openPpeEntryModal()">' +
           '      + Log Stock Receipt / Issue' +
           '    </button>' : '') +
@@ -4462,86 +5407,101 @@
         '      <!-- Item 1: Helmet Group -->' +
         '      <tr>' +
         '        <td rowspan="5" style="border:1px solid #000;font-weight:bold;vertical-align:middle">1</td>' +
-        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px;background:#f8fafc">Helmet</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">' + esc(curRow.totalReceived || 10) + '</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">' + esc(curRow.dcNo || 274) + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.issuedQty || 2) + '</td>' +
-        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-        '        <td style="border:1px solid #000;background:#22c55e;color:#fff;font-weight:900">✔</td>' +
-        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(curRow.balanceStock || 8) + '</td>' +
-        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(curRow.remarks || 'Store In-charge inspected') + '</small></td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px;background:#f8fafc">' +
+        '          Helmet' +
+        (canEdit ? ' <button type="button" title="Log Helmet entry" style="border:none;background:#e2e8f0;color:#0f172a;cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px" onclick="openPpeEntryModal(\'HELMET\')">✏️</button>' : '') +
+        '        </td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.helmet.totalReceived) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.helmet.dcNo) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.helmet.issuedQty) + '</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(d.helmet.date) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.helmet.contractor) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.helmet.receivedBy) + '</td>' +
+        '        <td style="border:1px solid #000;' + (d.helmet.returnable === 'No' ? 'background:#ef4444' : 'background:#22c55e') + ';color:#fff;font-weight:900">' + (d.helmet.returnable === 'No' ? '✖' : '✔') + '</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(d.helmet.balanceStock) + '</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(d.helmet.remarks) + '</small></td>' +
         '      </tr>' +
-        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">White</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetWhite || 3) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
-        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Green</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetGreen || 2) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
-        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Blue</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetBlue || 3) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
-        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Red</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.helmetRed || 2) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">White</td><td style="border:1px solid #000;font-weight:bold">' + esc(d.helmet.white) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Green</td><td style="border:1px solid #000;font-weight:bold">' + esc(d.helmet.green) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Blue</td><td style="border:1px solid #000;font-weight:bold">' + esc(d.helmet.blue) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Red</td><td style="border:1px solid #000;font-weight:bold">' + esc(d.helmet.red) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
         '      <!-- Item 2: Jacket Group -->' +
         '      <tr>' +
         '        <td rowspan="3" style="border:1px solid #000;font-weight:bold;vertical-align:middle">2</td>' +
-        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px;background:#f8fafc">Jacket</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">7</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
-        '        <td style="border:1px solid #000">0</td>' +
-        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-        '        <td style="border:1px solid #000;background:#22c55e;color:#fff;font-weight:900">✔</td>' +
-        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">7</td>' +
-        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>High-visibility reflective</small></td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px;background:#f8fafc">' +
+        '          Jacket' +
+        (canEdit ? ' <button type="button" title="Log Jacket entry" style="border:none;background:#e2e8f0;color:#0f172a;cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px" onclick="openPpeEntryModal(\'JACKET\')">✏️</button>' : '') +
+        '        </td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.jacket.totalReceived) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.jacket.dcNo) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.jacket.issuedQty) + '</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(d.jacket.date) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.jacket.contractor) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.jacket.receivedBy) + '</td>' +
+        '        <td style="border:1px solid #000;' + (d.jacket.returnable === 'No' ? 'background:#ef4444' : 'background:#22c55e') + ';color:#fff;font-weight:900">' + (d.jacket.returnable === 'No' ? '✖' : '✔') + '</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(d.jacket.balanceStock) + '</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(d.jacket.remarks) + '</small></td>' +
         '      </tr>' +
-        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Green</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.jacketGreen || 3) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
-        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Orange/Red</td><td style="border:1px solid #000;font-weight:bold">' + esc(curRow.jacketOrange || 4) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Green</td><td style="border:1px solid #000;font-weight:bold">' + esc(d.jacket.green) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
+        '      <tr><td style="border:1px solid #000;text-align:left;padding-left:14px">Orange/Red</td><td style="border:1px solid #000;font-weight:bold">' + esc(d.jacket.orange) + '</td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td><td style="border:1px solid #000"></td></tr>' +
         '      <!-- Item 3: Hand Gloves -->' +
         '      <tr>' +
         '        <td style="border:1px solid #000;font-weight:bold">3</td>' +
-        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">Hand gloves (Cotton / Leather)</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">' + (Number(curRow.cottonGloves || 20) + Number(curRow.leatherGloves || 8)) + '</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
-        '        <td style="border:1px solid #000">4</td>' +
-        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-        '        <td style="border:1px solid #000;background:#ef4444;color:#fff;font-weight:900">✖</td>' +
-        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">24</td>' +
-        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Electrical tested pairs</small></td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">' +
+        '          Hand gloves (Cotton / Leather)' +
+        (canEdit ? ' <button type="button" title="Log Hand gloves entry" style="border:none;background:#e2e8f0;color:#0f172a;cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px" onclick="openPpeEntryModal(\'GLOVES\')">✏️</button>' : '') +
+        '        </td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.gloves.totalReceived) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.gloves.dcNo) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.gloves.issuedQty) + '</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(d.gloves.date) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.gloves.contractor) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.gloves.receivedBy) + '</td>' +
+        '        <td style="border:1px solid #000;' + (d.gloves.returnable === 'Yes' ? 'background:#22c55e' : 'background:#ef4444') + ';color:#fff;font-weight:900">' + (d.gloves.returnable === 'Yes' ? '✔' : '✖') + '</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(d.gloves.balanceStock) + '</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(d.gloves.remarks) + '</small></td>' +
         '      </tr>' +
         '      <!-- Item 4: Safety Shoes -->' +
         '      <tr>' +
         '        <td style="border:1px solid #000;font-weight:bold">4</td>' +
-        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">Safety Shoes (Steel Toe)</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">15</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
-        '        <td style="border:1px solid #000">2</td>' +
-        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-        '        <td style="border:1px solid #000;background:#ef4444;color:#fff;font-weight:900">✖</td>' +
-        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">13</td>' +
-        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Size 7-10 distribution</small></td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">' +
+        '          Safety Shoes (Steel Toe)' +
+        (canEdit ? ' <button type="button" title="Log Safety Shoes entry" style="border:none;background:#e2e8f0;color:#0f172a;cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px" onclick="openPpeEntryModal(\'SHOES\')">✏️</button>' : '') +
+        '        </td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.shoes.totalReceived) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.shoes.dcNo) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.shoes.issuedQty) + '</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(d.shoes.date) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.shoes.contractor) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.shoes.receivedBy) + '</td>' +
+        '        <td style="border:1px solid #000;' + (d.shoes.returnable === 'Yes' ? 'background:#22c55e' : 'background:#ef4444') + ';color:#fff;font-weight:900">' + (d.shoes.returnable === 'Yes' ? '✔' : '✖') + '</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(d.shoes.balanceStock) + '</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(d.shoes.remarks) + '</small></td>' +
         '      </tr>' +
         '      <!-- Item 5: Full Body Harness -->' +
         '      <tr>' +
         '        <td style="border:1px solid #000;font-weight:bold">5</td>' +
-        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">Full Body Safety Harness (Double Lanyard)</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">12</td>' +
-        '        <td style="border:1px solid #000;font-weight:bold">274</td>' +
-        '        <td style="border:1px solid #000">3</td>' +
-        '        <td style="border:1px solid #000">' + displayDate(curRow.date || '2026-09-15') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.contractor || 'Vinayaka Electricals') + '</td>' +
-        '        <td style="border:1px solid #000">' + esc(curRow.receivedBy || 'R. Prakash') + '</td>' +
-        '        <td style="border:1px solid #000;background:#22c55e;color:#fff;font-weight:900">✔</td>' +
-        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">9</td>' +
-        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>Scaffold & height operations</small></td>' +
+        '        <td colspan="2" style="border:1px solid #000;text-align:left;font-weight:bold;padding-left:8px">' +
+        '          Full Body Safety Harness (Double Lanyard)' +
+        (canEdit ? ' <button type="button" title="Log Safety Harness entry" style="border:none;background:#e2e8f0;color:#0f172a;cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px" onclick="openPpeEntryModal(\'HARNESS\')">✏️</button>' : '') +
+        '        </td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.harness.totalReceived) + '</td>' +
+        '        <td style="border:1px solid #000;font-weight:bold">' + esc(d.harness.dcNo) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.harness.issuedQty) + '</td>' +
+        '        <td style="border:1px solid #000">' + displayDate(d.harness.date) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.harness.contractor) + '</td>' +
+        '        <td style="border:1px solid #000">' + esc(d.harness.receivedBy) + '</td>' +
+        '        <td style="border:1px solid #000;' + (d.harness.returnable === 'No' ? 'background:#ef4444' : 'background:#22c55e') + ';color:#fff;font-weight:900">' + (d.harness.returnable === 'No' ? '✖' : '✔') + '</td>' +
+        '        <td style="border:1px solid #000;background:#4472c4;color:#fff;font-weight:900;font-size:14px">' + esc(d.harness.balanceStock) + '</td>' +
+        '        <td style="border:1px solid #000;text-align:left;padding-left:6px"><small>' + esc(d.harness.remarks) + '</small></td>' +
         '      </tr>' +
         '    </tbody>' +
         '  </table></div>' +
 
         '  <!-- Green Footer Row -->' +
         '  <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 18px;background:#c5d9b8;border-top:1px solid #000;font-size:12.5px;font-weight:700;color:#000">' +
-        '    <div>Stock details up to : <span style="font-weight:900">' + displayDate(curRow.date || '2026-09-15') + '</span></div>' +
-        '    <div>Last date of updated: <span style="font-weight:900">' + new Date().toISOString().slice(0, 10) + '</span></div>' +
+        '    <div>Stock details up to : <span style="font-weight:900">' + displayDate(d.stockDetailsUpTo) + '</span></div>' +
+        '    <div>Last date of updated: <span style="font-weight:900">' + esc(d.lastUpdated) + '</span></div>' +
         '  </div>' +
         '</div>';
 
@@ -4811,8 +5771,9 @@
     const searchQuery = String(window.GALLERY_SEARCH || "").trim().toLowerCase();
     const pid = currentProjectId();
 
+    const isLead = USER && USER.role === "EHS_LEAD";
     const allScoped = (STATE.gallery || []).filter(
-      (g) => !pid || g.projectId === pid,
+      (g) => isLead ? (g.projectId === pid) : (!pid || g.projectId === pid),
     );
 
     const filtered = allScoped.filter((g) => {
@@ -7583,8 +8544,20 @@
   }
 
   async function openFile(fileId) {
+    if (!fileId) return;
+    if (String(fileId).startsWith("http://") || String(fileId).startsWith("https://")) {
+      window.open(fileId, "_blank");
+      return;
+    }
+    if (String(fileId).startsWith("PTW_TEMPLATE_")) {
+      const code = fileId.replace("PTW_TEMPLATE_", "");
+      await printBlankPtwTemplate(code);
+      return;
+    }
     const res = await run("apiFileUrl", TOKEN, fileId);
-    window.open(res.url, "_blank");
+    if (res && res.url) {
+      window.open(res.url, "_blank");
+    }
   }
 
   async function refresh() {

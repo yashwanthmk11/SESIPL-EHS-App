@@ -62,9 +62,12 @@ function buildBootstrap_(user) {
   if (!gallery.length && projects.length) {
     gallery = ensureDemoGallery_(projects);
   }
-  const library = rowsToObjects_(SHEETS.LIBRARY).filter(
-    (s) => !s.projectId || ids.indexOf(s.projectId) >= 0,
+  let library = rowsToObjects_(SHEETS.LIBRARY).filter(
+    (s) => !s.projectId || s.projectId === "*" || ids.indexOf(s.projectId) >= 0,
   );
+  if (!library.length && projects.length) {
+    library = ensureDemoLibrary_(projects);
+  }
   const training = rowsToObjects_(SHEETS.TRAINING).filter(
     (s) => !s.projectId || s.projectId === "*" || ids.indexOf(s.projectId) >= 0,
   );
@@ -1305,7 +1308,18 @@ function apiClearAllNotifications(token) {
 
 function apiFileUrl(token, fileId) {
   requireUser_(token);
-  return { ok: true, url: DriveApp.getFileById(fileId).getUrl() };
+  if (!fileId) return { ok: false, url: '#' };
+  if (String(fileId).startsWith('http://') || String(fileId).startsWith('https://')) {
+    return { ok: true, url: fileId };
+  }
+  if (String(fileId).startsWith('PTW_TEMPLATE_')) {
+    return { ok: true, url: '#' };
+  }
+  try {
+    return { ok: true, url: DriveApp.getFileById(fileId).getUrl() };
+  } catch (e) {
+    return { ok: true, url: 'https://drive.google.com/file/d/' + fileId + '/view' };
+  }
 }
 
 function scopedUsersForProject_(projectId) {
@@ -2288,10 +2302,103 @@ function apiExportPpeRegisterExcel(token, projectId) {
   };
 }
 
+function getPpeTableData_(ppeRows) {
+  const d = {
+    helmet: { totalReceived: 10, dcNo: "274", issuedQty: 2, balanceStock: 8, white: 3, green: 2, blue: 3, red: 2, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", remarks: "Store In-charge inspected" },
+    jacket: { totalReceived: 7, dcNo: "274", issuedQty: 0, balanceStock: 7, green: 3, orange: 4, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", remarks: "High-visibility reflective" },
+    gloves: { totalReceived: 28, dcNo: "274", issuedQty: 4, balanceStock: 24, cotton: 20, leather: 8, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "No", remarks: "Electrical tested" },
+    shoes: { totalReceived: 15, dcNo: "274", issuedQty: 2, balanceStock: 13, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "No", remarks: "Size 7-10 distribution" },
+    harness: { totalReceived: 12, dcNo: "274", issuedQty: 3, balanceStock: 9, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", remarks: "Scaffold & height operations" },
+    storeIncharge: "Mr. Harish",
+    stockDetailsUpTo: todayIso_(),
+    lastUpdated: todayIso_()
+  };
+  if (!ppeRows || !ppeRows.length) return d;
+  ppeRows.forEach(function(r) {
+    if (!r) return;
+    const cat = String(r.itemCategory || r.item || '').toUpperCase();
+    if (r.storeIncharge) d.storeIncharge = r.storeIncharge;
+    else if (r.remarks && /store\s*in-?charge\s*:\s*([^,;\n]+)/i.test(r.remarks)) d.storeIncharge = RegExp.$1.trim();
+    if (r.date) { d.stockDetailsUpTo = r.date; d.lastUpdated = r.date; }
+
+    if (cat === 'HELMET' || cat === 'HELMETS' || (!cat && (r.helmetWhite != null || r.helmetGreen != null))) {
+      if (r.dcNo) d.helmet.dcNo = r.dcNo;
+      if (r.date) d.helmet.date = r.date;
+      if (r.contractor) d.helmet.contractor = r.contractor;
+      if (r.receivedBy) d.helmet.receivedBy = r.receivedBy;
+      if (r.returnable) d.helmet.returnable = r.returnable;
+      if (r.remarks) d.helmet.remarks = r.remarks;
+      if (r.helmetWhite != null && r.helmetWhite !== '') d.helmet.white = Number(r.helmetWhite);
+      if (r.helmetGreen != null && r.helmetGreen !== '') d.helmet.green = Number(r.helmetGreen);
+      if (r.helmetBlue != null && r.helmetBlue !== '') d.helmet.blue = Number(r.helmetBlue);
+      if (r.helmetRed != null && r.helmetRed !== '') d.helmet.red = Number(r.helmetRed);
+      const subTot = d.helmet.white + d.helmet.green + d.helmet.blue + d.helmet.red;
+      if (r.totalReceived != null && r.totalReceived !== '') d.helmet.totalReceived = Number(r.totalReceived);
+      else if (subTot > 0) d.helmet.totalReceived = subTot;
+      if (r.issuedQty != null && r.issuedQty !== '') d.helmet.issuedQty = Number(r.issuedQty);
+      d.helmet.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.helmet.totalReceived - d.helmet.issuedQty);
+    }
+    if (cat === 'JACKET' || cat === 'JACKETS' || (!cat && (r.jacketGreen != null || r.jacketOrange != null))) {
+      if (r.dcNo) d.jacket.dcNo = r.dcNo;
+      if (r.date) d.jacket.date = r.date;
+      if (r.contractor) d.jacket.contractor = r.contractor;
+      if (r.receivedBy) d.jacket.receivedBy = r.receivedBy;
+      if (r.returnable) d.jacket.returnable = r.returnable;
+      if (r.remarks) d.jacket.remarks = r.remarks;
+      if (r.jacketGreen != null && r.jacketGreen !== '') d.jacket.green = Number(r.jacketGreen);
+      if (r.jacketOrange != null && r.jacketOrange !== '') d.jacket.orange = Number(r.jacketOrange);
+      const subTot = d.jacket.green + d.jacket.orange;
+      if (r.totalReceived != null && r.totalReceived !== '') d.jacket.totalReceived = Number(r.totalReceived);
+      else if (subTot > 0 && cat === 'JACKET') d.jacket.totalReceived = subTot;
+      if (r.issuedQty != null && r.issuedQty !== '') d.jacket.issuedQty = Number(r.issuedQty);
+      d.jacket.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.jacket.totalReceived - d.jacket.issuedQty);
+    }
+    if (cat === 'GLOVES' || cat === 'HAND GLOVES' || (!cat && (r.cottonGloves != null || r.leatherGloves != null))) {
+      if (r.dcNo) d.gloves.dcNo = r.dcNo;
+      if (r.date) d.gloves.date = r.date;
+      if (r.contractor) d.gloves.contractor = r.contractor;
+      if (r.receivedBy) d.gloves.receivedBy = r.receivedBy;
+      if (r.returnable) d.gloves.returnable = r.returnable;
+      if (r.remarks) d.gloves.remarks = r.remarks;
+      if (r.cottonGloves != null && r.cottonGloves !== '') d.gloves.cotton = Number(r.cottonGloves);
+      if (r.leatherGloves != null && r.leatherGloves !== '') d.gloves.leather = Number(r.leatherGloves);
+      const subTot = d.gloves.cotton + d.gloves.leather;
+      if (r.totalReceived != null && r.totalReceived !== '') d.gloves.totalReceived = Number(r.totalReceived);
+      else if (subTot > 0 && cat === 'GLOVES') d.gloves.totalReceived = subTot;
+      if (r.issuedQty != null && r.issuedQty !== '') d.gloves.issuedQty = Number(r.issuedQty);
+      d.gloves.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.gloves.totalReceived - d.gloves.issuedQty);
+    }
+    if (cat === 'SHOES' || cat === 'SAFETY SHOES') {
+      if (r.dcNo) d.shoes.dcNo = r.dcNo;
+      if (r.date) d.shoes.date = r.date;
+      if (r.contractor) d.shoes.contractor = r.contractor;
+      if (r.receivedBy) d.shoes.receivedBy = r.receivedBy;
+      if (r.returnable) d.shoes.returnable = r.returnable;
+      if (r.remarks) d.shoes.remarks = r.remarks;
+      if (r.totalReceived != null && r.totalReceived !== '') d.shoes.totalReceived = Number(r.totalReceived);
+      if (r.issuedQty != null && r.issuedQty !== '') d.shoes.issuedQty = Number(r.issuedQty);
+      d.shoes.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.shoes.totalReceived - d.shoes.issuedQty);
+    }
+    if (cat === 'HARNESS' || cat === 'FULL BODY HARNESS' || cat === 'SAFETY HARNESS') {
+      if (r.dcNo) d.harness.dcNo = r.dcNo;
+      if (r.date) d.harness.date = r.date;
+      if (r.contractor) d.harness.contractor = r.contractor;
+      if (r.receivedBy) d.harness.receivedBy = r.receivedBy;
+      if (r.returnable) d.harness.returnable = r.returnable;
+      if (r.remarks) d.harness.remarks = r.remarks;
+      if (r.totalReceived != null && r.totalReceived !== '') d.harness.totalReceived = Number(r.totalReceived);
+      if (r.issuedQty != null && r.issuedQty !== '') d.harness.issuedQty = Number(r.issuedQty);
+      d.harness.balanceStock = (r.balanceStock != null && r.balanceStock !== '') ? Number(r.balanceStock) : Math.max(0, d.harness.totalReceived - d.harness.issuedQty);
+    }
+  });
+  return d;
+}
+
 function buildPpeStockExcelSheet_(sheet, ppeRows, project, user) {
   sheet.clear();
   const pName = project ? project.name : 'SESIPL Site';
-  const storeIncharge = (ppeRows.length && ppeRows[0].remarks && ppeRows[0].remarks.includes(':')) ? ppeRows[0].remarks.split(':')[1].trim() : 'Mr. Harish / Lead In-Charge';
+  const parsedData = getPpeTableData_(ppeRows);
+  const storeIncharge = parsedData.storeIncharge;
 
   // Row 1: Company Logo & Title & Zero Harm Logo
   sheet.getRange("A1:C1").merge().setValue("SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.").setFontWeight("bold").setFontSize(11).setFontColor("#002060").setVerticalAlignment("middle");
@@ -2338,28 +2445,26 @@ function buildPpeStockExcelSheet_(sheet, ppeRows, project, user) {
   sheet.setRowHeight(3, 22);
   sheet.setRowHeight(4, 22);
 
-  // Pre-seed items matching media_1789964044193.png
-  const row1Data = (ppeRows && ppeRows[0]) || {
-    dcNo: "274", totalReceived: 10, issuedQty: 2, date: todayIso_(), contractor: "Vinayaka Electricals", receivedBy: "R. Prakash", returnable: "Yes", balanceStock: 8
-  };
+  // Parse dynamic data for all 5 PPE items matching media_1789964044193.png
+  const d = getPpeTableData_(ppeRows);
 
   const grid = [
-    // Helmet group (Rows 5-8)
-    ["1", "Helmet", "", row1Data.totalReceived, row1Data.dcNo, row1Data.issuedQty, row1Data.date, row1Data.contractor, row1Data.receivedBy, "✔", row1Data.balanceStock, "Store In-charge inspected"],
-    ["", "", "White", "3", "", "", "", "", "", "", "", ""],
-    ["", "", "Green", "2", "", "", "", "", "", "", "", ""],
-    ["", "", "Blue", "3", "", "", "", "", "", "", "", ""],
-    ["", "", "Red", "2", "", "", "", "", "", "", "", ""],
+    // Helmet group (Rows 5-9)
+    ["1", "Helmet", "", d.helmet.totalReceived, d.helmet.dcNo, d.helmet.issuedQty, d.helmet.date, d.helmet.contractor, d.helmet.receivedBy, d.helmet.returnable === 'No' ? '✖' : '✔', d.helmet.balanceStock, d.helmet.remarks],
+    ["", "", "White", d.helmet.white, "", "", "", "", "", "", "", ""],
+    ["", "", "Green", d.helmet.green, "", "", "", "", "", "", "", ""],
+    ["", "", "Blue", d.helmet.blue, "", "", "", "", "", "", "", ""],
+    ["", "", "Red", d.helmet.red, "", "", "", "", "", "", "", ""],
     // Jacket group (Rows 10-12)
-    ["2", "Jacket", "", "7", "274", "0", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✔", "7", "High-visibility reflective"],
-    ["", "", "Green", "3", "", "", "", "", "", "", "", ""],
-    ["", "", "Orange/Red", "4", "", "", "", "", "", "", "", ""],
+    ["2", "Jacket", "", d.jacket.totalReceived, d.jacket.dcNo, d.jacket.issuedQty, d.jacket.date, d.jacket.contractor, d.jacket.receivedBy, d.jacket.returnable === 'No' ? '✖' : '✔', d.jacket.balanceStock, d.jacket.remarks],
+    ["", "", "Green", d.jacket.green, "", "", "", "", "", "", "", ""],
+    ["", "", "Orange/Red", d.jacket.orange, "", "", "", "", "", "", "", ""],
     // Hand gloves (Row 13)
-    ["3", "Hand gloves", "Cotton/Leather", "28", "274", "4", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✖", "24", "Electrical tested"],
+    ["3", "Hand gloves", "Cotton/Leather", d.gloves.totalReceived, d.gloves.dcNo, d.gloves.issuedQty, d.gloves.date, d.gloves.contractor, d.gloves.receivedBy, d.gloves.returnable === 'Yes' ? '✔' : '✖', d.gloves.balanceStock, d.gloves.remarks],
     // Safety Shoes (Row 14)
-    ["4", "Safety Shoes", "Steel Toe", "15", "274", "2", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✖", "13", "Size 7-10"],
+    ["4", "Safety Shoes", "Steel Toe", d.shoes.totalReceived, d.shoes.dcNo, d.shoes.issuedQty, d.shoes.date, d.shoes.contractor, d.shoes.receivedBy, d.shoes.returnable === 'Yes' ? '✔' : '✖', d.shoes.balanceStock, d.shoes.remarks],
     // Full Body Harness (Row 15)
-    ["5", "Full Body Harness", "Double Lanyard", "12", "274", "3", row1Data.date, row1Data.contractor, row1Data.receivedBy, "✔", "9", "With shock absorber"]
+    ["5", "Full Body Harness", "Double Lanyard", d.harness.totalReceived, d.harness.dcNo, d.harness.issuedQty, d.harness.date, d.harness.contractor, d.harness.receivedBy, d.harness.returnable === 'No' ? '✖' : '✔', d.harness.balanceStock, d.harness.remarks]
   ];
 
   sheet.getRange(5, 1, grid.length, 12).setValues(grid).setFontSize(9).setVerticalAlignment("middle");
@@ -2375,16 +2480,16 @@ function buildPpeStockExcelSheet_(sheet, ppeRows, project, user) {
   sheet.getRange("K15").setBackground("#4472c4").setFontColor("#ffffff").setFontWeight("bold");
 
   // Returnable Checkmarks (Green ✔ and Red ✖)
-  sheet.getRange("J5").setBackground("#22c55e").setFontColor("#ffffff").setFontWeight("bold");
-  sheet.getRange("J10").setBackground("#22c55e").setFontColor("#ffffff").setFontWeight("bold");
-  sheet.getRange("J13").setBackground("#ef4444").setFontColor("#ffffff").setFontWeight("bold");
-  sheet.getRange("J14").setBackground("#ef4444").setFontColor("#ffffff").setFontWeight("bold");
-  sheet.getRange("J15").setBackground("#22c55e").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J5").setBackground(d.helmet.returnable === 'No' ? '#ef4444' : '#22c55e').setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J10").setBackground(d.jacket.returnable === 'No' ? '#ef4444' : '#22c55e').setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J13").setBackground(d.gloves.returnable === 'Yes' ? '#22c55e' : '#ef4444').setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J14").setBackground(d.shoes.returnable === 'Yes' ? '#22c55e' : '#ef4444').setFontColor("#ffffff").setFontWeight("bold");
+  sheet.getRange("J15").setBackground(d.harness.returnable === 'No' ? '#ef4444' : '#22c55e').setFontColor("#ffffff").setFontWeight("bold");
 
   // Footer bar (Green)
   const footRow = 5 + grid.length;
-  sheet.getRange(footRow, 1, 1, 5).merge().setValue("Stock details up to : " + todayIso_()).setFontWeight("bold").setVerticalAlignment("middle");
-  sheet.getRange(footRow, 6, 1, 7).merge().setValue("Last date of updated: " + todayIso_()).setFontWeight("bold").setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange(footRow, 1, 1, 5).merge().setValue("Stock details up to : " + d.stockDetailsUpTo).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange(footRow, 6, 1, 7).merge().setValue("Last date of updated: " + d.lastUpdated).setFontWeight("bold").setHorizontalAlignment("right").setVerticalAlignment("middle");
   sheet.getRange(footRow, 1, 1, 12).setBackground("#c5d9b8").setFontSize(9.5);
   sheet.setRowHeight(footRow, 22);
 
@@ -2724,5 +2829,331 @@ function apiSaveTrainingMaterial(token, payload) {
   }
   return { ok: true, item: item };
 }
+
+/* =========================================================
+   DAILY SAFETY OBSERVATIONS EXCEL EXPORT (Slide 9 Standard)
+   ========================================================= */
+function apiExportObservationsExcel(token, projectId) {
+  const user = requireUser_(token);
+  const isLead = user.role === 'EHS_LEAD';
+  const pId = projectId || null;
+
+  let obsRows = [];
+  try {
+    obsRows = rowsToObjects_(SHEETS.OBSERVATIONS).filter(function(r) {
+      if (isLead && pId) return r.projectId === pId;
+      return !pId || r.projectId === pId;
+    });
+  } catch (err) {
+    Logger.log("Notice querying Observations: " + err);
+  }
+
+  // If empty, provide baseline safety observations matching Slide 9
+  if (!obsRows.length) {
+    obsRows = [
+      {
+        reportNo: "SESIPL/OBS/2026/001",
+        date: todayIso_(),
+        auditedBy: "Lead EHS In-Charge",
+        contractor: "Vinayaka Electricals",
+        location: "Block B - 3rd Floor Shaft",
+        observation: "Scaffold working platform missing mid-rail on Level 3 shaft opening.",
+        preventive: "Provide standard top-rail (1.0m) and mid-rail (0.5m) with toe-board per BS EN 12811 standard immediately.",
+        ownerEmployeeId: "Site In-Charge / Vendor Supervisor",
+        status: "CLOSED",
+        remarks: "Rectified and verified within 4 hours. Proof photo uploaded."
+      },
+      {
+        reportNo: "SESIPL/OBS/2026/002",
+        date: todayIso_(),
+        auditedBy: "Lead EHS In-Charge",
+        contractor: "Sharav Fab Engineering",
+        location: "Main Substation Yard",
+        observation: "Temporary power distribution cable routed across vehicle driveway without cable ramp protection.",
+        preventive: "Route cable overhead (>4.5m clearance) or install heavy-duty industrial cable rubber bridge ramp.",
+        ownerEmployeeId: "Electrical Site Engineer",
+        status: "CLOSED",
+        remarks: "Overhead catenary wire installed; cable tied with insulated hangers."
+      },
+      {
+        reportNo: "SESIPL/OBS/2026/003",
+        date: todayIso_(),
+        auditedBy: "Safety Officer",
+        contractor: "HBS Infrastructure",
+        location: "Basement Fabrication Yard",
+        observation: "Combustible scrap wood, paint cans, and cardboard packing boxes accumulated within 5 meters of Hot Work area.",
+        preventive: "Remove all flammable and combustible debris within 10m radius and position 2x 9kg DCP fire extinguishers at hot work perimeter.",
+        ownerEmployeeId: "Store In-Charge",
+        status: "OPEN",
+        remarks: "Housekeeping notice issued; 24hr auto-escalation active."
+      },
+      {
+        reportNo: "SESIPL/OBS/2026/004",
+        date: todayIso_(),
+        auditedBy: "Lead EHS In-Charge",
+        contractor: "SESIPL Internal Team",
+        location: "Switchgear Panel Room",
+        observation: "Grinding operator wearing standard spectacle glasses instead of full-face protective shield.",
+        preventive: "Stop grinding work immediately; issue BS EN 166 approved polycarbonate full-face shield and inspect PPE before restarting.",
+        ownerEmployeeId: "Site Safety Supervisor",
+        status: "OPEN",
+        remarks: "Work stopped until compliant PPE provided."
+      }
+    ];
+  }
+
+  const proj = pId ? findOne_(SHEETS.PROJECTS, "id", pId) : null;
+  const pName = proj ? proj.name : "SESIPL Site";
+  const name = (proj ? proj.code : "SESIPL") + "-Daily-Safety-Observations-Log-" + todayIso_();
+  const book = SpreadsheetApp.create(name);
+  const bookId = book.getId();
+
+  try {
+    const sheet = book.getSheets()[0];
+    sheet.setName("Daily Observations Log");
+    buildObservationsExcelSheet_(sheet, obsRows, proj, user);
+
+    const file = DriveApp.getFileById(bookId);
+    try {
+      if (proj) {
+        const folder = getNamedSubfolder_(proj, "Audits");
+        file.moveTo(folder);
+      }
+    } catch (fErr) {
+      Logger.log("Notice moving observations excel: " + fErr);
+    }
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return {
+      ok: true,
+      id: bookId,
+      name: name + ".xlsx",
+      url: file.getUrl(),
+      downloadUrl: "https://docs.google.com/spreadsheets/d/" + bookId + "/export?format=xlsx",
+      count: obsRows.length
+    };
+  } catch (err) {
+    Logger.log("Error building observations excel: " + err);
+    try { DriveApp.getFileById(bookId).setTrashed(true); } catch (tErr) {}
+    throw err;
+  }
+}
+
+function buildObservationsExcelSheet_(sheet, obsRows, project, user) {
+  sheet.clear();
+  const pName = project ? project.name : "All Running Sites";
+  const pCode = project ? project.code : "ALL";
+
+  // Row 1: Company Header
+  sheet.getRange("A1:K1").merge().setValue("SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.").setFontWeight("bold").setFontSize(12).setFontColor("#ffffff").setBackground("#0f766e").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 28);
+
+  // Row 2: Subtitle
+  sheet.getRange("A2:K2").merge().setValue("DAILY SAFETY AUDIT OBSERVATION LOG - SLIDE 9 STANDARD").setFontWeight("bold").setFontSize(11).setFontColor("#0f172a").setBackground("#e2e8f0").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(2, 22);
+
+  // Row 3: Metadata
+  sheet.getRange("A3:D3").merge().setValue("Project: " + pName + " (" + pCode + ")").setFontWeight("bold").setFontSize(10).setVerticalAlignment("middle");
+  sheet.getRange("E3:G3").merge().setValue("Export Date: " + todayIso_()).setFontSize(10).setVerticalAlignment("middle");
+  sheet.getRange("H3:K3").merge().setValue("Audited / Verified By: " + (user ? user.name : "EHS Team")).setFontSize(10).setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange("A3:K3").setBackground("#f8fafc");
+  sheet.setRowHeight(3, 20);
+
+  // Row 4: Column Headers (11 Columns)
+  const headers = [
+    "Sl.No",
+    "Report No",
+    "Date",
+    "Audited By",
+    "Contractor",
+    "Location",
+    "Observations",
+    "Preventive Measures Recommended by PMC",
+    "Communicated To",
+    "Status",
+    "Action / Remarks"
+  ];
+  sheet.getRange(4, 1, 1, 11).setValues([headers]).setFontWeight("bold").setFontSize(9.5).setFontColor("#ffffff").setBackground("#1e293b").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(4, 26);
+
+  // Data rows
+  const grid = obsRows.map(function(r, idx) {
+    return [
+      idx + 1,
+      r.reportNo || r.id || ("OBS-" + (idx + 1)),
+      r.date || todayIso_(),
+      r.auditedBy || (user ? user.name : "Lead In-Charge"),
+      r.contractor || "General Site",
+      r.location || "Site Area",
+      r.observation || "",
+      r.preventive || "Implement corrective safety measures per SOP",
+      r.ownerEmployeeId || "Department In-Charge",
+      r.status || "OPEN",
+      r.remarks || (r.status === "CLOSED" ? "Resolved & verified" : "Action in progress (24h SLA)")
+    ];
+  });
+
+  if (grid.length) {
+    sheet.getRange(5, 1, grid.length, 11).setValues(grid).setFontSize(9).setVerticalAlignment("middle");
+    sheet.getRange(5, 1, grid.length, 1).setHorizontalAlignment("center");
+    sheet.getRange(5, 2, grid.length, 2).setHorizontalAlignment("center");
+    sheet.getRange(5, 4, grid.length, 3).setHorizontalAlignment("left");
+    sheet.getRange(5, 7, grid.length, 2).setWrap(true);
+    sheet.getRange(5, 9, grid.length, 1).setHorizontalAlignment("center");
+    sheet.getRange(5, 10, grid.length, 1).setHorizontalAlignment("center").setFontWeight("bold");
+    sheet.getRange(5, 11, grid.length, 1).setHorizontalAlignment("left");
+
+    // Status styling
+    for (let i = 0; i < grid.length; i++) {
+      const st = String(grid[i][9] || "").toUpperCase();
+      const cell = sheet.getRange(5 + i, 10);
+      if (st === "CLOSED") {
+        cell.setBackground("#dcfce7").setFontColor("#166534");
+      } else {
+        cell.setBackground("#fef3c7").setFontColor("#92400e");
+      }
+      sheet.setRowHeight(5 + i, 36);
+    }
+    sheet.getRange(4, 1, grid.length + 1, 11).setBorder(true, true, true, true, true, true, "#cbd5e1", SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  // Column widths
+  sheet.setColumnWidth(1, 50);
+  sheet.setColumnWidth(2, 120);
+  sheet.setColumnWidth(3, 85);
+  sheet.setColumnWidth(4, 130);
+  sheet.setColumnWidth(5, 130);
+  sheet.setColumnWidth(6, 130);
+  sheet.setColumnWidth(7, 280);
+  sheet.setColumnWidth(8, 280);
+  sheet.setColumnWidth(9, 130);
+  sheet.setColumnWidth(10, 85);
+  sheet.setColumnWidth(11, 160);
+}
+
+/* =========================================================
+   BLANK WORK PERMIT TEMPLATES & LIBRARY SEEDING
+   ========================================================= */
+function apiGetBlankPtwTemplateHtml(token, formCode, projectId) {
+  const user = requireUser_(token);
+  const pId = projectId || (rowsToObjects_(SHEETS.PROJECTS)[0] || {}).id || 'PRJ001';
+  const project = findOne_(SHEETS.PROJECTS, 'id', pId) || { id: pId, name: 'SESIPL Project Site', code: 'PRJ' };
+  const def = FORM_DEFS.find(function(f) { return f.formCode === formCode; }) || { formCode: formCode, title: formCode };
+  const html = buildWorkPermitPdfHtml_(project, def, {}, user, 1);
+  return { ok: true, html: html, formCode: formCode, title: def.title };
+}
+
+function ensureDemoLibrary_(projects) {
+  const items = [
+    {
+      id: "LIB_WP_HEIGHT",
+      projectId: "*",
+      module: "PERMIT",
+      title: "Working At Height Permit Form (SESIPL-EHS.Blr Prj-04)",
+      fileId: "PTW_TEMPLATE_WP_HEIGHT",
+      category: "Work Permit Blank Template",
+      uploadedBy: "EHS Corporate Safety",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_WP_HOT",
+      projectId: "*",
+      module: "PERMIT",
+      title: "Hot Work Permit Form (SESIPL-EHS.Blr Prj-03)",
+      fileId: "PTW_TEMPLATE_WP_HOT",
+      category: "Work Permit Blank Template",
+      uploadedBy: "EHS Corporate Safety",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_WP_NIGHT",
+      projectId: "*",
+      module: "PERMIT",
+      title: "Night Work Permit Form (SESIPL-EHS.Blr Prj-07)",
+      fileId: "PTW_TEMPLATE_WP_NIGHT",
+      category: "Work Permit Blank Template",
+      uploadedBy: "EHS Corporate Safety",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_WP_SHAFT",
+      projectId: "*",
+      module: "PERMIT",
+      title: "Shaft Work Permit Form (SESIPL-EHS.Blr Prj-06)",
+      fileId: "PTW_TEMPLATE_WP_SHAFT",
+      category: "Work Permit Blank Template",
+      uploadedBy: "EHS Corporate Safety",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_WP_LIFT",
+      projectId: "*",
+      module: "PERMIT",
+      title: "Lifting Activity Permit Form (SESIPL-EHS.Blr Prj-05)",
+      fileId: "PTW_TEMPLATE_WP_LIFT",
+      category: "Work Permit Blank Template",
+      uploadedBy: "EHS Corporate Safety",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_WP_GENERAL",
+      projectId: "*",
+      module: "PERMIT",
+      title: "General Work Permit Form (SESIPL-EHS.Blr Prj-01)",
+      fileId: "PTW_TEMPLATE_WP_GENERAL",
+      category: "Work Permit Blank Template",
+      uploadedBy: "EHS Corporate Safety",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_POL_01",
+      projectId: "*",
+      module: "POLICY",
+      title: "SESIPL Corporate Environment, Health & Safety (EHS) Policy",
+      fileId: "https://sesipl.com",
+      category: "Corporate Policy",
+      uploadedBy: "Corporate Director",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_SWMS_01",
+      projectId: "*",
+      module: "SWMS",
+      title: "Standard Safe Work Method Statement (SWMS) - Electrical & High-Risk Activities",
+      fileId: "https://sesipl.com",
+      category: "Risk Assessment",
+      uploadedBy: "Asst EHS Manager",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_LEG_01",
+      projectId: "*",
+      module: "LEGAL",
+      title: "EHS Legal & Statutory Compliance Register (BOCW / Factories Act / CEIG)",
+      fileId: "https://sesipl.com",
+      category: "Legal Document",
+      uploadedBy: "Asst EHS Manager",
+      uploadedAt: todayIso_()
+    },
+    {
+      id: "LIB_TC_01",
+      projectId: "*",
+      module: "TEST_CERT",
+      title: "Third-Party Equipment Calibration & Test Certificate Format",
+      fileId: "https://sesipl.com",
+      category: "Testing & Certification",
+      uploadedBy: "Asst EHS Manager",
+      uploadedAt: todayIso_()
+    }
+  ];
+
+  try {
+    batchWriteObjects_(SHEETS.LIBRARY, items);
+  } catch (err) {
+    Logger.log("Notice seeding library: " + err);
+  }
+  return items;
+}
+
 
 
