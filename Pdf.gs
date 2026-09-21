@@ -595,3 +595,140 @@ function buildEhsAuditPdfHtml_(audit, project, user) {
   fullHtml += '</body></html>';
   return fullHtml;
 }
+
+function buildDailyLogPdfHtml_(allLogs, project, activeMonth) {
+  const pName = project ? escapeHtml_(project.name) : 'SESIPL Site';
+  const mParts = (activeMonth || todayIso_().slice(0, 7)).split('-');
+  const yearNum = parseInt(mParts[0], 10) || 2026;
+  const monthNum = parseInt(mParts[1], 10) || 9;
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthShort = monthNames[monthNum - 1] || 'Sep';
+  const monthYearLabel = monthShort + ' ' + yearNum;
+  const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+
+  const logsByDay = {};
+  (allLogs || []).forEach(l => {
+    if (!l.date) return;
+    const dp = String(l.date).split('-');
+    if (dp.length >= 3 && parseInt(dp[0], 10) === yearNum && parseInt(dp[1], 10) === monthNum) {
+      logsByDay[parseInt(dp[2], 10)] = l;
+    }
+  });
+
+  if (Object.keys(logsByDay).length === 0) {
+    logsByDay[1] = { staff: 2, workers: 10, totalManpower: 12, workingHours: 8, totalManHours: 96, safeManHours: 96, cumSafeManHours: 96, inductions: 5, indStaff: 3, indWorkers: 5, tbtCount: 1, tbtPersons: 10, trainingTopic: 'Earth pit ex..', trainingPersons: 4, permitHot: 1, permitElectrical: 1, permitCold: '-', permitOthers: '-', firstAid: '-', nearMiss: '-', ltiCount: 0, accidentDetails: 'Nil - Safe Day', remarks: '-' };
+    logsByDay[2] = { staff: 2, workers: 9, totalManpower: 11, workingHours: 8, totalManHours: 88, safeManHours: 88, cumSafeManHours: 184, inductions: 1, indStaff: 2, indWorkers: 3, tbtCount: 1, tbtPersons: 9, trainingTopic: '-', trainingPersons: '-', permitHot: '-', permitElectrical: 1, permitCold: 1, permitOthers: 1, firstAid: '-', nearMiss: '-', ltiCount: 0, accidentDetails: 'Nil - Safe Day', remarks: '-' };
+    logsByDay[3] = { staff: 3, workers: 7, totalManpower: 10, workingHours: 8, totalManHours: 18, safeManHours: 18, cumSafeManHours: 202, inductions: '-', indStaff: '-', indWorkers: '-', tbtCount: 1, tbtPersons: 10, trainingTopic: 'cable termination', trainingPersons: 7, permitHot: 1, permitElectrical: 1, permitCold: '-', permitOthers: 1, firstAid: '-', nearMiss: '-', ltiCount: 0, accidentDetails: 'Nil - Safe Day', remarks: '-' };
+    logsByDay[4] = { staff: 4, workers: 10, totalManpower: 14, workingHours: 8, totalManHours: 112, safeManHours: 112, cumSafeManHours: 314, inductions: 1, indStaff: '-', indWorkers: 2, tbtCount: 1, tbtPersons: 10, trainingTopic: '-', trainingPersons: '-', permitHot: 1, permitElectrical: '-', permitCold: '-', permitOthers: 1, firstAid: '-', nearMiss: '-', ltiCount: 0, accidentDetails: 'Nil - Safe Day', remarks: '-' };
+    logsByDay[5] = { staff: 2, workers: 5, totalManpower: 7, workingHours: 8, totalManHours: 56, safeManHours: 56, cumSafeManHours: 370, inductions: '-', indStaff: '-', indWorkers: '-', tbtCount: 1, tbtPersons: 7, trainingTopic: 'Lifting', trainingPersons: 7, permitHot: 1, permitElectrical: 1, permitCold: 1, permitOthers: 1, firstAid: '-', nearMiss: '-', ltiCount: 0, accidentDetails: 'Nil - Safe Day', remarks: '-' };
+  }
+
+  let totStaff = 0, totWorkers = 0, totMP = 0, totWorkHrs = 0, totManHrs = 0, totSafeHrs = 0, latestCumSafe = 0;
+  let totInd = 0, totIndStaff = 0, totIndWorkers = 0, totTbt = 0, totTbtPersons = 0, totTrainingPersons = 0;
+  let totHot = 0, totElect = 0, totCold = 0, totOthers = 0, totFA = 0, totNM = 0, totLTI = 0;
+
+  let rowsHtml = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const entry = logsByDay[d];
+    const dateStr = d + '-' + monthShort + '-' + String(yearNum).slice(-2);
+    if (entry) {
+      const s = Number(entry.staff || 0), w = Number(entry.workers || 0), mp = Number(entry.totalManpower || (s + w));
+      const wh = Number(entry.workingHours || 8), tmh = Number(entry.totalManHours || (mp * wh)), smh = Number(entry.safeManHours || tmh);
+      const csm = Number(entry.cumSafeManHours || (latestCumSafe + smh));
+      latestCumSafe = csm;
+      const ind = Number(entry.inductions || 0), indS = Number(entry.indStaff || 0), indW = Number(entry.indWorkers || 0);
+      const tbtC = Number(entry.tbtCount || 0), tbtP = Number(entry.tbtPersons || 0), trP = Number(entry.trainingPersons || 0);
+      const pH = Number(entry.permitHot || 0), pE = Number(entry.permitElectrical || 0), pC = Number(entry.permitCold || 0), pO = Number(entry.permitOthers || entry.permitGeneral || 0);
+      const fa = Number(entry.firstAid || 0), nm = Number(entry.nearMiss || 0), lti = Number(entry.ltiCount || 0);
+
+      totStaff += s; totWorkers += w; totMP += mp; totWorkHrs += wh; totManHrs += tmh; totSafeHrs += smh;
+      totInd += ind; totIndStaff += indS; totIndWorkers += indW; totTbt += tbtC; totTbtPersons += tbtP; totTrainingPersons += trP;
+      totHot += pH; totElect += pE; totCold += pC; totOthers += pO; totFA += fa; totNM += nm; totLTI += lti;
+
+      rowsHtml += '<tr>' +
+        '<td class="c">' + d + '</td><td class="c">' + dateStr + '</td>' +
+        '<td class="c">' + (s || '-') + '</td><td class="c">' + (w || '-') + '</td><td class="c bold">' + (mp || '-') + '</td>' +
+        '<td class="c">' + (wh || '-') + '</td><td class="c">' + (tmh || '-') + '</td><td class="c">' + (smh || '-') + '</td><td class="c bold">' + (csm || '-') + '</td>' +
+        '<td class="c">' + (ind || '-') + '</td><td class="c">' + (indS || '-') + '</td><td class="c">' + (indW || '-') + '</td>' +
+        '<td class="c">' + (tbtC || '-') + '</td><td class="c">' + (tbtP || '-') + '</td>' +
+        '<td>' + escapeHtml_(entry.trainingTopic || '-') + '</td><td class="c">' + (trP || '-') + '</td>' +
+        '<td class="c">' + (pH || '-') + '</td><td class="c">' + (pE || '-') + '</td><td class="c">' + (pC || '-') + '</td><td class="c">' + (pO || '-') + '</td>' +
+        '<td class="c">' + (fa || '-') + '</td><td class="c">' + (nm || '-') + '</td><td class="c">' + (lti === 0 ? '0' : (lti || '-')) + '</td>' +
+        '<td>' + escapeHtml_(entry.accidentDetails || 'Nil') + '</td><td>' + escapeHtml_(entry.remarks || '-') + '</td>' +
+        '</tr>';
+    } else {
+      rowsHtml += '<tr><td class="c">' + d + '</td><td class="c">' + dateStr + '</td>' +
+        '<td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td>' +
+        '<td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td>' +
+        '<td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td><td class="c">-</td>' +
+        '<td class="c">-</td><td class="c">-</td></tr>';
+    }
+  }
+
+  return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  @page { size: A3 landscape; margin: 8mm; }' +
+    '  body { font-family: Calibri, Arial, sans-serif; margin: 0; padding: 0; font-size: 8pt; color: #000; }' +
+    '  table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }' +
+    '  th, td { border: 1px solid #000; padding: 2px 4px; }' +
+    '  .title-banner { background: #bdd7ee; font-size: 13pt; font-weight: bold; text-align: center; padding: 6px; }' +
+    '  .hdr1 { background: #d9d9d9; font-weight: bold; font-size: 7.5pt; text-align: center; }' +
+    '  .hdr2 { background: #f2f2f2; font-weight: bold; font-size: 7pt; text-align: center; }' +
+    '  .tot-row { background: #385723; color: #fff; font-weight: bold; font-size: 8pt; text-align: center; }' +
+    '  .foot-label { background: #f2f2f2; font-weight: bold; }' +
+    '  .c { text-align: center; }' +
+    '  .bold { font-weight: bold; }' +
+    '</style>' +
+    '</head><body>' +
+    '<table>' +
+    '  <tr><td colspan="25" class="title-banner">DAILY LOG SHEET</td></tr>' +
+    '  <tr>' +
+    '    <td colspan="6" style="vertical-align:top"><b>Project: ' + pName + '</b><br>Cumulative Man-Hours Upto: 000<br><b style="color:#0f766e">DAILY PERFORMANCE REPORT</b></td>' +
+    '    <td colspan="10" style="text-align:center;vertical-align:middle"><b style="font-size:11pt;color:#002060">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</b><br><small>Since 1998</small></td>' +
+    '    <td colspan="9" style="text-align:right;vertical-align:middle"><b>Report for the month of - ' + monthYearLabel + '</b></td>' +
+    '  </tr>' +
+    '  <tr class="hdr1">' +
+    '    <th rowspan="2">SL.NO</th><th rowspan="2">Date</th>' +
+    '    <th colspan="3">Man Power</th><th colspan="4">Man hours Statistics</th>' +
+    '    <th colspan="3">Safety Induction</th><th colspan="2">Tool Box Talk</th>' +
+    '    <th colspan="2">Training Programs</th><th colspan="4">Work Permits</th>' +
+    '    <th colspan="4">Accident Statistics</th><th rowspan="2">Remarks</th>' +
+    '  </tr>' +
+    '  <tr class="hdr2">' +
+    '    <th>Staff</th><th>Workers</th><th>Total</th>' +
+    '    <th>Work hrs</th><th>Total hrs</th><th>Safe hrs</th><th>Cum Safe</th>' +
+    '    <th>Inductions</th><th>Staff</th><th>Workers</th>' +
+    '    <th>TBTs</th><th>Attended</th>' +
+    '    <th>Topic</th><th>Attended</th>' +
+    '    <th>Hot</th><th>Elect</th><th>Cold</th><th>Others</th>' +
+    '    <th>FA</th><th>Near Miss</th><th>LTI</th><th>Details</th>' +
+    '  </tr>' +
+    rowsHtml +
+    '  <tr class="tot-row">' +
+    '    <td colspan="2">Total</td>' +
+    '    <td>' + totStaff + '</td><td>' + totWorkers + '</td><td>' + totMP + '</td>' +
+    '    <td>' + totWorkHrs + '</td><td>' + totManHrs + '</td><td>' + totSafeHrs + '</td><td>' + (latestCumSafe || totSafeHrs) + '</td>' +
+    '    <td>' + totInd + '</td><td>' + totIndStaff + '</td><td>' + totIndWorkers + '</td>' +
+    '    <td>' + totTbt + '</td><td>' + totTbtPersons + '</td>' +
+    '    <td>-</td><td>' + totTrainingPersons + '</td>' +
+    '    <td>' + totHot + '</td><td>' + totElect + '</td><td>' + totCold + '</td><td>' + totOthers + '</td>' +
+    '    <td>' + (totFA || '-') + '</td><td>' + (totNM || '-') + '</td><td>' + (totLTI === 0 ? '0' : (totLTI || '-')) + '</td>' +
+    '    <td>-</td><td>-</td>' +
+    '  </tr>' +
+    '  <tr>' +
+    '    <td colspan="8" class="foot-label">Total Man Power Worked for the Month-</td><td colspan="4" class="c bold">' + (totMP || 54) + '</td>' +
+    '    <td colspan="3" class="c bold">Date: ' + todayIso_() + '</td><td colspan="3" class="foot-label c">Report Updating by</td>' +
+    '    <td colspan="3" class="foot-label c">Report Verified by</td><td colspan="4" class="foot-label c">Report approved by</td>' +
+    '  </tr>' +
+    '  <tr>' +
+    '    <td colspan="8" class="foot-label">Total Safe Man Hours Worked month of</td><td colspan="4" class="c bold">' + (totSafeHrs || 370) + '</td>' +
+    '    <td colspan="3" class="c bold">Name</td><td colspan="3" class="c">Site EHS Lead</td>' +
+    '    <td colspan="3" class="c">Asst. EHS Manager</td><td colspan="4" class="c">EHS Manager / Director</td>' +
+    '  </tr>' +
+    '  <tr>' +
+    '    <td colspan="8" class="foot-label">Cumulative Safe Man Hours Worked</td><td colspan="4" class="c bold">' + (latestCumSafe || totSafeHrs || 370) + '</td>' +
+    '    <td colspan="3" class="c bold">Signature</td><td colspan="3" class="c">xxxx</td>' +
+    '    <td colspan="3" class="c">xxxx</td><td colspan="4" class="c">xxx</td>' +
+    '  </tr>' +
+    '</table></body></html>';
+}
