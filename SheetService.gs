@@ -119,6 +119,10 @@ function todayIso_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
+function todayDisplay_() {
+  return displayDate_(todayIso_());
+}
+
 function displayDate_(value) {
   const text = String(value == null ? '' : value).trim();
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);

@@ -410,6 +410,15 @@ function escapeRegex_(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function todayDisplay_() {
+  if (typeof displayDate_ === 'function' && typeof todayIso_ === 'function') {
+    return displayDate_(todayIso_());
+  }
+  const d = new Date();
+  const pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+  return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
 /**
  * Ensures a dedicated folder for generated PDFs exists in Google Drive.
  */
