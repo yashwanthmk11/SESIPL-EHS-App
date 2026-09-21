@@ -75,28 +75,29 @@ const HEADERS = {
    ========================================================= */
 const DEFAULT_DOC_TEMPLATE_REGISTRY = {
   // Work Permits
-  WP_HEIGHT: '',
-  WP_GENERAL: '',
-  WP_HOT: '',
-  WP_LIFT: '',
-  WP_SHAFT: '',
-  WP_NIGHT: '',
+  WP_HEIGHT: '1t-SjqzbVnBHORMCvk_bAEZYeg3M4GpYl',
+  WP_GENERAL: '1xB1mCI7UlmPBT0losFIVL2iXZFrIh6E-',
+  WP_HOT: '122BRc7qu7FWQXs06X3g50DjbusrZWiNq',
+  WP_LIFT: '1oxR-cGv7bU6pt1lrl1qCkx8_67X28g5S',
+  WP_SHAFT: '1tr2XbzrGmtJ86BRE_B9nnRDpV-TSr5KY',
+  WP_NIGHT: '1g_z99d2ROzrGRsAwK96tUN9Yrg7D-fwy',
 
   // Checklists & Equipment Inspections
-  CL_WELD: '',
-  CL_GRIND: '',
+  CL_WELD: '1iQC5RiaqPexVGQ1E6_8eZfns_nVPxnoy',
+  CL_GRIND: '1a1g3LBj887C6NC20DX9W1x7tl04ukSuY',
   CL_CUT: '',
-  CL_DRILL: '',
-  CL_FE: '',
+  CL_DRILL: '1-NMUXI9ACdSJfnuBaRrkvoGIpHEYJ0AO',
+  CL_FE: '1GOdBINiB8ZgbRSjGvXWT9GCmf0g0ksw5',
+  CL_SCAFFOLD: '1fDFw_miYiWM9AcHKBbGqUtTIP-NPyVW3',
 
   // Attendances & Inductions
-  CL_TBT: '',
-  CL_JST: '',
+  CL_TBT: '1qCc1BzpLnof_TTaqVFVlp7WgSsaQlmUr',
+  CL_JST: '1egxHNPpQ3S8BU5EGHHLPrK0fujWAjD6P',
   CL_INDUCTION: '',
 
   // Worker Screening & Medical
-  CL_SCREENING: '',
-  CL_MEDICAL: '',
+  CL_SCREENING: '1v7WlDOPl7176yGCLWkWY6xghB3agH0Ky',
+  CL_MEDICAL: '1CwgjUnuPptlNYTaO3abxZEuCQo5BVLvm',
 
   // Stickers / Tags
   TAG_IND: '',
