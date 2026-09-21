@@ -1,8 +1,8 @@
 function generateSubmissionPdf_(project, def, fields, user, version) {
   const formCode = def.formCode;
-  const templateDocId = (typeof getDocTemplateRegistry_ === 'function')
-    ? (getDocTemplateRegistry_()[formCode] || '')
-    : '';
+  const templateDocId = (typeof getDocTemplateId_ === 'function')
+    ? getDocTemplateId_(formCode)
+    : ((typeof getDocTemplateRegistry_ === 'function') ? (getDocTemplateRegistry_()[formCode] || '') : '');
 
   // If a Google Doc template is configured, data sits directly in the doc and exports to PDF
   if (templateDocId && templateDocId.trim() !== '') {
