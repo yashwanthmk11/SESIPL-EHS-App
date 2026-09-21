@@ -10,12 +10,12 @@
  */
 const BACKEND_DOCS_TEMPLATES = {
   // Work Permits (Safety Work Clearance)
-  WP_HEIGHT: '1t-SjqzbVnBHORMCvk_bAEZYeg3M4GpYl',  // Working At Height Permit-04
-  WP_GENERAL: '1xB1mCI7UlmPBT0losFIVL2iXZFrIh6E-', // General work permit-02
-  WP_HOT: '122BRc7qu7FWQXs06X3g50DjbusrZWiNq',     // Hot Work Permit-03
-  WP_LIFT: '1oxR-cGv7bU6pt1lrl1qCkx8_67X28g5S',    // Lifting Activity Permit-05
-  WP_SHAFT: '1tr2XbzrGmtJ86BRE_B9nnRDpV-TSr5KY',   // Shaft work permit-06
-  WP_NIGHT: '1g_z99d2ROzrGRsAwK96tUN9Yrg7D-fwy',   // Night Work permit-07
+  WP_HEIGHT: '1RAX7rxlZ7fY3ec3sH9OGOcZyRGD4nRKkUDkgjpgOy5w',  // Working At Height Permit-04
+  WP_GENERAL: '1wekm-P4Jv3iz85gBld-dWNuSzVLjDlr05j4HzQeWamY', // General work permit-02
+  WP_HOT: '1XmYhVlBiJtK32y-IXRsX-5rxP_8ykACny4C-MuAl0HU',     // Hot Work Permit-03
+  WP_LIFT: '1EZEqr-YwsyFNdUI191MV-lehWlgQmVmb9z-oMxTygs0',    // Lifting Activity Permit-05
+  WP_SHAFT: '1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE',   // Shaft work permit-06
+  WP_NIGHT: '1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE',   // Night Work permit-07
 
   // Checklists & Equipment Inspections
   CL_WELD: '1iQC5RiaqPexVGQ1E6_8eZfns_nVPxnoy',    // SESIPL-EHS-Welding Machine (1)
@@ -46,6 +46,9 @@ const BACKEND_DOCS_TEMPLATES = {
  * checking runtime properties first and falling back to backend defaults.
  */
 function getDocTemplateId_(formCode) {
+  if (BACKEND_DOCS_TEMPLATES[formCode] && BACKEND_DOCS_TEMPLATES[formCode].trim() !== '') {
+    return BACKEND_DOCS_TEMPLATES[formCode].trim();
+  }
   let id = '';
   try {
     if (typeof getDocTemplateRegistry_ === 'function') {
@@ -53,9 +56,6 @@ function getDocTemplateId_(formCode) {
       id = (reg && reg[formCode]) || '';
     }
   } catch (e) {}
-  if (!id || id.trim() === '') {
-    id = BACKEND_DOCS_TEMPLATES[formCode] || '';
-  }
   return id ? id.trim() : '';
 }
 

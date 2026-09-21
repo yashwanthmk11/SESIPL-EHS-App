@@ -75,12 +75,12 @@ const HEADERS = {
    ========================================================= */
 const DEFAULT_DOC_TEMPLATE_REGISTRY = {
   // Work Permits
-  WP_HEIGHT: '1t-SjqzbVnBHORMCvk_bAEZYeg3M4GpYl',
-  WP_GENERAL: '1xB1mCI7UlmPBT0losFIVL2iXZFrIh6E-',
-  WP_HOT: '122BRc7qu7FWQXs06X3g50DjbusrZWiNq',
-  WP_LIFT: '1oxR-cGv7bU6pt1lrl1qCkx8_67X28g5S',
-  WP_SHAFT: '1tr2XbzrGmtJ86BRE_B9nnRDpV-TSr5KY',
-  WP_NIGHT: '1g_z99d2ROzrGRsAwK96tUN9Yrg7D-fwy',
+  WP_HEIGHT: '1RAX7rxlZ7fY3ec3sH9OGOcZyRGD4nRKkUDkgjpgOy5w',
+  WP_GENERAL: '1wekm-P4Jv3iz85gBld-dWNuSzVLjDlr05j4HzQeWamY',
+  WP_HOT: '1XmYhVlBiJtK32y-IXRsX-5rxP_8ykACny4C-MuAl0HU',
+  WP_LIFT: '1EZEqr-YwsyFNdUI191MV-lehWlgQmVmb9z-oMxTygs0',
+  WP_SHAFT: '1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE',
+  WP_NIGHT: '1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE',
 
   // Checklists & Equipment Inspections
   CL_WELD: '1iQC5RiaqPexVGQ1E6_8eZfns_nVPxnoy',
