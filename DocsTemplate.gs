@@ -17,22 +17,22 @@ const BACKEND_DOCS_TEMPLATES = {
   WP_SHAFT: '1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE',   // Shaft work permit-06
   WP_NIGHT: '1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE',   // Night Work permit-07
 
-  // Checklists & Equipment Inspections
-  CL_WELD: '1iQC5RiaqPexVGQ1E6_8eZfns_nVPxnoy',    // SESIPL-EHS-Welding Machine (1)
-  CL_GRIND: '1a1g3LBj887C6NC20DX9W1x7tl04ukSuY',   // SESIPLEHS-Grinding Machine Checklist
-  CL_CUT: '',                                      // Cutting Machine Checklist
-  CL_DRILL: '1-NMUXI9ACdSJfnuBaRrkvoGIpHEYJ0AO',   // SESIPL-EHS Drilling Machine
-  CL_FE: '1GOdBINiB8ZgbRSjGvXWT9GCmf0g0ksw5',      // SESIPL-EHS - Fire Extinguisher
-  CL_SCAFFOLD: '1fDFw_miYiWM9AcHKBbGqUtTIP-NPyVW3',// Scaffolding checklist
+  // Checklists & Equipment Inspections (awaiting native Google Doc IDs from user)
+  CL_WELD: '',
+  CL_GRIND: '',
+  CL_CUT: '',
+  CL_DRILL: '',
+  CL_FE: '',
+  CL_SCAFFOLD: '',
 
   // Attendances, Training & Inductions
-  CL_TBT: '1qCc1BzpLnof_TTaqVFVlp7WgSsaQlmUr',      // SESIPL-EHS-Tool Box Talk
-  CL_JST: '1egxHNPpQ3S8BU5EGHHLPrK0fujWAjD6P',      // SESIPL-EHS-JST Attendance sheet
-  CL_INDUCTION: '',                                // EHS Induction
+  CL_TBT: '',
+  CL_JST: '',
+  CL_INDUCTION: '',
 
   // Worker Screening & Medical
-  CL_SCREENING: '1v7WlDOPl7176yGCLWkWY6xghB3agH0Ky',// Screening of Worker Format
-  CL_MEDICAL: '1CwgjUnuPptlNYTaO3abxZEuCQo5BVLvm',  // Medical certificate-xI
+  CL_SCREENING: '',
+  CL_MEDICAL: '',
 
   // Stickers / Tags
   TAG_IND: '',

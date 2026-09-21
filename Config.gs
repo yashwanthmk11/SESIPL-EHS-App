@@ -82,22 +82,22 @@ const DEFAULT_DOC_TEMPLATE_REGISTRY = {
   WP_SHAFT: '1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE',
   WP_NIGHT: '1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE',
 
-  // Checklists & Equipment Inspections
-  CL_WELD: '1iQC5RiaqPexVGQ1E6_8eZfns_nVPxnoy',
-  CL_GRIND: '1a1g3LBj887C6NC20DX9W1x7tl04ukSuY',
+  // Checklists & Equipment Inspections (awaiting native Google Doc IDs from user)
+  CL_WELD: '',
+  CL_GRIND: '',
   CL_CUT: '',
-  CL_DRILL: '1-NMUXI9ACdSJfnuBaRrkvoGIpHEYJ0AO',
-  CL_FE: '1GOdBINiB8ZgbRSjGvXWT9GCmf0g0ksw5',
-  CL_SCAFFOLD: '1fDFw_miYiWM9AcHKBbGqUtTIP-NPyVW3',
+  CL_DRILL: '',
+  CL_FE: '',
+  CL_SCAFFOLD: '',
 
   // Attendances & Inductions
-  CL_TBT: '1qCc1BzpLnof_TTaqVFVlp7WgSsaQlmUr',
-  CL_JST: '1egxHNPpQ3S8BU5EGHHLPrK0fujWAjD6P',
+  CL_TBT: '',
+  CL_JST: '',
   CL_INDUCTION: '',
 
   // Worker Screening & Medical
-  CL_SCREENING: '1v7WlDOPl7176yGCLWkWY6xghB3agH0Ky',
-  CL_MEDICAL: '1CwgjUnuPptlNYTaO3abxZEuCQo5BVLvm',
+  CL_SCREENING: '',
+  CL_MEDICAL: '',
 
   // Stickers / Tags
   TAG_IND: '',
