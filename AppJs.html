@@ -140,7 +140,7 @@
     item.className = "toast-item " + toastType;
     item.id = toastId;
 
-    item.innerHTML = 
+    item.innerHTML =
       '<div class="toast-icon-wrap">' + (icons[toastType] || "ℹ️") + '</div>' +
       '<div class="toast-body">' +
         '<div class="toast-title">' + (titles[toastType] || "Notice") + '</div>' +
@@ -1645,7 +1645,7 @@
       );
     };
 
-    const questions = meta.fields.filter((f) => 
+    const questions = meta.fields.filter((f) =>
       f.key.startsWith('shaft_q') || f.key.startsWith('night_q') || f.key.startsWith('lift_q') || f.key.startsWith('hot_q') || f.key.startsWith('height_q')
     );
 
@@ -1682,7 +1682,7 @@
       }).join('');
     }
 
-    const specialField = 
+    const specialField =
       meta.fields.find((f) => f.key === 'workmenNames')
         ? inp('workmenNames', 'Names of workmen entering shaft', 'textarea', true, true)
         : meta.fields.find((f) => f.key === 'night_remarks')
@@ -1747,7 +1747,7 @@
             '</div>' +
           '</div>' +
 
-          (questions.length ? 
+          (questions.length ?
             '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px">' +
               '<div style="font-size:13px;font-weight:800;color:#0f766e;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:6px">⚠️ 3. Precautions Checklist (Mandatory Safety Verification)</div>' +
               '<div style="overflow-x:auto">' +
@@ -2135,7 +2135,7 @@
       '</div>' +
       '<div class="charts" style="margin-top:14px' + (canUploadRole() ? '' : ';grid-template-columns:1fr') + '">' +
       '<div class="card"' + (canUploadRole() ? '' : ' style="grid-column:1 / -1;width:100%"') + '><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Manpower Trend</b><span class="muted" style="font-size:12px">Consolidated site tracking</span></div><canvas id="dl-manpower-chart"></canvas></div>' +
-      (canUploadRole() ? 
+      (canUploadRole() ?
         '<div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
         field("date", "Date", "date") +
         field("workingHours", "Working Hours", "number") +
@@ -2223,18 +2223,21 @@
       }));
     }
 
-    $("dl-form").onsubmit = async function (ev) {
-      ev.preventDefault();
-      if (!currentProjectId()) {
-        alert("Select a project first");
-        return;
-      }
-      const fd = new FormData(this);
-      const row = { projectId: currentProjectId() };
-      fd.forEach((v, k) => (row[k] = v));
-      await run("apiSaveDailyLog", TOKEN, row);
-      await refresh();
-    };
+    const dlForm = $("dl-form");
+    if (dlForm) {
+      dlForm.onsubmit = async function (ev) {
+        ev.preventDefault();
+        if (!currentProjectId()) {
+          alert("Select a project first");
+          return;
+        }
+        const fd = new FormData(this);
+        const row = { projectId: currentProjectId() };
+        fd.forEach((v, k) => (row[k] = v));
+        await run("apiSaveDailyLog", TOKEN, row);
+        await refresh();
+      };
+    }
   }
 
   function field(name, label, type) {
@@ -2666,13 +2669,13 @@
         '</div>' +
 
         '<div style="display:flex;flex-direction:column;gap:10px">' +
-          (isExcel ? 
-            (downloadUrl ? 
+          (isExcel ?
+            (downloadUrl ?
               '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(16,124,65,0.25)">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
                 'Download Excel File (.xlsx)' +
               '</a>' : '') +
-            (url ? 
+            (url ?
               '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
                 '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
                 'Open in Google Sheets' +
@@ -2681,7 +2684,7 @@
               '📄 Export as Standard 5-Page PDF' +
             '</button>'
           :
-            (url ? 
+            (url ?
               '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#0f766e;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(15,118,110,0.25)">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
                 'Open PDF in Google Drive' +
@@ -2712,7 +2715,7 @@
       return;
     }
     const html = window.LATEST_AUDIT_EXPORT.html;
-    
+
     // Method 1: Try print popup window
     const printWin = window.open("", "_blank");
     if (printWin) {
@@ -2769,7 +2772,7 @@
     }
     const mInput = document.getElementById("dl-export-month");
     const activeMonth = monthStr || (mInput ? mInput.value : "") || new Date().toISOString().slice(0, 7);
-    
+
     setLoading(true, "Compiling 25-Column Daily Log Sheet (Daily Performance Report)...");
     try {
       const res = await run("apiExportDailyLogExcel", TOKEN, pid, activeMonth);
@@ -3065,13 +3068,13 @@
         '</div>' +
 
         '<div style="display:flex;flex-direction:column;gap:10px">' +
-          (isExcel ? 
-            (downloadUrl ? 
+          (isExcel ?
+            (downloadUrl ?
               '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(16,124,65,0.25)">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
                 'Download Excel File (.xlsx)' +
               '</a>' : '') +
-            (url ? 
+            (url ?
               '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
                 '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
                 'Open in Google Sheets' +
@@ -3080,7 +3083,7 @@
               '🖨️ Landscape Print / PDF Preview' +
             '</button>'
           :
-            (url ? 
+            (url ?
               '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#0f766e;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px;box-shadow:0 3px 10px rgba(15,118,110,0.25)">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
                 'Open PDF in Google Drive' +
@@ -3318,12 +3321,12 @@
           '</div>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:10px">' +
-          (downloadUrl ? 
+          (downloadUrl ?
             '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px">' +
               '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
               'Download Excel File (.xlsx)' +
             '</a>' : '') +
-          (url ? 
+          (url ?
             '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
               '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
               'Open in Google Sheets' +
@@ -3495,12 +3498,12 @@
           '</div>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:10px">' +
-          (downloadUrl ? 
+          (downloadUrl ?
             '<a href="' + esc(downloadUrl) + '" target="_blank" rel="noopener noreferrer" class="btn" style="background:#107c41;color:#fff;padding:12px 18px;font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border-radius:8px">' +
               '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' +
               'Download Excel File (.xlsx)' +
             '</a>' : '') +
-          (url ? 
+          (url ?
             '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="padding:11px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">' +
               '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
               'Open in Google Sheets' +
@@ -3508,6 +3511,8 @@
         '</div>' +
       '</div>';
     showModal(modalHtml);
+  }
+
   async function exportMovementExcel() {
     setLoading(true, "Compiling Slide 13 Sharav Fab Scaffold Movement Tracker...");
     try {
@@ -3661,7 +3666,7 @@
       { id: 'R', name: 'PPES', max: 30, actual: 18, pct: '60%' }
     ];
 
-    const topHeaderHtml = 
+    const topHeaderHtml =
       '<div class="card" style="border:1.5px solid #cbd5e1;border-radius:12px;padding:16px 20px;margin-bottom:16px;background:#ffffff">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-bottom:1.5px solid #e2e8f0;padding-bottom:14px;margin-bottom:14px">' +
           '<div style="display:flex;align-items:center;gap:14px">' +
@@ -3704,7 +3709,7 @@
         '</div>' +
       '</div>';
 
-    const kpiHtml = 
+    const kpiHtml =
       '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;margin-bottom:16px">' +
         '<div class="card" style="padding:14px 18px;border-left:4px solid #0f766e;background:#ffffff">' +
           '<div class="muted" style="font-size:11.5px;font-weight:700">TOTAL SCORE</div>' +
@@ -3731,7 +3736,7 @@
       '</div>';
 
     window.AUDIT_ACTIVE_TAB = window.AUDIT_ACTIVE_TAB || "SUMMARY";
-    const subTabsHtml = 
+    const subTabsHtml =
       '<div class="sub-tabs-bar" style="margin-bottom:14px">' +
         '<button type="button" class="sub-tab-btn' + (window.AUDIT_ACTIVE_TAB === "SUMMARY" ? ' active' : '') + '" onclick="window.AUDIT_ACTIVE_TAB=\'SUMMARY\';renderAudits()">' +
           '📊 Executive Summary Scorecard (Page 5 Standard)' +
@@ -3782,7 +3787,7 @@
           '</tr>';
       });
 
-      contentHtml = 
+      contentHtml =
         '<div class="card" style="padding:18px;background:#ffffff">' +
           '<div style="background:#f1f5f9;border:1px solid #cbd5e1;border-bottom:none;border-radius:8px 8px 0 0;padding:8px 12px;font-size:11.5px;font-weight:700;color:#334155;text-align:center">' +
             'ℹ️ Scoring Legend: 0 - Major NC; 1 - Minor NC; 2 - Partial Compliance; 3 - Full Compliance; NA - Not Applicable' +
@@ -3821,7 +3826,7 @@
     } else if (window.AUDIT_ACTIVE_TAB === "CHECKLIST") {
       let checklistHtml = '';
       sections.forEach((sec) => {
-        checklistHtml += 
+        checklistHtml +=
           '<div class="card" style="margin-bottom:12px;padding:14px 18px;background:#ffffff;border:1px solid #e2e8f0">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f1f5f9;padding-bottom:8px;margin-bottom:10px">' +
               '<div style="font-weight:800;font-size:13.5px;color:#0f172a">' +
@@ -3842,7 +3847,7 @@
       window.AUDIT_CH_FILTER = window.AUDIT_CH_FILTER || "ALL";
       const f = window.AUDIT_CH_FILTER;
 
-      const actionsBarHtml = 
+      const actionsBarHtml =
         '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
         '  <div>' +
         '    <strong style="font-size:15px;color:#0f172a">SESIPL Audit Channel & Continuity (Slide Standard)</strong>' +
@@ -3858,7 +3863,7 @@
         '    <button class="btn secondary" style="font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openRevisionChecklistModal()">' +
         '      ⚙️ Revise Checklist' +
         '    </button>' +
-        (canUploadRole() ? 
+        (canUploadRole() ?
         '    <button class="btn" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openNewAuditObservationModal()">' +
         '      ➕ Log Site Observation' +
         '    </button>' : '') +
@@ -3866,7 +3871,7 @@
         '</div>';
 
       // Audit Status Pie Chart & Compliance Statistics matching media_1789964133444.png
-      const pieChartHtml = 
+      const pieChartHtml =
         '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;margin-bottom:18px">' +
         '  <!-- Pie Chart Visual Card -->' +
         '  <div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;padding:18px">' +
@@ -3995,7 +4000,7 @@
         return true;
       });
 
-      const filterBarHtml = 
+      const filterBarHtml =
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
         '  <span style="font-size:12px;font-weight:700;color:#64748b">Filter Observed Points:</span>' +
         '  <button class="cal-filter-pill' + (f === "ALL" ? " active" : "") + '" onclick="window.AUDIT_CH_FILTER=\'ALL\';renderAudits()">All Points (' + obsItems.length + ')</button>' +
@@ -4017,7 +4022,7 @@
         const obsImg = obs.unsafeImg || (obs.unsafeFileId ? ('https://drive.google.com/thumbnail?id=' + obs.unsafeFileId + '&sz=w600') : 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500&auto=format&fit=crop&q=60');
         const rectImg = obs.rectifiedImg || (obs.rectifiedFileId ? ('https://drive.google.com/thumbnail?id=' + obs.rectifiedFileId + '&sz=w600') : (s === "CLOSED" ? 'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=500&auto=format&fit=crop&q=60' : ''));
 
-        cardsHtml += 
+        cardsHtml +=
           '<div class="card" style="background:#ffffff;border:1.5px solid #e2e8f0;margin-bottom:14px;padding:16px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.03)">' +
           '  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #f1f5f9;padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
           '    <div>' +
@@ -4035,7 +4040,7 @@
           '      </div>' +
           '      <div style="flex:1;text-align:center">' +
           '        <div style="font-size:10.5px;font-weight:700;color:#16a34a;margin-bottom:4px">Target Close / Evidence</div>' +
-          (rectImg ? 
+          (rectImg ?
             '        <img src="' + esc(rectImg) + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1" onerror="this.onerror=null;this.src=\'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=500&auto=format&fit=crop&q=60\'">' :
             '        <div style="width:100%;height:110px;border:1.5px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;background:#f8fafc">Pending Proof</div>') +
           '      </div>' +
@@ -4046,7 +4051,7 @@
           '      <div><span class="muted">Target Date:</span> <b>' + esc(obs.targetDate || obs.dueAt || "13-05-2023") + '</b></div>' +
           '      <div><span class="muted">Person Responsible:</span> <b style="color:#0369a1">' + esc(obs.responsible || obs.auditedBy || "Chethan") + '</b></div>' +
           '      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">' +
-          (s !== "CLOSED" ? 
+          (s !== "CLOSED" ?
             '        <button class="btn small" style="background:#16a34a;color:#fff;font-weight:700" onclick="openCloseObservationModal(\'' + esc(obs.id) + '\')">Mark Corrected &amp; Closed</button>' : '') +
           '        <button class="btn secondary small" onclick="sendObservationReminder(\'' + esc(obs.id) + '\',\'' + esc(obs.responsible || "Concerned Engineer") + '\')">📢 Send Direct Reminder</button>' +
           '      </div>' +
@@ -4070,7 +4075,7 @@
     const pId = currentProjectId();
     const projOptions = projects.map(p => '<option value="' + esc(p.id) + '"' + (pId === p.id ? ' selected' : '') + '>' + esc(p.name) + ' (' + esc(p.code) + ')</option>').join('');
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:540px;margin:0 auto;text-align:left">' +
       '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
       '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">📅 Schedule Periodic EHS Audit</h3>' +
@@ -4154,7 +4159,7 @@
   window.sendAuditRemindersNow = sendAuditRemindersNow;
 
   function openRevisionChecklistModal() {
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:520px;margin:0 auto;text-align:left">' +
       '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
       '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">⚙️ Revise Audit Checklist Standard</h3>' +
@@ -4219,7 +4224,7 @@
     const proj = currentProject() || (STATE.projects && STATE.projects[0]);
     if (!proj) { showToast("Select a project first.", "warning"); return; }
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:520px;margin:0 auto;text-align:left">' +
       '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
       '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">➕ Log Site Observation / NC</h3>' +
@@ -4285,7 +4290,7 @@
   window.openNewAuditObservationModal = openNewAuditObservationModal;
 
   function openCloseObservationModal(obsId) {
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:480px;margin:0 auto;text-align:left">' +
       '  <h3 style="margin:0 0 6px 0;font-size:18px;color:#0f172a;font-weight:900">Mark Corrected &amp; Closed</h3>' +
       '  <p class="muted" style="margin:0 0 14px 0;font-size:12.5px">Record target closure verification and upload proof.</p>' +
@@ -4372,7 +4377,7 @@
         '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
         '      Export PPE Register (Excel)' +
         '    </button>' +
-        (canUploadRole() ? 
+        (canUploadRole() ?
           '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openPpeEntryModal()">' +
           '      + Log Stock Receipt / Issue' +
           '    </button>' : '') +
@@ -4675,7 +4680,7 @@
         '      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>' +
         '      Export Movement Tracker (Excel)' +
         '    </button>' +
-        (canUploadRole() ? 
+        (canUploadRole() ?
           '    <button class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;font-weight:700" onclick="openMovementEntryModal()">' +
           '      + Log Scaffold Movement' +
           '    </button>' : '') +
@@ -4801,7 +4806,7 @@
       return '<button type="button" class="sub-tab-btn' + (isAct ? ' active' : '') + '" onclick="window.GALLERY_FILTER=\'' + cat.key + '\';renderGallery()">' + esc(cat.label) + ' (' + cnt + ')</button>';
     }).join("") + '</div>';
 
-    const toolbar = 
+    const toolbar =
       '<div class="gal-toolbar">' +
         '<div class="gal-toolbar-left">' +
           '<div class="gal-search-wrap">' +
@@ -4819,7 +4824,7 @@
 
     let cardsHtml = '';
     if (!filtered.length) {
-      cardsHtml = 
+      cardsHtml =
         '<div class="card" style="text-align:center;padding:48px 16px;grid-column:1/-1;">' +
           '<div style="font-size:38px;margin-bottom:8px">🖼️</div>' +
           '<h4>No media found</h4>' +
@@ -4833,7 +4838,7 @@
         const proj = (STATE.projects || []).find(p => p.id === g.projectId);
         const projName = proj ? (proj.name || proj.code) : g.projectId;
         const isVideo = (g.mimeType && g.mimeType.toLowerCase().includes("video")) || (g.title && g.title.toLowerCase().endsWith(".mp4"));
-        
+
         let thumb = g.thumbUrl;
         if (!thumb) {
           if (g.fileId && !String(g.fileId).startsWith("http")) {
@@ -4995,7 +5000,7 @@
 
     const canDelete = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER" || g.uploadedBy === USER.employeeId;
 
-    existing.innerHTML = 
+    existing.innerHTML =
       '<div class="gal-lightbox-topbar">' +
         '<div class="gal-lightbox-topbar-left">' +
           '<span class="pill">' + esc(cat) + '</span>' +
@@ -5039,7 +5044,7 @@
     const proj = currentProject();
     const canBroadcast = USER.role === "DIRECTOR" || USER.role === "EHS_MANAGER";
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:520px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
           '<h3 style="margin:0 0 4px">Upload to Photo &amp; Media Gallery</h3>' +
@@ -5251,7 +5256,7 @@
     window.TRAINING_TAB = window.TRAINING_TAB || "CALENDAR";
     const curTab = window.TRAINING_TAB;
 
-    const subTabsHtml = 
+    const subTabsHtml =
       '<div class="sub-tabs-bar" style="margin-bottom:14px">' +
         '<button type="button" class="sub-tab-btn' + (curTab === "CALENDAR" ? ' active' : '') + '" onclick="window.TRAINING_TAB=\'CALENDAR\';renderCalendar()">' +
           '🗓️ Project Wise Training Calendar' +
@@ -5271,14 +5276,14 @@
 
       const canManage = canUploadRole();
 
-      const topBarHtml = 
+      const topBarHtml =
         '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
         '  <div>' +
         '    <strong style="font-size:15px;color:#0f172a">Training Materials Hub (Slide 13 Standard)</strong>' +
         '    <p class="muted" style="margin:2px 0 0;font-size:12px">Central repository for Safe Work Procedures, Brochures, Training Videos, Presentations &amp; Attendance Sheets</p>' +
         '  </div>' +
         '  <div>' +
-        (canManage ? 
+        (canManage ?
           '    <button class="btn" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="openUploadTrainingMaterialModal()">' +
           '      ➕ Upload Training Material / Document' +
           '    </button>' : '') +
@@ -5293,9 +5298,9 @@
         { id: "RECORD", label: "📊 Reports, PPT & Attendance Sheets" }
       ];
 
-      const matFilterBarHtml = 
+      const matFilterBarHtml =
         '<div class="cal-filter-bar" style="margin-bottom:16px">' +
-          matFilters.map(c => 
+          matFilters.map(c =>
             '<button type="button" class="cal-filter-pill' + (mf === c.id ? ' active' : '') + '" onclick="window.MAT_CAT_FILTER=\'' + c.id + '\';renderCalendar()">' + c.label + '</button>'
           ).join('') +
         '</div>';
@@ -5438,7 +5443,7 @@
         return m.kind === mf;
       });
 
-      const cardsGridHtml = 
+      const cardsGridHtml =
         '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px">' +
           filteredMats.map(m => {
             const isVideo = m.kind === "VIDEO";
@@ -5455,7 +5460,7 @@
               '  <div style="border-top:1px solid #f1f5f9;padding-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#64748b">' +
               '    <span>👥 ' + esc(m.dept) + '</span>' +
               '    <div style="display:flex;gap:6px">' +
-              (isVideo ? 
+              (isVideo ?
                 '      <button class="btn small" style="background:#7c3aed;color:#fff;font-weight:700;padding:4px 10px" onclick="openTrainingVideoModal(\'' + esc(m.url) + '\',\'' + esc(m.title) + '\')">▶ Play</button>' :
                 '      <a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;padding:4px 10px;text-decoration:none">View / Open ↗</a>') +
               '    </div>' +
@@ -5514,7 +5519,7 @@
         }
       ];
 
-      const topBarHtml = 
+      const topBarHtml =
         '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
         '  <div>' +
         '    <strong style="font-size:15px;color:#0f172a">Pending Tasks &amp; Reminder Dispatch (Slide 13 Standard)</strong>' +
@@ -5527,7 +5532,7 @@
         '  </div>' +
         '</div>';
 
-      const tasksListHtml = 
+      const tasksListHtml =
         '<div style="display:flex;flex-direction:column;gap:12px">' +
           pendingTasks.map(t => {
             return (
@@ -5607,7 +5612,7 @@
     ];
     const monthTitle = monthNames[month] + " " + year;
 
-    const statBarHtml = 
+    const statBarHtml =
       '<div class="cal-stat-bar">' +
         '<div class="cal-stat-card">' +
           '<div class="cal-stat-icon">🎓</div>' +
@@ -5643,7 +5648,7 @@
     const prjOptions = '<option value="*">All Project Sites (Company Wide)</option>' +
       projects.map(p => '<option value="' + esc(p.id) + '"' + (curPrj === p.id ? ' selected' : '') + '>' + esc(p.name) + ' (' + esc(p.code) + ')</option>').join('');
 
-    const projectFilterBarHtml = 
+    const projectFilterBarHtml =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;background:#f8fafc;padding:10px 16px;border-radius:8px;border:1px solid #cbd5e1;flex-wrap:wrap;gap:10px">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<span style="font-size:13px;font-weight:800;color:#0f172a">📍 Project Wise Calendar (Slide 13):</span>' +
@@ -5656,7 +5661,7 @@
         '</div>' +
       '</div>';
 
-    const topbarHtml = 
+    const topbarHtml =
       '<div class="cal-topbar">' +
         '<div class="cal-nav-group">' +
           '<button type="button" class="cal-nav-btn" onclick="navCalendarMonth(-1)">◀ Prev</button>' +
@@ -5683,9 +5688,9 @@
       { id: "CONF", label: "🕳️ Confined Space" },
       { id: "CHEM", label: "🧪 Chemical Safety" }
     ];
-    const filterBarHtml = 
+    const filterBarHtml =
       '<div class="cal-filter-bar">' +
-        categories.map((c) => 
+        categories.map((c) =>
           '<button type="button" class="cal-filter-pill' + (f === c.id ? ' active' : '') + '" onclick="window.CALENDAR_FILTER=\'' + c.id + '\';renderCalendar()">' + c.label + '</button>'
         ).join('') +
       '</div>';
@@ -5695,7 +5700,7 @@
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const daysInMonth = lastDay.getDate();
-      
+
       const startDayIndex = (firstDay.getDay() + 6) % 7;
       const prevMonthLastDay = new Date(year, month, 0).getDate();
 
@@ -5706,7 +5711,7 @@
 
       for (let i = startDayIndex - 1; i >= 0; i--) {
         const dNum = prevMonthLastDay - i;
-        cellsHtml += 
+        cellsHtml +=
           '<div class="cal-day-cell other-month">' +
             '<div class="cal-cell-header">' +
               '<span class="cal-day-num">' + dNum + '</span>' +
@@ -5741,7 +5746,7 @@
 
         const clickAttr = canManage ? ' onclick="openScheduleTrainingModal(\'' + cellDate + '\')"' : '';
 
-        cellsHtml += 
+        cellsHtml +=
           '<div class="cal-day-cell' + (isToday ? ' today' : '') + '"' + clickAttr + ' title="' + (canManage ? 'Click to schedule training on ' + cellDate : cellDate) + '">' +
             '<div class="cal-cell-header">' +
               '<span class="cal-day-num">' + d + '</span>' +
@@ -5755,7 +5760,7 @@
       const totalCellsNeeded = Math.ceil(totalCellsFilled / 7) * 7;
       const trailingDays = totalCellsNeeded - totalCellsFilled;
       for (let t = 1; t <= trailingDays; t++) {
-        cellsHtml += 
+        cellsHtml +=
           '<div class="cal-day-cell other-month">' +
             '<div class="cal-cell-header">' +
               '<span class="cal-day-num">' + t + '</span>' +
@@ -5763,7 +5768,7 @@
           '</div>';
       }
 
-      contentHtml = 
+      contentHtml =
         '<div class="cal-grid-card">' +
           '<div class="cal-grid-matrix">' + gridHeadHtml + cellsHtml + '</div>' +
         '</div>';
@@ -5819,7 +5824,7 @@
 
       let agendaHtml = '';
       if (todayItems.length > 0) {
-        agendaHtml += 
+        agendaHtml +=
           '<div class="cal-agenda-section">' +
             '<div class="cal-agenda-sec-title">🚨 Today\'s Training Sessions (' + todayItems.length + ')</div>' +
             todayItems.map((t) => renderAgendaCard(t, true)).join('') +
@@ -5827,7 +5832,7 @@
       }
 
       if (upcomingItems.length > 0) {
-        agendaHtml += 
+        agendaHtml +=
           '<div class="cal-agenda-section" style="margin-top:10px">' +
             '<div class="cal-agenda-sec-title">⏳ Upcoming Scheduled Sessions (' + upcomingItems.length + ')</div>' +
             upcomingItems.map((t) => renderAgendaCard(t, false)).join('') +
@@ -5835,7 +5840,7 @@
       }
 
       if (pastItems.length > 0) {
-        agendaHtml += 
+        agendaHtml +=
           '<div class="cal-agenda-section" style="margin-top:10px">' +
             '<div class="cal-agenda-sec-title" style="color:#64748b">✅ Completed &amp; Past Records (' + pastItems.length + ')</div>' +
             pastItems.map((t) => renderAgendaCard(t, false)).join('') +
@@ -5843,7 +5848,7 @@
       }
 
       if (!sorted.length) {
-        agendaHtml = 
+        agendaHtml =
           '<div class="card" style="text-align:center;padding:48px 16px;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0">' +
             '<div style="font-size:42px;margin-bottom:8px">🎓</div>' +
             '<h3 style="margin:0 0 6px">No training sessions found</h3>' +
@@ -5855,14 +5860,14 @@
       contentHtml = '<div class="cal-agenda-wrap">' + agendaHtml + '</div>';
     }
 
-    $("view").innerHTML = 
-      '<div class="cal-wrap">' + 
-        subTabsHtml + 
-        statBarHtml + 
-        projectFilterBarHtml + 
-        topbarHtml + 
-        filterBarHtml + 
-        contentHtml + 
+    $("view").innerHTML =
+      '<div class="cal-wrap">' +
+        subTabsHtml +
+        statBarHtml +
+        projectFilterBarHtml +
+        topbarHtml +
+        filterBarHtml +
+        contentHtml +
       '</div>';
   }
   window.renderCalendar = renderCalendar;
@@ -5871,7 +5876,7 @@
      TRAINING HUB MODALS & ACTIONS (Slide Standard)
      ========================================================= */
   function openUploadTrainingMaterialModal() {
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:520px;margin:0 auto;text-align:left">' +
       '  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
       '    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a">➕ Upload Training Material / Document</h3>' +
@@ -5953,7 +5958,7 @@
   window.sendTrainingReminderToDept = sendTrainingReminderToDept;
 
   function openTrainingVideoModal(videoUrl, title) {
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:680px;margin:0 auto;text-align:left">' +
       '  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
       '    <h3 style="margin:0;font-size:16px;color:#0f172a;font-weight:800">🎥 ' + esc(title || "Training Video Player") + '</h3>' +
@@ -6007,7 +6012,7 @@
     const presetOptions = '<option value="">-- Choose from Standard Safety Modules --</option>' +
       TRAINING_PRESETS.map((p, idx) => '<option value="' + idx + '">' + p.icon + ' ' + esc(p.title) + '</option>').join('');
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:560px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
           '<h3 style="margin:0 0 4px;font-size:18px;display:flex;align-items:center;gap:8px">🎓 Schedule Safety Training Session</h3>' +
@@ -6104,7 +6109,7 @@
     const proj = (STATE.projects || []).find((p) => p.id === t.projectId);
     const canManage = USER.role === "EHS_MANAGER" || USER.role === "DIRECTOR" || USER.role === "ASST_EHS_MANAGER";
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:520px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:14px;margin-bottom:16px">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
@@ -6131,7 +6136,7 @@
             '<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-top:2px">' + esc(t.owner || 'Safety Faculty') + '</div>' +
           '</div>' +
         '</div>' +
-        (t.notes ? 
+        (t.notes ?
           '<div style="margin-bottom:16px">' +
             '<div style="font-size:11.5px;font-weight:700;color:#475569;margin-bottom:4px">📝 Learning Objectives &amp; Syllabus:</div>' +
             '<div style="font-size:13px;color:#334155;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;line-height:1.4">' + esc(t.notes) + '</div>' +
@@ -6173,7 +6178,7 @@
     const t = (STATE.training || []).find((x) => x.id === trainingId);
     if (!t) return;
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:440px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #fee2e2;padding-bottom:12px;margin-bottom:16px">' +
           '<h3 style="margin:0 0 4px;font-size:18px;color:#b91c1c;display:flex;align-items:center;gap:8px">🗑️ Remove Training Session?</h3>' +
@@ -6283,7 +6288,7 @@
       return n.includes(q) || c.includes(q) || cl.includes(q) || pmc.includes(q) || r.includes(q);
     });
 
-    const embeddedStyles = 
+    const embeddedStyles =
       '<style id="proj-injected-styles">' +
         '.proj-stat-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }' +
         '.proj-stat-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05); }' +
@@ -6314,7 +6319,7 @@
         '.proj-card-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid #f1f5f9; gap: 8px; flex-wrap: wrap; margin-top: auto; }' +
       '</style>';
 
-    const statBarHtml = 
+    const statBarHtml =
       '<div class="proj-stat-bar">' +
         '<div class="proj-stat-card">' +
           '<div class="proj-stat-icon">🏗️</div>' +
@@ -6346,22 +6351,22 @@
         '</div>' +
       '</div>';
 
-    const regionButtonsHtml = 
+    const regionButtonsHtml =
       '<div class="proj-pill-group">' +
         '<button type="button" class="proj-pill-btn ' + (rFilter === "ALL" ? "active" : "") + '" onclick="window.PROJECT_REGION_FILTER=\'ALL\';renderProjects()">All Regions</button>' +
-        regions.map((r) => 
+        regions.map((r) =>
           '<button type="button" class="proj-pill-btn ' + (rFilter.toLowerCase() === r.toLowerCase() ? "active" : "") + '" onclick="window.PROJECT_REGION_FILTER=\'' + esc(r) + '\';renderProjects()">' + esc(r) + '</button>'
         ).join("") +
       '</div>';
 
-    const statusButtonsHtml = 
+    const statusButtonsHtml =
       '<div class="proj-pill-group">' +
         '<button type="button" class="proj-pill-btn ' + (sFilter === "ALL" ? "active" : "") + '" onclick="window.PROJECT_STATUS_FILTER=\'ALL\';renderProjects()">All Status</button>' +
         '<button type="button" class="proj-pill-btn ' + (sFilter === "RUNNING" ? "active" : "") + '" onclick="window.PROJECT_STATUS_FILTER=\'RUNNING\';renderProjects()">Running</button>' +
         '<button type="button" class="proj-pill-btn ' + (sFilter === "UPCOMING" ? "active" : "") + '" onclick="window.PROJECT_STATUS_FILTER=\'UPCOMING\';renderProjects()">Upcoming</button>' +
       '</div>';
 
-    const filterBarHtml = 
+    const filterBarHtml =
       '<div class="proj-filter-bar">' +
         '<div class="proj-filter-left">' +
           '<div class="gal-search-wrap" style="max-width:320px;flex:1">' +
@@ -6381,7 +6386,7 @@
 
     let cardsHtml = '';
     if (!filtered.length) {
-      cardsHtml = 
+      cardsHtml =
         '<div class="card" style="text-align:center;padding:48px 16px;grid-column:1/-1;background:#fff;border-radius:12px;border:1px solid #e2e8f0">' +
           '<div style="font-size:42px;margin-bottom:8px">🏗️</div>' +
           '<h3 style="margin:0 0 6px">No project sites found</h3>' +
@@ -6390,15 +6395,15 @@
           (canAdd ? ' <button type="button" class="btn small" onclick="openAddProjectModal()">+ Add New Project</button>' : '') +
         '</div>';
     } else {
-      cardsHtml = 
+      cardsHtml =
         '<div class="proj-grid">' +
           filtered.map((p) => {
             const status = String(p.status || "RUNNING").toUpperCase();
             const statusColor = status === "RUNNING" ? "pill approved" : (status === "UPCOMING" ? "pill open" : "pill");
-            const areaFormatted = p.areaSqft && !isNaN(Number(p.areaSqft)) 
-              ? Number(p.areaSqft).toLocaleString("en-IN") + " sq.ft" 
+            const areaFormatted = p.areaSqft && !isNaN(Number(p.areaSqft))
+              ? Number(p.areaSqft).toLocaleString("en-IN") + " sq.ft"
               : (p.areaSqft || "TBD");
-            const durationDisplay = (p.startDate ? displayDate(p.startDate) : "Active") + 
+            const durationDisplay = (p.startDate ? displayDate(p.startDate) : "Active") +
               (p.projectDuration ? ' (' + esc(p.projectDuration) + ')' : '');
 
             return (
@@ -6440,7 +6445,7 @@
                       '<div class="proj-meta-item-val" title="' + esc(p.poNo || 'Pending / Internal') + '">' + esc(p.poNo || 'Pending / Internal') + '</div>' +
                     '</div>' +
                   '</div>' +
-                  (canAdd ? 
+                  (canAdd ?
                     '<div class="proj-mgmt-row">' +
                       '<button type="button" class="proj-mgmt-btn edit" onclick="openEditProjectModal(\'' + esc(p.id) + '\')">✏️ Edit Site</button>' +
                       '<button type="button" class="proj-mgmt-btn delete" onclick="confirmDeleteProject(\'' + esc(p.id) + '\')">🗑️ Delete Site</button>' +
@@ -6470,7 +6475,7 @@
     const leads = (STATE.users || []).filter((u) => u.role === "EHS_LEAD" && u.active !== "FALSE");
     const leadOptions = '<option value="">-- Optional: Assign Primary Lead --</option>' + leads.map((l) => '<option value="' + esc(l.employeeId) + '">' + esc(l.name) + ' (' + esc(l.employeeId) + ')</option>').join("");
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:640px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
           '<h3 style="margin:0 0 4px;font-size:18px;display:flex;align-items:center;gap:8px">🏗️ Add New Corporate Project</h3>' +
@@ -6598,20 +6603,20 @@
     }
 
     const leads = (STATE.users || []).filter((u) => u.role === "EHS_LEAD" && u.active !== "FALSE");
-    const leadOptions = '<option value="">-- Keep Current / None --</option>' + leads.map((l) => 
+    const leadOptions = '<option value="">-- Keep Current / None --</option>' + leads.map((l) =>
       '<option value="' + esc(l.employeeId) + '">' + esc(l.name) + ' (' + esc(l.employeeId) + ')</option>'
     ).join("");
 
     const regionList = ["Bangalore", "Chennai", "Hyderabad", "Mumbai", "Delhi-NCR", "Pune", "Kolkata", "Other"];
     const curRegion = (p.region || "").toLowerCase();
-    const regionOptions = regionList.map((r) => 
+    const regionOptions = regionList.map((r) =>
       '<option value="' + esc(r) + '"' + (curRegion === r.toLowerCase() ? ' selected' : '') + '>' + esc(r) + '</option>'
     ).join("");
 
     const statusVal = String(p.status || "RUNNING").toUpperCase();
     const cleanDate = (d) => String(d || "").split(" ")[0].split("T")[0];
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:640px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">' +
           '<h3 style="margin:0 0 4px;font-size:18px;display:flex;align-items:center;gap:8px">✏️ Edit Corporate Project Site</h3>' +
@@ -6705,7 +6710,7 @@
       return;
     }
 
-    const modalHtml = 
+    const modalHtml =
       '<div style="max-width:480px;margin:0 auto;text-align:left">' +
         '<div style="border-bottom:1px solid #fee2e2;padding-bottom:12px;margin-bottom:16px">' +
           '<h3 style="margin:0 0 4px;font-size:18px;color:#b91c1c;display:flex;align-items:center;gap:8px">🗑️ Delete Project Site?</h3>' +
@@ -7213,7 +7218,7 @@
 
     let timelineHtml = '';
     if (!comments.length) {
-      timelineHtml = 
+      timelineHtml =
         '<div class="comments-empty" id="comments-empty-placeholder">' +
           '<div class="comments-empty-icon">💬</div>' +
           '<div class="comments-empty-title">No comments yet</div>' +
@@ -7231,11 +7236,11 @@
       '📋 Checklist verified by PMC team'
     ];
 
-    const cannedHtml = cannedChips.map(chip => 
+    const cannedHtml = cannedChips.map(chip =>
       '<button type="button" class="comment-canned-chip" data-canned="' + esc(chip) + '" onclick="insertCannedComment(this.getAttribute(\'data-canned\'))">' + esc(chip) + '</button>'
     ).join('');
 
-    const html = 
+    const html =
       '<div class="comments-modal">' +
         '<div class="comments-head">' +
           '<div class="comments-title-wrap">' +
@@ -7398,7 +7403,7 @@
       }
       const timeline = $('comments-timeline-container');
       if (timeline && !timeline.children.length) {
-        timeline.innerHTML = 
+        timeline.innerHTML =
           '<div class="comments-empty" id="comments-empty-placeholder">' +
             '<div class="comments-empty-icon">💬</div>' +
             '<div class="comments-empty-title">No comments yet</div>' +
@@ -7429,7 +7434,7 @@
         "⏳ Expired equipment calibration / operator license",
         "📋 Incomplete safety checklist observations or rectifications"
       ];
-      const presetHtml = rejectionPresets.map(p => 
+      const presetHtml = rejectionPresets.map(p =>
         '<button type="button" class="review-reason-pill" data-preset="' + esc(p) + '" onclick="selectReviewPreset(this.getAttribute(\'data-preset\'))">' + esc(p) + '</button>'
       ).join('');
 
@@ -7455,7 +7460,7 @@
               '<span>Send back to Lead with notes</span>' +
             '</button>' +
           '</div>' +
-          (!isApprove ? 
+          (!isApprove ?
             '<div class="review-reasons-wrap">' +
               '<div class="review-reasons-title">Quick Rejection Reason Presets:</div>' +
               '<div class="review-reasons-grid">' + presetHtml + '</div>' +
