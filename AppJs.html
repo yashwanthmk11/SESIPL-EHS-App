@@ -2103,6 +2103,9 @@
     const totalSafeHoursWorked = rows.reduce((a, r) => a + Number(r.safeManHours || r.totalManHours || 0), 0);
     const latestCumSafe = rows.length ? Number(rows[rows.length - 1].cumSafeManHours || totalSafeHoursWorked) : totalSafeHoursWorked;
     const currMonthStr = rows.length ? String(rows[rows.length - 1].date || '').slice(0, 7) : new Date().toISOString().slice(0, 7);
+    const totalInductions = rows.reduce((a, r) => a + Number(r.inductions || 0), 0);
+    const totalTbtPersons = rows.reduce((a, r) => a + Number(r.tbtPersons || 0), 0);
+    const avgDailyMp = rows.length ? Math.round((totalStaff + totalWorkers) / rows.length) : (totalStaff + totalWorkers);
 
     $("view").innerHTML =
       '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:12px;background:#f8fafc;border:1.5px solid #cbd5e1">' +
@@ -2133,8 +2136,13 @@
       kpi(latestCumSafe.toLocaleString('en-IN') + ' hrs', "Cumulative Safe Hours") +
       kpi('<span class="badge-zeroharm">0 LTI</span>', "Accident Benchmark") +
       '</div>' +
-      '<div class="charts" style="margin-top:14px' + (canUploadRole() ? '' : ';grid-template-columns:1fr') + '">' +
-      '<div class="card"' + (canUploadRole() ? '' : ' style="grid-column:1 / -1;width:100%"') + '><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Manpower Trend</b><span class="muted" style="font-size:12px">Consolidated site tracking</span></div><canvas id="dl-manpower-chart"></canvas></div>' +
+      '<div class="charts" style="margin-top:14px">' +
+      '<div class="card" style="display:flex;flex-direction:column;align-items:center">' +
+      '  <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Manpower Trend</b><span class="muted" style="font-size:12px">Consolidated site tracking</span></div>' +
+      '  <div style="width:100%;max-width:260px;max-height:190px;margin:6px auto;position:relative;display:flex;justify-content:center">' +
+      '    <canvas id="dl-manpower-chart" style="max-height:180px;max-width:100%"></canvas>' +
+      '  </div>' +
+      '</div>' +
       (canUploadRole() ?
         '<div class="card"><h3>Daily Entry Form (Slide 8 Standard)</h3><form id="dl-form" class="form-grid">' +
         field("date", "Date", "date") +
@@ -2161,7 +2169,20 @@
         field("verifiedBy", "Report Verified By", "text") +
         field("approvedBy", "Report Approved By", "text") +
         '<div class="full"><label>Remarks</label><input name="remarks" placeholder="Site housekeeping, equipment inspection notes..."></div>' +
-        '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div>' : '') +
+        '<div class="full"><button class="btn small">Save Daily Log Record</button></div></form></div>' :
+        '<div class="card" style="display:flex;flex-direction:column;justify-content:center">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+            '<strong style="font-size:15px;color:#0f172a">Performance &amp; Safety Highlights</strong>' +
+            '<span class="badge-zeroharm" style="font-size:11px">Zero-Harm Target</span>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px">' +
+            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Staff Logged</div><strong style="font-size:16px;color:#0f172a">' + totalStaff + '</strong></div>' +
+            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Total Workers Logged</div><strong style="font-size:16px;color:#0f172a">' + totalWorkers + '</strong></div>' +
+            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Avg Daily Manpower</div><strong style="font-size:16px;color:#0f172a">' + avgDailyMp + '</strong></div>' +
+            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0"><div class="muted" style="font-size:11px">Safety Inductions</div><strong style="font-size:16px;color:#0f766e">' + totalInductions + '</strong></div>' +
+            '<div style="background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0;grid-column:1/-1"><div class="muted" style="font-size:11px">TBT Persons Trained</div><strong style="font-size:16px;color:#0f766e">' + totalTbtPersons + ' personnel</strong></div>' +
+          '</div>' +
+        '</div>') +
       '</div>' +
       '<div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>Daily Performance Log Records</h3><span class="badge-zeroharm">Zero-Harm (0 LTI)</span></div>' +
       '<div class="table-responsive-wrap"><table><thead><tr>' +
@@ -2213,12 +2234,26 @@
           labels: recent.length ? recent.map(r => displayDate(r.date)) : ["Staff", "Workers"],
           datasets: [{
             data: recent.length ? recent.map(r => Number(r.totalManpower || 0)) : [totalStaff || 6, totalWorkers || 48],
-            backgroundColor: ["#147d6f", "#efb84b", "#0284c7", "#16a34a", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#10b981", "#6366f1"]
+            backgroundColor: ["#147d6f", "#efb84b", "#0284c7", "#16a34a", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#10b981", "#6366f1"],
+            borderWidth: 2
           }]
         },
         options: {
           responsive: true,
-          plugins: { title: { display: true, text: "Average Manpower Distribution (Slide 8)" } }
+          maintainAspectRatio: true,
+          cutout: "60%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { boxWidth: 10, padding: 6, font: { size: 10 } }
+            },
+            title: {
+              display: true,
+              text: "Average Manpower Distribution (Slide 8)",
+              font: { size: 11, weight: "bold" },
+              padding: { top: 2, bottom: 4 }
+            }
+          }
         }
       }));
     }
