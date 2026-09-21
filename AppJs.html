@@ -12,8 +12,20 @@
     "apiDeleteUploadedFile",
     "apiSaveDailyLog", "apiSavePpe", "apiSaveScaffold", "apiSaveMovement",
     "apiSaveObservation", "apiCloseObservation", "apiSaveTraining", "apiUploadMeta",
-    "apiSaveUser", "apiCreateProject", "apiUpdateProject", "apiDeleteProject", "apiDeleteTraining"
+    "apiSaveUser", "apiCreateProject", "apiUpdateProject", "apiDeleteProject", "apiDeleteTraining",
+    "apiSaveAuditSchedule", "apiSendAuditReminders", "apiSaveChecklistRevision",
+    "apiSendTrainingReminder", "apiSaveTrainingMaterial"
   ]);
+
+  function hideModal() {
+    const m = document.getElementById("modal");
+    if (m) m.hidden = true;
+  }
+  function closeModal() {
+    hideModal();
+  }
+  window.hideModal = hideModal;
+  window.closeModal = closeModal;
 
   const ROLE_LABEL = {
     EHS_LEAD: "EHS Lead",
@@ -3323,7 +3335,7 @@
           field("jacketOrange", "Jackets Orange Count", "number") +
           '<div class="full"><label>Remarks & Store In-Charge</label><input name="remarks" placeholder="Store In-charge: Mr. Harish..."></div>' +
           '<div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
-            '<button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+            '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
             '<button type="submit" class="btn" style="background:#107c41;color:#fff;font-weight:800">Save Stock Entry</button>' +
           '</div>' +
         '</form>' +
@@ -3343,7 +3355,7 @@
         const iss = Number(row.issuedQty || 0);
         row.balanceStock = Math.max(0, rec - iss);
         await run("apiSavePpe", TOKEN, row);
-        closeModal();
+        hideModal();
         showToast("PPE stock entry saved successfully!", "success");
         await refresh();
       };
@@ -3958,7 +3970,7 @@
       '      <textarea name="notes" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Focus areas: toe guards, green tagging, PPE registers, DB earthing..."></textarea>' +
       '    </div>' +
       '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
-      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
       '      <button type="submit" class="btn" style="background:#0284c7;color:#fff;font-weight:700">Publish Audit Schedule</button>' +
       '    </div>' +
       '  </form>' +
@@ -3973,7 +3985,7 @@
         const fd = new FormData(this);
         const row = {};
         fd.forEach((v, k) => (row[k] = v));
-        closeModal();
+        hideModal();
         setLoading(true, "Publishing audit schedule...");
         try {
           await run("apiSaveAuditSchedule", TOKEN, row);
@@ -4039,7 +4051,7 @@
       '      <textarea name="changeDetails" rows="3" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" required placeholder="Describe new question or revised criteria: e.g., Mandatory rubber grommets on all cable tray penetrations..."></textarea>' +
       '    </div>' +
       '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
-      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
       '      <button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:700">Save Checklist Revision</button>' +
       '    </div>' +
       '  </form>' +
@@ -4054,7 +4066,7 @@
         const fd = new FormData(this);
         const row = {};
         fd.forEach((v, k) => (row[k] = v));
-        closeModal();
+        hideModal();
         try {
           await run("apiSaveChecklistRevision", TOKEN, row);
           showToast("Checklist revision logged and approved successfully!", "success");
@@ -4107,7 +4119,7 @@
       '      <input type="text" name="preventive" placeholder="Corrective action planned or taken...">' +
       '    </div>' +
       '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
-      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
       '      <button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:700">Save Observation</button>' +
       '    </div>' +
       '  </form>' +
@@ -4126,7 +4138,7 @@
         row.reportNo = "OBS-" + (STATE.observations ? STATE.observations.length + 1 : 5);
         if (!STATE.observations) STATE.observations = [];
         STATE.observations.unshift(row);
-        closeModal();
+        hideModal();
         showToast("Observation logged to Audit Channel!", "success");
         try { await run("apiSaveObservation", TOKEN, row); } catch (_) {}
         renderAudits();
@@ -4146,7 +4158,7 @@
       '      <textarea name="preventive" rows="2" required style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Corrected and closed - installed standard toe guard and edge protection"></textarea>' +
       '    </div>' +
       '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
-      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
       '      <button type="submit" class="btn" style="background:#16a34a;color:#fff;font-weight:700">Verify &amp; Close Point</button>' +
       '    </div>' +
       '  </form>' +
@@ -4167,7 +4179,7 @@
             item.preventive = prev;
           }
         }
-        closeModal();
+        hideModal();
         showToast("Observation point marked Corrected and Closed! ✔", "success");
         renderAudits();
       };
@@ -5705,7 +5717,7 @@
       '      <textarea name="notes" rows="2" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px" placeholder="Summary of contents and target compliance requirement..."></textarea>' +
       '    </div>' +
       '    <div class="full" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:12px">' +
-      '      <button type="button" class="ghost" onclick="closeModal()">Cancel</button>' +
+      '      <button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
       '      <button type="submit" class="btn" style="background:#0f766e;color:#fff;font-weight:700">Publish Material</button>' +
       '    </div>' +
       '  </form>' +
@@ -5731,7 +5743,7 @@
           notes: row.notes,
           uploadedAt: new Date().toISOString()
         });
-        closeModal();
+        hideModal();
         showToast("Training material published to Materials Hub! ✔", "success");
         try { await run("apiSaveTrainingMaterial", TOKEN, row); } catch (_) {}
         renderCalendar();
@@ -5758,7 +5770,7 @@
       '<div style="max-width:680px;margin:0 auto;text-align:left">' +
       '  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:10px;margin-bottom:14px">' +
       '    <h3 style="margin:0;font-size:16px;color:#0f172a;font-weight:800">🎥 ' + esc(title || "Training Video Player") + '</h3>' +
-      '    <button type="button" class="ghost" onclick="closeModal()">✕</button>' +
+      '    <button type="button" class="ghost" onclick="hideModal()">✕</button>' +
       '  </div>' +
       '  <div style="background:#000;border-radius:8px;overflow:hidden;margin-bottom:12px;position:relative;padding-top:56.25%">' +
       '    <video src="' + esc(videoUrl) + '" controls autoplay style="position:absolute;top:0;left:0;width:100%;height:100%"></video>' +
@@ -7376,6 +7388,12 @@
   function hideModal() {
     $("modal").hidden = true;
   }
+  function closeModal() {
+    hideModal();
+  }
+  window.showModal = showModal;
+  window.hideModal = hideModal;
+  window.closeModal = closeModal;
   function esc(s) {
     return String(s == null ? "" : s).replace(
       /[&<>"']/g,
