@@ -1575,13 +1575,11 @@
                             const subCm = (STATE.comments || []).filter(c => c.entityId === s.id);
                             return '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Submission\',\'' + s.id + '\',\'' + esc(f.title) + ' (v' + s.version + ')\',{projectId:\'' + s.projectId + '\',status:\'' + s.status + '\'})" title="View discussion thread">💬' + (subCm.length ? ' ' + subCm.length : '') + '</button>';
                           })() +
-                          (s.formCode && s.formCode.startsWith('WP_')
-                            ? '<button type="button" class="btn tiny" style="background:#0f766e;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px" onclick="viewPermitSubmissionPdf(\'' + s.id + '\')">📄 View PDF</button>'
-                            : (s.pdfFileId
-                              ? '<button class="ghost" onclick="openFile(\'' +
-                                s.pdfFileId +
-                                "')\">PDF</button>"
-                              : "")) +
+                          (s.pdfFileId
+                            ? '<button class="ghost" onclick="openFile(\'' +
+                              s.pdfFileId +
+                              "')\">PDF</button>"
+                            : "") +
                           (s.status === "REJECTED" && USER.role === "EHS_LEAD"
                             ? '<button class="btn small" onclick="openForm(\'' +
                               f.formCode +
@@ -2049,11 +2047,8 @@
             '</div>' +
           '</div>' +
           '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
-            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
               '<span class="pill" style="font-size:11px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">' + esc(docCode) + '</span>' +
-              '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-size:11.5px;font-weight:700;padding:5px 12px;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 1px 3px rgba(0,0,0,0.1)" onclick="previewCurrentPermitPdf(\'' + esc(formCode) + '\')">' +
-                '👁️ Preview Document (PDF)' +
-              '</button>' +
               '<button type="button" class="btn small" style="background:#0284c7;color:#fff;font-size:11.5px;font-weight:700;padding:5px 12px;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 1px 3px rgba(0,0,0,0.1)" onclick="fillPermitPlaceholders(\'' + esc(formCode) + '\')">' +
                 '⚡ Auto-Fill Example Placeholders' +
               '</button>' +
@@ -2209,10 +2204,7 @@
           (upload ? '<div class="full" style="margin-bottom:16px"><label style="font-weight:700">Attach Document / Scan</label><input type="file" id="up-file"></div>' : '') +
 
           '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #e2e8f0;flex-wrap:wrap;gap:10px">' +
-            '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-              '<button type="button" class="btn small" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:700" onclick="fillPermitPlaceholders(\'' + esc(formCode) + '\')">⚡ Auto-Fill Example</button>' +
-              '<button type="button" class="btn small" style="background:#f1f5f9;color:#0f766e;border:1px solid #cbd5e1;font-weight:700" onclick="previewCurrentPermitPdf(\'' + esc(formCode) + '\')">👁️ Preview PDF</button>' +
-            '</div>' +
+            '<button type="button" class="btn small" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:700" onclick="fillPermitPlaceholders(\'' + esc(formCode) + '\')">⚡ Auto-Fill Example</button>' +
             '<div style="display:flex;gap:10px">' +
               '<button type="button" class="ghost" onclick="hideModal()">Cancel</button>' +
               '<button class="btn small" type="submit" style="background:#0f766e;color:#fff;font-weight:700">Submit Work Permit</button>' +
@@ -2240,99 +2232,6 @@
     }
   }
   window.handleWpFilePlaceholder = handleWpFilePlaceholder;
-
-  let CURRENT_PERMIT_PREVIEW_STATE = null;
-
-  async function previewCurrentPermitPdf(formCode, forcePlaceholders) {
-    const form = document.getElementById("dyn-form");
-    const fields = {};
-    if (form) {
-      const fd = new FormData(form);
-      fd.forEach((v, k) => (fields[k] = v));
-    }
-    setLoading(true, "Compiling 1:1 official permit document PDF...");
-    try {
-      const res = await run("apiPreviewWorkPermitPdfHtml", TOKEN, formCode, fields, currentProjectId(), {
-        usePlaceholders: !!forcePlaceholders
-      });
-      setLoading(false);
-      if (res && res.html) {
-        CURRENT_PERMIT_PREVIEW_STATE = { formCode, fields, forcePlaceholders: !!forcePlaceholders, html: res.html, title: res.title || formCode };
-        openWorkPermitPdfModal(res.html, formCode, null, fields, !!forcePlaceholders);
-      } else {
-        alert("Failed to compile document preview.");
-      }
-    } catch (err) {
-      setLoading(false);
-      alert("Error generating PDF preview: " + (err.message || err));
-    }
-  }
-  window.previewCurrentPermitPdf = previewCurrentPermitPdf;
-
-  function togglePermitPlaceholdersMode() {
-    if (!CURRENT_PERMIT_PREVIEW_STATE) return;
-    const nextMode = !CURRENT_PERMIT_PREVIEW_STATE.forcePlaceholders;
-    if (CURRENT_PERMIT_PREVIEW_STATE.submissionId) {
-      viewPermitSubmissionPdf(CURRENT_PERMIT_PREVIEW_STATE.submissionId, nextMode);
-    } else {
-      previewCurrentPermitPdf(CURRENT_PERMIT_PREVIEW_STATE.formCode, nextMode);
-    }
-  }
-  window.togglePermitPlaceholdersMode = togglePermitPlaceholdersMode;
-
-  function openWorkPermitPdfModal(html, formCode, submissionId, currentFields, isTagMode) {
-    const title = (PERMIT_SPECIFIC_CONFIG[formCode] || {}).title || (formCode ? formCode.replace('_', ' ') : 'Permit Document');
-    const modalHtml =
-      '<div style="max-width:920px;margin:0 auto;text-align:left">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
-          '<div>' +
-            '<span class="badge" style="background:#f0fdfa;color:#0f766e;font-size:11px;font-weight:800;border:1px solid #99f6e4">OFFICIAL DOCUMENT TWIN</span>' +
-            '<h3 style="margin:4px 0 0;font-size:18px;color:#0f172a;font-weight:900">' + esc(title) + ' — Document PDF</h3>' +
-            '<p class="muted" style="margin:2px 0 0;font-size:12px">All entered data sits in respective placeholders matching your official physical document format.</p>' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-            '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:5px" onclick="printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html)">' +
-              '🖨️ Print / Save as PDF' +
-            '</button>' +
-            '<button type="button" class="btn small secondary" style="font-size:11.5px;font-weight:700" onclick="togglePermitPlaceholdersMode()">' +
-              (isTagMode ? '📋 Show Filled Values' : '🏷️ Show Replacement Tags') +
-            '</button>' +
-            '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
-          '</div>' +
-        '</div>' +
-        '<div style="background:#475569;padding:16px;border-radius:8px;max-height:72vh;overflow-y:auto">' +
-          '<div style="background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.2);border-radius:4px;padding:24px;max-width:800px;margin:0 auto">' +
-            html +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px">' +
-          '<div style="font-size:11.5px;color:#64748b">Tip: Click <b>Print / Save as PDF</b> to open the print dialog and export the PDF.</div>' +
-          '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html)">🖨️ Print / Save as PDF</button>' +
-        '</div>' +
-      '</div>';
-    showModal(modalHtml);
-  }
-  window.openWorkPermitPdfModal = openWorkPermitPdfModal;
-
-  async function viewPermitSubmissionPdf(submissionId, forcePlaceholders) {
-    setLoading(true, "Loading permit submission PDF...");
-    try {
-      const res = await run("apiGetSubmissionPdfHtml", TOKEN, submissionId, {
-        usePlaceholders: !!forcePlaceholders
-      });
-      setLoading(false);
-      if (res && res.html) {
-        CURRENT_PERMIT_PREVIEW_STATE = { formCode: res.submission.formCode, submissionId, forcePlaceholders: !!forcePlaceholders, html: res.html, title: res.title };
-        openWorkPermitPdfModal(res.html, res.submission.formCode, submissionId, null, !!forcePlaceholders);
-      } else {
-        alert("Failed to load submission PDF.");
-      }
-    } catch (err) {
-      setLoading(false);
-      alert("Error loading PDF: " + (err.message || err));
-    }
-  }
-  window.viewPermitSubmissionPdf = viewPermitSubmissionPdf;
 
   async function openForm(formCode, submissionId) {
     if (!currentProjectId()) {
@@ -3277,14 +3176,9 @@
                 '<p class="muted" style="font-size:11.5px;margin:0 0 12px;line-height:1.4">' + esc(p.desc) + '</p>' +
               '</div>' +
               '<div style="display:flex;flex-direction:column;gap:6px">' +
-                '<div style="display:flex;gap:6px">' +
-                  '<button type="button" class="btn small" style="flex:1;background:#0f766e;color:#fff;font-weight:700" onclick="printBlankPtwTemplate(\'' + p.code + '\')">' +
-                    '🖨️ Print Blank' +
-                  '</button>' +
-                  '<button type="button" class="btn small secondary" style="flex:1;border:1px solid #0f766e;color:#0f766e;font-weight:700" onclick="previewBlankPtwTemplate(\'' + p.code + '\')">' +
-                    '👁️ Preview PDF' +
-                  '</button>' +
-                '</div>' +
+                '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printBlankPtwTemplate(\'' + p.code + '\')">' +
+                  '🖨️ Print / Download Blank Format' +
+                '</button>' +
                 '<div style="display:flex;gap:6px">' +
                   (canUploadRole() ? '<button type="button" class="btn small secondary" style="flex:1" onclick="hideModal();openForm(\'' + p.code + '\')">📝 Fill Online</button>' : '') +
                   (canUploadRole() ? '<button type="button" class="btn small secondary" style="flex:1" onclick="hideModal();openBulkUpload(\'WP_UPLOAD\')">📤 Upload Scan</button>' : '') +
@@ -3298,24 +3192,6 @@
     showModal(modalHtml);
   }
   window.openPtwTemplatesModal = openPtwTemplatesModal;
-
-  async function previewBlankPtwTemplate(code) {
-    setLoading(true, "Generating standard blank PTW preview...");
-    try {
-      const res = await run("apiGetBlankPtwTemplateHtml", TOKEN, code, currentProjectId());
-      setLoading(false);
-      if (res && res.html) {
-        CURRENT_PERMIT_PREVIEW_STATE = { formCode: code, fields: {}, forcePlaceholders: false, html: res.html, title: res.title || code };
-        openWorkPermitPdfModal(res.html, code, null, {}, false);
-      } else {
-        alert("Failed to compile PTW format.");
-      }
-    } catch (e) {
-      setLoading(false);
-      alert("Error previewing PTW format: " + (e.message || e));
-    }
-  }
-  window.previewBlankPtwTemplate = previewBlankPtwTemplate;
 
   async function printBlankPtwTemplate(code) {
     setLoading(true, "Generating standard blank PTW format...");
