@@ -287,45 +287,82 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
     throw new Error("No Google Doc template ID provided.");
   }
 
-  const templateFile = DriveApp.getFileById(templateDocId);
-  if (!templateFile) {
-    throw new Error("Template Google Doc not accessible with ID: " + templateDocId);
+  let templateFile;
+  try {
+    templateFile = DriveApp.getFileById(templateDocId);
+  } catch (fileErr) {
+    throw new Error(
+      "Cannot access template file with ID '" + templateDocId + "'. " +
+      "Please ensure the file exists and is shared with 'Anyone with the link can view' or with your Google account. " +
+      "Details: " + fileErr.message
+    );
+  }
+
+  // Check MIME type: DocumentApp can only open native Google Docs (application/vnd.google-apps.document)
+  const mimeType = templateFile.getMimeType();
+  if (mimeType !== MimeType.GOOGLE_DOCS) {
+    throw new Error(
+      "The template (ID: " + templateDocId + ") is of type '" + mimeType + "', not a native Google Doc. " +
+      "If this is an uploaded Word .docx or PDF, open it in Google Drive and select File > 'Save as Google Docs', then copy the new document's ID."
+    );
   }
 
   // Create working copy in designated folder
   const folder = getEhsGeneratedPdfFolder_(project);
   const copyTitle = (title || 'EHS_Document') + '_' + new Date().getTime();
   const docCopy = templateFile.makeCopy(copyTitle, folder);
-  const doc = DocumentApp.openById(docCopy.getId());
 
-  // Replace placeholders in Document Body, Header, Footer, and all Table cells
-  replacePlaceholdersInDoc_(doc, placeholderMap);
-  doc.saveAndClose();
-
-  // Convert populated doc copy to PDF
-  const pdfBlob = docCopy.getAs('application/pdf').setName((title || 'EHS_Document') + '.pdf');
-  const pdfFile = folder.createFile(pdfBlob);
-
-  try {
-    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (err) {
-    Logger.log("Notice: PDF sharing setting: " + err);
+  // Retry opening the copied document with backoff to handle Google Drive indexing propagation
+  let doc = null;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      Utilities.sleep(attempt === 1 ? 500 : 1200);
+      doc = DocumentApp.openById(docCopy.getId());
+      if (doc) break;
+    } catch (e) {
+      lastErr = e;
+    }
   }
 
-  // Remove the temporary doc copy to keep Google Drive uncluttered
-  try {
-    docCopy.setTrashed(true);
-  } catch (cleanErr) {
-    Logger.log("Notice: Cleaning up temporary doc copy: " + cleanErr);
+  if (!doc) {
+    try { docCopy.setTrashed(true); } catch (t) {}
+    throw new Error(
+      "The document is inaccessible. Please ensure the template file is shared with 'Anyone with the link can view' and is a native Google Doc. " +
+      "Details: " + (lastErr ? lastErr.message : "openById failed")
+    );
   }
 
-  return {
-    ok: true,
-    fileId: pdfFile.getId(),
-    pdfUrl: pdfFile.getUrl(),
-    downloadUrl: 'https://drive.google.com/uc?export=download&id=' + pdfFile.getId(),
-    previewUrl: 'https://drive.google.com/file/d/' + pdfFile.getId() + '/preview'
-  };
+  try {
+    // Replace placeholders in Document Body, Header, Footer, and all Table cells
+    replacePlaceholdersInDoc_(doc, placeholderMap);
+    doc.saveAndClose();
+
+    // Convert populated doc copy to PDF
+    const pdfBlob = docCopy.getAs('application/pdf').setName((title || 'EHS_Document') + '.pdf');
+    const pdfFile = folder.createFile(pdfBlob);
+
+    try {
+      pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (err) {
+      Logger.log("Notice: PDF sharing setting: " + err);
+    }
+
+    return {
+      ok: true,
+      fileId: pdfFile.getId(),
+      pdfUrl: pdfFile.getUrl(),
+      downloadUrl: 'https://drive.google.com/uc?export=download&id=' + pdfFile.getId(),
+      previewUrl: 'https://drive.google.com/file/d/' + pdfFile.getId() + '/preview'
+    };
+  } finally {
+    // Remove the temporary doc copy to keep Google Drive uncluttered
+    try {
+      docCopy.setTrashed(true);
+    } catch (cleanErr) {
+      Logger.log("Notice: Cleaning up temporary doc copy: " + cleanErr);
+    }
+  }
 }
 
 /**
@@ -410,28 +447,32 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
 
   // 1. If a Google Docs template ID is configured for this form:
   if (templateDocId && templateDocId.trim() !== '') {
-    const placeholderMap = buildPlaceholderMap_(sub.formCode, fields, project, user, submissionId);
-    const title = (project.code || 'PRJ') + '_' + sub.formCode + '_' + submissionId;
-    const docResult = generatePdfFromDocsTemplate_(templateDocId.trim(), placeholderMap, title, project);
-
-    // Save pdfFileId to submission record for fast subsequent access
     try {
-      sub.pdfFileId = docResult.fileId;
-      updateOne_(SHEETS.SUBMISSIONS, 'id', sub.id, { pdfFileId: docResult.fileId });
-    } catch (dbErr) {
-      Logger.log("Notice: Updating submission with pdfFileId: " + dbErr);
-    }
+      const placeholderMap = buildPlaceholderMap_(sub.formCode, fields, project, user, submissionId);
+      const title = (project.code || 'PRJ') + '_' + sub.formCode + '_' + submissionId;
+      const docResult = generatePdfFromDocsTemplate_(templateDocId.trim(), placeholderMap, title, project);
 
-    return {
-      ok: true,
-      source: 'GOOGLE_DOCS',
-      title: def.title,
-      submission: sub,
-      fileId: docResult.fileId,
-      pdfUrl: docResult.pdfUrl,
-      previewUrl: docResult.previewUrl,
-      downloadUrl: docResult.downloadUrl
-    };
+      // Save pdfFileId to submission record for fast subsequent access
+      try {
+        sub.pdfFileId = docResult.fileId;
+        updateOne_(SHEETS.SUBMISSIONS, 'id', sub.id, { pdfFileId: docResult.fileId });
+      } catch (dbErr) {
+        Logger.log("Notice: Updating submission with pdfFileId: " + dbErr);
+      }
+
+      return {
+        ok: true,
+        source: 'GOOGLE_DOCS',
+        title: def.title,
+        submission: sub,
+        fileId: docResult.fileId,
+        pdfUrl: docResult.pdfUrl,
+        previewUrl: docResult.previewUrl,
+        downloadUrl: docResult.downloadUrl
+      };
+    } catch (docErr) {
+      Logger.log("Notice: Error generating PDF from Docs template (" + sub.formCode + "): " + docErr + ". Falling back to HTML generator.");
+    }
   }
 
   // 2. Fallback: High-fidelity HTML PDF generation
