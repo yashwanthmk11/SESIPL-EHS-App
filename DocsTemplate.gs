@@ -19,7 +19,7 @@ const BACKEND_DOCS_TEMPLATES = {
 
   // Checklists & Equipment Inspections (awaiting native Google Doc IDs from user)
   CL_WELD: "",
-  CL_GRIND: "",
+  CL_GRIND: "1a1g3LBj887C6NC20DX9W1x7tl04ukSuY", // Checklist for Portable Grinding Machine
   CL_CUT: "",
   CL_DRILL: "",
   CL_FE: "",
