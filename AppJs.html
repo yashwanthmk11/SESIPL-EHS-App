@@ -2289,7 +2289,9 @@
       ? "Bulk upload project documents. Files are stored directly in the project library without approval."
       : isPermit
         ? "Digital & physical high-risk safety clearance permits. Download standard blank formats or submit with attached files."
-        : "Submit → PDF → approval chain. Rejected items return to Lead with comments.";
+        : moduleIds.indexOf("WEEKLY") >= 0
+          ? "Upload signed weekly and monthly EHS reports directly to the project document library."
+          : "Submit official daily safety checklists and formats. Submissions compile to official PDFs.";
     const forms = STATE.catalog.filter((f) => moduleIds.indexOf(f.module) >= 0);
     const needProject = !currentProjectId() && USER.role !== "EHS_LEAD";
     $("view").innerHTML =
@@ -2313,7 +2315,9 @@
                   ? canUploadRole()
                     ? '<button class="btn small" onclick="openBulkUpload(\'' +
                       f.formCode +
-                      "')\">Bulk upload files</button>"
+                      "')\">" +
+                      (f.module === "WEEKLY" ? "📤 Upload report (PDF)" : "Bulk upload files") +
+                      "</button>"
                     : ""
                   : canSubmitForm(f)
                     ? '<button class="btn small" onclick="openForm(\'' +

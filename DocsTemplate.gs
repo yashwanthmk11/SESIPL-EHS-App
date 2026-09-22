@@ -17,22 +17,22 @@ const BACKEND_DOCS_TEMPLATES = {
   WP_SHAFT: "1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE", // Shaft work permit-06
   WP_NIGHT: "1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE", // Night Work permit-07
 
-  // Checklists & Equipment Inspections (awaiting native Google Doc IDs from user)
-  CL_WELD: "",
-  CL_GRIND: "1a1g3LBj887C6NC20DX9W1x7tl04ukSuY", // Checklist for Portable Grinding Machine
+  // Checklists & Equipment Inspections
+  CL_WELD: "1IYwFad3phxQ3VeZTbsu6INBvDfJWhSIEdBmKRcQjS6Q", // Welding Machine
+  CL_GRIND: "1c7T1ip1jnnz9Tc0b61fASMYOBKC2z2zonVN1SUC3aVA", // Grinding Machine Checklist
+  CL_DRILL: "1x18zs1fBXgPJqlejQqUgMIy6juMhQb_rQSGMZOdt9ug", // Drilling Machine
+  CL_FE: "1H87LMWzmqgIWHPpm54O4vQUrq6rvh4yAi6u5ZPDelns", // Fire Extinguisher
+  CL_SCAFFOLD: "l0KyOAHOAr7ulkv3TPgHOJqF3vaywUvD9mncVF1s", // Scaffolding checklist
   CL_CUT: "",
-  CL_DRILL: "",
-  CL_FE: "",
-  CL_SCAFFOLD: "",
 
   // Attendances, Training & Inductions
-  CL_TBT: "",
-  CL_JST: "",
+  CL_TBT: "1vt3LBwuRnbo_Av2zaLVPsDK00ZT1-hiNN09fntRAYXE", // Tool Box Talk
+  CL_JST: "1eCSSEMa7-QRyklGQudxOqkaXMwfI78Gl9HH_vKC4xi4", // JST Attendance sheet
   CL_INDUCTION: "",
 
   // Worker Screening & Medical
-  CL_SCREENING: "",
-  CL_MEDICAL: "",
+  CL_SCREENING: "1py6zgX0lv9NI_Cbe9aDMPctYEey0_3wS0RW_yE0S9Z0", // Screening of Worker Format
+  CL_MEDICAL: "1rceiB1zO3IKEO7IHWfT1jNjSC3vZ5eFGjUEWRYC4Znc", // Medical certificate-xI
 
   // Stickers / Tags
   TAG_IND: "",

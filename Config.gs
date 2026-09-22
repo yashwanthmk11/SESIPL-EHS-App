@@ -349,22 +349,22 @@ const DEFAULT_DOC_TEMPLATE_REGISTRY = {
   WP_SHAFT: "1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE",
   WP_NIGHT: "1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE",
 
-  // Checklists & Equipment Inspections (awaiting native Google Doc IDs from user)
-  CL_WELD: "",
-  CL_GRIND: "1a1g3LBj887C6NC20DX9W1x7tl04ukSuY", // Checklist for Portable Grinding Machine
+  // Checklists & Equipment Inspections
+  CL_WELD: "1IYwFad3phxQ3VeZTbsu6INBvDfJWhSIEdBmKRcQjS6Q", // Welding Machine
+  CL_GRIND: "1c7T1ip1jnnz9Tc0b61fASMYOBKC2z2zonVN1SUC3aVA", // Grinding Machine Checklist
+  CL_DRILL: "1x18zs1fBXgPJqlejQqUgMIy6juMhQb_rQSGMZOdt9ug", // Drilling Machine
+  CL_FE: "1H87LMWzmqgIWHPpm54O4vQUrq6rvh4yAi6u5ZPDelns", // Fire Extinguisher
+  CL_SCAFFOLD: "l0KyOAHOAr7ulkv3TPgHOJqF3vaywUvD9mncVF1s", // Scaffolding checklist
   CL_CUT: "",
-  CL_DRILL: "",
-  CL_FE: "",
-  CL_SCAFFOLD: "",
 
   // Attendances & Inductions
-  CL_TBT: "",
-  CL_JST: "",
+  CL_TBT: "1vt3LBwuRnbo_Av2zaLVPsDK00ZT1-hiNN09fntRAYXE", // Tool Box Talk
+  CL_JST: "1eCSSEMa7-QRyklGQudxOqkaXMwfI78Gl9HH_vKC4xi4", // JST Attendance sheet
   CL_INDUCTION: "",
 
   // Worker Screening & Medical
-  CL_SCREENING: "",
-  CL_MEDICAL: "",
+  CL_SCREENING: "1py6zgX0lv9NI_Cbe9aDMPctYEey0_3wS0RW_yE0S9Z0", // Screening of Worker Format
+  CL_MEDICAL: "1rceiB1zO3IKEO7IHWfT1jNjSC3vZ5eFGjUEWRYC4Znc", // Medical certificate-xI
 
   // Stickers / Tags
   TAG_IND: "",
@@ -463,7 +463,7 @@ const FORM_DEFS = [
     module: "WEEKLY",
     title: "Weekly EHS Report",
     cadence: "WEEKLY",
-    entryType: "FORM",
+    entryType: "UPLOAD",
     slaHours: 24,
   },
   {
@@ -471,7 +471,7 @@ const FORM_DEFS = [
     module: "WEEKLY",
     title: "Monthly EHS Report",
     cadence: "MONTHLY",
-    entryType: "FORM",
+    entryType: "UPLOAD",
     slaHours: 48,
   },
   {
@@ -579,14 +579,6 @@ const FORM_DEFS = [
     slaHours: 24,
   },
   {
-    formCode: "CL_IDCARD",
-    module: "CHECKLIST",
-    title: "Project ID Card",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
     formCode: "CL_DRILL",
     module: "CHECKLIST",
     title: "Drilling Machine Checklist",
@@ -627,22 +619,6 @@ const FORM_DEFS = [
     slaHours: 24,
   },
   {
-    formCode: "CL_INDUCTION",
-    module: "CHECKLIST",
-    title: "EHS Induction",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
-    formCode: "CL_CUT",
-    module: "CHECKLIST",
-    title: "Cutting Machine Checklist",
-    cadence: "DAILY",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
     formCode: "CL_SCAFFOLD",
     module: "CHECKLIST",
     title: "Scaffolding Checklist",
@@ -653,47 +629,7 @@ const FORM_DEFS = [
   {
     formCode: "CL_MEDICAL",
     module: "CHECKLIST",
-    title: "Medical Certificate",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
-    formCode: "TAG_IND",
-    module: "CHECKLIST",
-    title: "Induction Sticker",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
-    formCode: "TAG_TOOL",
-    module: "CHECKLIST",
-    title: "Tools Inspection Sticker",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
-    formCode: "TAG_FE",
-    module: "CHECKLIST",
-    title: "Fire Extinguisher Tag",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
-    formCode: "TAG_RED",
-    module: "CHECKLIST",
-    title: "Red Tag",
-    cadence: "AS_REQUIRED",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
-    formCode: "TAG_SCAFF",
-    module: "CHECKLIST",
-    title: "Scaffold Inspection Tag",
+    title: "Medical Certificate (Form XI)",
     cadence: "DAILY",
     entryType: "FORM",
     slaHours: 24,
@@ -702,9 +638,75 @@ const FORM_DEFS = [
     formCode: "CL_FE",
     module: "CHECKLIST",
     title: "Fire Extinguisher Checklist",
-    cadence: "WEEKLY",
+    cadence: "DAILY",
     entryType: "FORM",
     slaHours: 24,
+  },
+
+  // One-time Document Uploads (Remaining Checklists & Tags)
+  {
+    formCode: "CL_IDCARD",
+    module: "EHS_DOCS",
+    title: "Project ID Card Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "CL_CUT",
+    module: "EHS_DOCS",
+    title: "Cutting Machine Checklist Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "CL_INDUCTION",
+    module: "EHS_DOCS",
+    title: "EHS Induction Record Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "TAG_IND",
+    module: "EHS_DOCS",
+    title: "Induction Sticker Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "TAG_TOOL",
+    module: "EHS_DOCS",
+    title: "Tools Inspection Sticker Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "TAG_FE",
+    module: "EHS_DOCS",
+    title: "Fire Extinguisher Tag Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "TAG_RED",
+    module: "EHS_DOCS",
+    title: "Red Tag Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "TAG_SCAFF",
+    module: "EHS_DOCS",
+    title: "Scaffold Inspection Tag Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
   },
 ];
 
