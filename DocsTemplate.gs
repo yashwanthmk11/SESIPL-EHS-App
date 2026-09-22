@@ -461,11 +461,21 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
 
     // TBT & Training
     topicDiscussed: fields.topic || fields.topicDiscussed || "",
+    topic: fields.topic || fields.topicDiscussed || "",
+    conductedBy: fields.conductedBy || fields.tbtConductedBy || "",
     tbtConductedBy: fields.conductedBy || fields.tbtConductedBy || "",
-    tbtConductedBySign: fields.conductedBy ? "Signed" : "",
+    conductedBySign:
+      fields.conductedBy ? "Signed - " + fields.conductedBy : "Signed",
+    tbtConductedBySign:
+      fields.conductedBy ? "Signed - " + fields.conductedBy : "Signed",
+    projectManager:
+      fields.projectManager || fields.projectManagerName || "",
     projectManagerName:
       fields.projectManager || fields.projectManagerName || "",
-    projectManagerSign: fields.projectManager ? "Signed" : "",
+    projectManagerSign:
+      fields.projectManager ? "Signed - " + fields.projectManager : "Signed",
+    keyPoints: fields.keyPoints || fields.keyPointsDiscussed || "",
+    keyPointsDiscussed: fields.keyPoints || fields.keyPointsDiscussed || "",
     ehsOfficerSign: "Signed",
 
     // Equipment Details
@@ -599,6 +609,25 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     map["tbt_desig_" + i] = desig;
     map["tbt_agency_" + i] = agency;
     map["tbt_sign_" + i] = sign;
+
+    map["participant" + i + "Name"] = name;
+    map["participant" + i + "Designation"] = desig;
+    map["participant" + i + "Company"] = agency;
+    map["participant" + i + "Agency"] = agency;
+    map["participant" + i + "Sign"] = sign;
+    map["participant" + i + "Signature"] = sign;
+
+    map["name_" + i] = name;
+    map["desig_" + i] = desig;
+    map["agency_" + i] = agency;
+    map["company_" + i] = agency;
+    map["sign_" + i] = sign;
+
+    map["name" + i] = name;
+    map["desig" + i] = desig;
+    map["agency" + i] = agency;
+    map["company" + i] = agency;
+    map["sign" + i] = sign;
 
     map["train_name_" + i] = name;
     map["train_desig_" + i] = desig;
