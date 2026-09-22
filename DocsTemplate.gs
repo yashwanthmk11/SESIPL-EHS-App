@@ -167,6 +167,7 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     gen_other: fields.gen_other || "",
     height_other: fields.height_other || "",
     night_remarks: fields.night_remarks || "",
+    remarks: fields.night_remarks || "",
 
     // Reviewed & Approved By
     approvalEhsName: fields.approvalEhsName || "",
