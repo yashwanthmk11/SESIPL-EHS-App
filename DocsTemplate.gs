@@ -424,10 +424,17 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     // Worker Screening & Medical
     workerId: fields.workerId || "",
     workerFullName: fields.workerName || fields.workerFullName || "",
+    workerName: fields.workerName || fields.workerFullName || "",
     fatherOrHusbandName: fields.fatherName || fields.fatherOrHusbandName || "",
+    fatherName: fields.fatherName || fields.fatherOrHusbandName || "",
     permanentAddress: fields.permanentAddress || "",
     presentAddress: fields.presentAddress || "",
     dob: fields.dateOfBirth
+      ? displayDate_(fields.dateOfBirth)
+      : fields.dob
+        ? displayDate_(fields.dob)
+        : "",
+    dateOfBirth: fields.dateOfBirth
       ? displayDate_(fields.dateOfBirth)
       : fields.dob
         ? displayDate_(fields.dob)
@@ -436,15 +443,24 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     age: fields.age || "",
     maritalStatus: fields.maritalStatus || "",
     numChildren: fields.childrenCount || fields.numChildren || "",
+    childrenCount: fields.childrenCount || fields.numChildren || "",
     motherTongue: fields.motherTongue || "",
     otherLanguages: fields.languages || fields.otherLanguages || "",
+    languages: fields.languages || fields.otherLanguages || "",
     emergencyContactPerson:
+      fields.emergencyContact || fields.emergencyContactPerson || "",
+    emergencyContact:
       fields.emergencyContact || fields.emergencyContactPerson || "",
     identificationMark:
       fields.identificationMark || fields.identificationMarks || "",
+    identificationMarks:
+      fields.identificationMark || fields.identificationMarks || "",
     visionStatus: fields.vision || "Normal",
-    visionProblem: fields.visionProblem || "",
+    vision: fields.vision || "Normal",
+    visionProblem: fields.visionProblem || "-",
     healthStatus: fields.health || "Normal",
+    health: fields.health || "Normal",
+    healthProblem: fields.healthProblem || "-",
     weightKg: fields.weightKg || fields.weight || "",
     weight: fields.weightKg || fields.weight || "",
     heightCm: fields.heightCms || fields.heightCm || fields.height || "",
@@ -453,11 +469,18 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     bloodGroup: fields.bloodGroup || "",
     education: fields.educationDetails || fields.education || "",
     educationDetails: fields.educationDetails || fields.education || "",
+    educationExam: fields.educationExam || fields.educationDetails || fields.education || "SSLC / 10th Standard",
+    educationYear: fields.educationYear || "-",
+    educationBoard: fields.educationBoard || "State Board",
     suitableEmployment: fields.suitableEmployment || "",
     siteInchargeName: fields.siteInCharge || fields.siteInchargeName || "",
     siteInCharge: fields.siteInCharge || fields.siteInchargeName || "",
+    designation: fields.designation || fields.contractorSiteIncharge || "Site Contractor / Supervisor",
+    contractorDesignation: fields.designation || fields.contractorSiteIncharge || "Site Contractor / Supervisor",
     workerSign: fields.workerDeclarationSignature || "Signed",
+    workerDeclarationSignature: fields.workerDeclarationSignature || "Signed",
     contractorSign: fields.contractorDeclarationSignature || "Signed",
+    contractorDeclarationSignature: fields.contractorDeclarationSignature || "Signed",
 
     // Form XI Medical
     certSerialNo: fields.certificateNo || fields.certSerialNo || "",

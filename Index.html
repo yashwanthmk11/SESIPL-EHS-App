@@ -1,142 +1,318 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-GB">
-<head>
-  <base target="_top">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SESIPL EHS Digital</title>
-  <link rel="icon" type="image/png" href="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png">
-  <link rel="shortcut icon" type="image/png" href="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png">
-  <link rel="apple-touch-icon" href="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <?!= include('Styles'); ?>
-</head>
-<body>
-  <div id="login-screen" class="login-wrap">
-    <div class="login-bg-orb login-bg-orb-1" aria-hidden="true"></div>
-    <div class="login-bg-orb login-bg-orb-2" aria-hidden="true"></div>
-    <div class="login-bg-orb login-bg-orb-3" aria-hidden="true"></div>
-    <div class="login-grid-overlay" aria-hidden="true"></div>
+  <head>
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SESIPL EHS Digital</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png"
+    />
+    <link
+      rel="shortcut icon"
+      type="image/png"
+      href="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <?!= include('Styles'); ?>
+  </head>
+  <body>
+    <div id="login-screen" class="login-wrap">
+      <div class="login-bg-orb login-bg-orb-1" aria-hidden="true"></div>
+      <div class="login-bg-orb login-bg-orb-2" aria-hidden="true"></div>
+      <div class="login-bg-orb login-bg-orb-3" aria-hidden="true"></div>
+      <div class="login-grid-overlay" aria-hidden="true"></div>
 
-    <div class="login-card-wrap">
-      <div class="login-card" id="main-login-card">
-        <div class="login-brand-box">
-          <img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" alt="SESIPL Logo" onerror="this.onerror=null;this.src='https://sesipl.com/sites/default/files/sesipl-logo.png'">
-        </div>
-        
-        <div class="login-header-center">
-          <p class="login-kicker">ENVIRONMENT • HEALTH • SAFETY</p>
-          <h1>Welcome back</h1>
-          <p class="login-subtitle">Enter your credentials to access your safety dashboard</p>
-        </div>
-
-        <form id="login-form" class="login-form" onsubmit="return doLogin(event)" novalidate>
-          <div class="login-field">
-            <label for="empId">
-              <span>Employee ID</span>
-              <span class="hint">e.g. EMP001</span>
-            </label>
-            <div class="login-input-wrap">
-              <span class="login-input-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              </span>
-              <input id="empId" autocomplete="username" required placeholder="Enter Employee ID" spellcheck="false" autocapitalize="characters">
-            </div>
+      <div class="login-card-wrap">
+        <div class="login-card" id="main-login-card">
+          <div class="login-brand-box">
+            <img
+              src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png"
+              alt="SESIPL Logo"
+              onerror="
+                this.onerror = null;
+                this.src =
+                  'https://sesipl.com/sites/default/files/sesipl-logo.png';
+              "
+            />
           </div>
 
-          <div class="login-field">
-            <label for="uan">
-              <span>UAN (Universal Account Number)</span>
-              <span class="hint">HR / Sheets</span>
-            </label>
-            <div class="login-input-wrap">
-              <span class="login-input-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              </span>
-              <input id="uan" type="password" autocomplete="current-password" required placeholder="Enter your UAN">
-            </div>
-            <div id="caps-warning" class="caps-warning" hidden>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-              <span>Caps Lock is ON</span>
-            </div>
+          <div class="login-header-center">
+            <p class="login-kicker">ENVIRONMENT • HEALTH • SAFETY</p>
+            <h1>Welcome back</h1>
+            <p class="login-subtitle">
+              Enter your credentials to access your safety dashboard
+            </p>
           </div>
 
-          <div class="login-options-row">
-            <label class="remember-me-label">
-              <input type="checkbox" id="remember-emp-id">
-              <span>Remember ID</span>
-            </label>
-            <button type="button" class="login-help-link" onclick="openLoginHelp()">Need help signing in?</button>
-          </div>
-
-          <button type="submit" id="login-btn" class="login-submit-btn">
-            <span id="login-btn-spinner" class="btn-spinner" hidden aria-hidden="true"></span>
-            <span id="login-btn-text">Sign In</span>
-          </button>
-
-          <div id="login-err" class="login-error-banner" hidden role="alert">
-            <div class="login-error-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <form
+            id="login-form"
+            class="login-form"
+            onsubmit="return doLogin(event);"
+            novalidate
+          >
+            <div class="login-field">
+              <label for="empId">
+                <span>Employee ID</span>
+                <span class="hint">e.g. EMP001</span>
+              </label>
+              <div class="login-input-wrap">
+                <span class="login-input-icon" aria-hidden="true">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+                <input
+                  id="empId"
+                  autocomplete="username"
+                  required
+                  placeholder="Enter Employee ID"
+                  spellcheck="false"
+                  autocapitalize="characters"
+                />
+              </div>
             </div>
-            <span id="login-err-text"></span>
-          </div>
-        </form>
 
-        <div class="login-security-footer">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span>Authorized Personnel Only • Secure Portal Session</span>
+            <div class="login-field">
+              <label for="uan">
+                <span>UAN (Universal Account Number)</span>
+                <span class="hint">HR / Sheets</span>
+              </label>
+              <div class="login-input-wrap">
+                <span class="login-input-icon" aria-hidden="true">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input
+                  id="uan"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  placeholder="Enter your UAN"
+                />
+              </div>
+              <div id="caps-warning" class="caps-warning" hidden>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                  ></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>Caps Lock is ON</span>
+              </div>
+            </div>
+
+            <div class="login-options-row">
+              <label class="remember-me-label">
+                <input type="checkbox" id="remember-emp-id" />
+                <span>Remember ID</span>
+              </label>
+              <button
+                type="button"
+                class="login-help-link"
+                onclick="openLoginHelp()"
+              >
+                Need help signing in?
+              </button>
+            </div>
+
+            <button type="submit" id="login-btn" class="login-submit-btn">
+              <span
+                id="login-btn-spinner"
+                class="btn-spinner"
+                hidden
+                aria-hidden="true"
+              ></span>
+              <span id="login-btn-text">Sign In</span>
+            </button>
+
+            <div id="login-err" class="login-error-banner" hidden role="alert">
+              <div class="login-error-icon" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <span id="login-err-text"></span>
+            </div>
+          </form>
+
+          <div class="login-security-footer">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Authorized Personnel Only • Secure Portal Session</span>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div id="app-screen" hidden>
-    <aside class="sidebar">
-      <div class="side-brand">
-        <img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" alt="SESIPL" style="height:32px;object-fit:contain;background:#ffffff;padding:2px 6px;border-radius:6px;flex-shrink:0" onerror="this.onerror=null;this.src='https://sesipl.com/sites/default/files/sesipl-logo.png'">
-        <div>
-          <strong>SESIPL EHS</strong>
-          <div class="muted" id="side-role"></div>
+    <div id="app-screen" hidden>
+      <aside class="sidebar">
+        <div class="side-brand">
+          <img
+            src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png"
+            alt="SESIPL"
+            style="
+              height: 32px;
+              object-fit: contain;
+              background: #ffffff;
+              padding: 2px 6px;
+              border-radius: 6px;
+              flex-shrink: 0;
+            "
+            onerror="
+              this.onerror = null;
+              this.src =
+                'https://sesipl.com/sites/default/files/sesipl-logo.png';
+            "
+          />
+          <div>
+            <strong>SESIPL EHS</strong>
+            <div class="muted" id="side-role"></div>
+          </div>
         </div>
+        <nav id="nav"></nav>
+      </aside>
+      <div class="main">
+        <header class="topbar">
+          <div class="topbar-title">
+            <h2 id="page-title">Dashboard</h2>
+            <div class="muted" id="page-sub"></div>
+          </div>
+          <div class="topbar-brand" aria-label="SESIPL">
+            <img
+              src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png"
+              alt="SESIPL logo"
+              onerror="
+                this.onerror = null;
+                this.src =
+                  'https://sesipl.com/sites/default/files/sesipl-logo.png';
+              "
+            />
+          </div>
+          <div class="top-actions">
+            <div
+              class="topbar-proj-wrap"
+              style="display: inline-flex; align-items: center; gap: 6px"
+            >
+              <label
+                class="proj-label"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-weight: 600;
+                  font-size: 12px;
+                  color: var(--muted);
+                "
+                >Project
+                <select
+                  id="project-select"
+                  style="
+                    min-width: 180px;
+                    max-width: 260px;
+                    font-weight: 600;
+                    color: #0f172a;
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    padding: 6px 10px;
+                    border-radius: 8px;
+                    outline: none;
+                  "
+                ></select>
+              </label>
+            </div>
+            <button class="ghost" onclick="openFeed()">
+              Alerts <span id="badge-n" class="badge">0</span>
+            </button>
+            <div class="who">
+              <span id="who-name"></span>
+              <button class="ghost" onclick="doLogout()">Logout</button>
+            </div>
+          </div>
+        </header>
+        <section id="view" class="view"></section>
       </div>
-      <nav id="nav"></nav>
-    </aside>
-    <div class="main">
-      <header class="topbar">
-        <div class="topbar-title">
-          <h2 id="page-title">Dashboard</h2>
-          <div class="muted" id="page-sub"></div>
-        </div>
-        <div class="topbar-brand" aria-label="SESIPL">
-          <img src="https://sesipl.com/sites/default/files/sesipl-logo-new-2_5.png" alt="SESIPL logo" onerror="this.onerror=null;this.src='https://sesipl.com/sites/default/files/sesipl-logo.png'">
-        </div>
-        <div class="top-actions">
-          <div class="topbar-proj-wrap" style="display:inline-flex;align-items:center;gap:6px">
-            <label class="proj-label" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;color:var(--muted)">Project
-              <select id="project-select" style="min-width:180px;max-width:260px;font-weight:600;color:#0f172a;background:#ffffff;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;outline:none"></select>
-            </label>
-          </div>
-          <button class="ghost" onclick="openFeed()">Alerts <span id="badge-n" class="badge">0</span></button>
-          <div class="who">
-            <span id="who-name"></span>
-            <button class="ghost" onclick="doLogout()">Logout</button>
-          </div>
-        </div>
-      </header>
-      <section id="view" class="view"></section>
     </div>
-  </div>
 
-  <div id="modal" class="modal" hidden>
-    <div class="modal-card" id="modal-card"></div>
-  </div>
+    <div id="modal" class="modal" hidden>
+      <div class="modal-card" id="modal-card"></div>
+    </div>
 
-  <div id="loading-state" class="loading-state" hidden aria-live="polite">
-    <div class="loading-card"><span class="spinner"></span><span id="loading-label">Saving securely...</span></div>
-  </div>
+    <div id="loading-state" class="loading-state" hidden aria-live="polite">
+      <div class="loading-card">
+        <span class="spinner"></span
+        ><span id="loading-label">Saving securely...</span>
+      </div>
+    </div>
 
-  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <?!= include('AppJs'); ?>
-</body>
+    <?!= include('AppJs'); ?>
+  </body>
 </html>

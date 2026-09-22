@@ -1,10 +1,55 @@
 function ensureDemoUsers_() {
   const userRows = [
-    { employeeId: 'EMP001', uan: 'UAN001', name: 'Site Lead (Intuit)', role: ROLES.LEAD, email: 'harish.ehs@sesipl.com', phone: '+91 98450 44004', active: 'TRUE', mappedProjects: 'PRJ_INTUIT' },
-    { employeeId: 'EMP002', uan: 'UAN002', name: 'Asst EHS Manager', role: ROLES.ASST, email: 'asst.mgr@sesipl.com', phone: '+91 98450 22005', active: 'TRUE', mappedProjects: 'PRJ_INTUIT,PRJ_SIEMENS' },
-    { employeeId: 'EMP003', uan: 'UAN003', name: 'EHS Manager', role: ROLES.MANAGER, email: 'manager.ehs@sesipl.com', phone: '+91 98450 33003', active: 'TRUE', mappedProjects: '' },
-    { employeeId: 'EMP004', uan: 'UAN004', name: 'Director', role: ROLES.DIRECTOR, email: 'director@sesipl.com', phone: '+91 98450 11001', active: 'TRUE', mappedProjects: '' },
-    { employeeId: 'EMP005', uan: 'UAN005', name: 'Site Lead (Qualcomm)', role: ROLES.LEAD, email: 'murugan.ehs@sesipl.com', phone: '+91 98450 44009', active: 'TRUE', mappedProjects: 'PRJ_QUALCOMM' }
+    {
+      employeeId: "EMP001",
+      uan: "UAN001",
+      name: "Site Lead (Intuit)",
+      role: ROLES.LEAD,
+      email: "harish.ehs@sesipl.com",
+      phone: "+91 98450 44004",
+      active: "TRUE",
+      mappedProjects: "PRJ_INTUIT",
+    },
+    {
+      employeeId: "EMP002",
+      uan: "UAN002",
+      name: "Asst EHS Manager",
+      role: ROLES.ASST,
+      email: "asst.mgr@sesipl.com",
+      phone: "+91 98450 22005",
+      active: "TRUE",
+      mappedProjects: "PRJ_INTUIT,PRJ_SIEMENS",
+    },
+    {
+      employeeId: "EMP003",
+      uan: "UAN003",
+      name: "EHS Manager",
+      role: ROLES.MANAGER,
+      email: "manager.ehs@sesipl.com",
+      phone: "+91 98450 33003",
+      active: "TRUE",
+      mappedProjects: "",
+    },
+    {
+      employeeId: "EMP004",
+      uan: "UAN004",
+      name: "Director",
+      role: ROLES.DIRECTOR,
+      email: "director@sesipl.com",
+      phone: "+91 98450 11001",
+      active: "TRUE",
+      mappedProjects: "",
+    },
+    {
+      employeeId: "EMP005",
+      uan: "UAN005",
+      name: "Site Lead (Qualcomm)",
+      role: ROLES.LEAD,
+      email: "murugan.ehs@sesipl.com",
+      phone: "+91 98450 44009",
+      active: "TRUE",
+      mappedProjects: "PRJ_QUALCOMM",
+    },
   ];
   const sh = sheet_(SHEETS.USERS);
   batchWriteObjects_(sh, HEADERS.Users, userRows);
@@ -13,10 +58,74 @@ function ensureDemoUsers_() {
 
 function ensureDemoProjects_() {
   const projects = [
-    { id: 'PRJ_INTUIT', code: 'INTUIT', name: 'Intuit', client: 'Intuit', pmc: 'CBRE', inCharge: 'Mr.Harish', manager: 'HR Ravikiran', scope: 'Internal Electrical work (Fit Out)', startDate: '2025-01-01', endDate: '2026-08-31', areaSqft: '389175', poNo: 'C 47344', status: 'RUNNING', region: 'Bangalore', projectDuration: '8 Months' },
-    { id: 'PRJ_SIEMENS', code: 'SIEMENS', name: 'Siemens', client: 'Siemens', pmc: 'Cushman & Wakefield', inCharge: 'S. Rajesh', manager: 'K. Sharma', scope: 'Electrical Fit Out & Commissioning', startDate: '2025-06-01', endDate: '2026-05-31', areaSqft: '245000', poNo: 'C 48120', status: 'RUNNING', region: 'Bangalore', projectDuration: '12 Months' },
-    { id: 'PRJ_QUALCOMM', code: 'QUALCOMM', name: 'Qualcomm-CH', client: 'Qualcomm', pmc: 'JLL', inCharge: 'V. Murugan', manager: 'HR Ravikiran', scope: 'HV & LV Electrical Installation', startDate: '2025-03-01', endDate: '2026-01-31', areaSqft: '410000', poNo: 'C 49055', status: 'RUNNING', region: 'Chennai', projectDuration: '10 Months' },
-    { id: 'PRJ_INFOSYS', code: 'INFOSYS', name: 'Infosys', client: 'Infosys', pmc: 'Turner & Townsend', inCharge: 'A. Reddy', manager: 'K. Sharma', scope: 'Internal Electrical & Substation', startDate: '2025-02-01', endDate: '2026-04-30', areaSqft: '520000', poNo: 'C 50210', status: 'RUNNING', region: 'Hyderabad', projectDuration: '14 Months' }
+    {
+      id: "PRJ_INTUIT",
+      code: "INTUIT",
+      name: "Intuit",
+      client: "Intuit",
+      pmc: "CBRE",
+      inCharge: "Mr.Harish",
+      manager: "HR Ravikiran",
+      scope: "Internal Electrical work (Fit Out)",
+      startDate: "2025-01-01",
+      endDate: "2026-08-31",
+      areaSqft: "389175",
+      poNo: "C 47344",
+      status: "RUNNING",
+      region: "Bangalore",
+      projectDuration: "8 Months",
+    },
+    {
+      id: "PRJ_SIEMENS",
+      code: "SIEMENS",
+      name: "Siemens",
+      client: "Siemens",
+      pmc: "Cushman & Wakefield",
+      inCharge: "S. Rajesh",
+      manager: "K. Sharma",
+      scope: "Electrical Fit Out & Commissioning",
+      startDate: "2025-06-01",
+      endDate: "2026-05-31",
+      areaSqft: "245000",
+      poNo: "C 48120",
+      status: "RUNNING",
+      region: "Bangalore",
+      projectDuration: "12 Months",
+    },
+    {
+      id: "PRJ_QUALCOMM",
+      code: "QUALCOMM",
+      name: "Qualcomm-CH",
+      client: "Qualcomm",
+      pmc: "JLL",
+      inCharge: "V. Murugan",
+      manager: "HR Ravikiran",
+      scope: "HV & LV Electrical Installation",
+      startDate: "2025-03-01",
+      endDate: "2026-01-31",
+      areaSqft: "410000",
+      poNo: "C 49055",
+      status: "RUNNING",
+      region: "Chennai",
+      projectDuration: "10 Months",
+    },
+    {
+      id: "PRJ_INFOSYS",
+      code: "INFOSYS",
+      name: "Infosys",
+      client: "Infosys",
+      pmc: "Turner & Townsend",
+      inCharge: "A. Reddy",
+      manager: "K. Sharma",
+      scope: "Internal Electrical & Substation",
+      startDate: "2025-02-01",
+      endDate: "2026-04-30",
+      areaSqft: "520000",
+      poNo: "C 50210",
+      status: "RUNNING",
+      region: "Hyderabad",
+      projectDuration: "14 Months",
+    },
   ];
   const sh = sheet_(SHEETS.PROJECTS);
   batchWriteObjects_(sh, HEADERS.Projects, projects);
@@ -25,10 +134,10 @@ function ensureDemoProjects_() {
 
 function ensureDemoProjectUsers_() {
   const projectUserRows = [
-    { employeeId: 'EMP001', projectId: 'PRJ_INTUIT', role: ROLES.LEAD },
-    { employeeId: 'EMP005', projectId: 'PRJ_QUALCOMM', role: ROLES.LEAD },
-    { employeeId: 'EMP002', projectId: 'PRJ_INTUIT', role: ROLES.ASST },
-    { employeeId: 'EMP002', projectId: 'PRJ_SIEMENS', role: ROLES.ASST }
+    { employeeId: "EMP001", projectId: "PRJ_INTUIT", role: ROLES.LEAD },
+    { employeeId: "EMP005", projectId: "PRJ_QUALCOMM", role: ROLES.LEAD },
+    { employeeId: "EMP002", projectId: "PRJ_INTUIT", role: ROLES.ASST },
+    { employeeId: "EMP002", projectId: "PRJ_SIEMENS", role: ROLES.ASST },
   ];
   const sh = sheet_(SHEETS.PROJECT_USERS);
   batchWriteObjects_(sh, HEADERS.ProjectUsers, projectUserRows);
@@ -46,18 +155,22 @@ function login(employeeId, uan) {
       try {
         users = ensureDemoUsers_();
       } catch (e) {
-        Logger.log('Could not auto-seed demo users: ' + e);
+        Logger.log("Could not auto-seed demo users: " + e);
       }
     }
     if (!users || !users.length) {
       return {
         ok: false,
-        error: "User database is empty. Please run initializeSystem() in Apps Script editor."
+        error:
+          "User database is empty. Please run initializeSystem() in Apps Script editor.",
       };
     }
 
     const user = users.find(
-      (u) => String(u.employeeId || "").trim().toUpperCase() === id.toUpperCase(),
+      (u) =>
+        String(u.employeeId || "")
+          .trim()
+          .toUpperCase() === id.toUpperCase(),
     );
     if (!user) return { ok: false, error: "Invalid Employee ID or UAN." };
     if (
@@ -67,7 +180,11 @@ function login(employeeId, uan) {
     ) {
       return { ok: false, error: "Account is inactive. Contact EHS Manager." };
     }
-    if (String(user.uan || "").trim().toUpperCase() !== pin.toUpperCase()) {
+    if (
+      String(user.uan || "")
+        .trim()
+        .toUpperCase() !== pin.toUpperCase()
+    ) {
       return { ok: false, error: "Invalid Employee ID or UAN." };
     }
 
@@ -85,7 +202,7 @@ function login(employeeId, uan) {
     return {
       ok: true,
       token: token,
-      user: sessionUser
+      user: sessionUser,
     };
   } catch (err) {
     Logger.log("login error: " + err);
@@ -97,7 +214,7 @@ function makeToken_(user) {
   const payload = {
     u: String(user.employeeId || "").trim(),
     r: String(user.role || "").trim(),
-    t: Date.now()
+    t: Date.now(),
   };
   return Utilities.base64EncodeWebSafe(JSON.stringify(payload));
 }
@@ -105,7 +222,9 @@ function makeToken_(user) {
 function parseToken_(token) {
   if (!token) return null;
   try {
-    const raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(token)).getDataAsString();
+    const raw = Utilities.newBlob(
+      Utilities.base64DecodeWebSafe(token),
+    ).getDataAsString();
     const payload = JSON.parse(raw);
     if (!payload || !payload.u || !payload.t) return null;
     // Expire after 8 hours (8 * 3600 * 1000 = 28800000 ms)
@@ -118,7 +237,9 @@ function parseToken_(token) {
 
 function logout(token) {
   if (token) {
-    try { CacheService.getScriptCache().remove("sess_" + token.slice(0, 100)); } catch (e) {}
+    try {
+      CacheService.getScriptCache().remove("sess_" + token.slice(0, 100));
+    } catch (e) {}
   }
   return { ok: true };
 }
@@ -133,7 +254,9 @@ function requireUser_(token) {
     raw = CacheService.getScriptCache().get(cacheKey);
   } catch (e) {}
   if (raw) {
-    try { return JSON.parse(raw); } catch (e) {}
+    try {
+      return JSON.parse(raw);
+    } catch (e) {}
   }
 
   // 2. Decode the self-validating token payload
@@ -148,7 +271,10 @@ function requireUser_(token) {
     users = ensureDemoUsers_();
   }
   const user = users.find(
-    (u) => String(u.employeeId || "").trim().toUpperCase() === payload.u.toUpperCase()
+    (u) =>
+      String(u.employeeId || "")
+        .trim()
+        .toUpperCase() === payload.u.toUpperCase(),
   );
   if (!user) {
     throw new Error("User account not found. Please login again.");
@@ -156,7 +282,11 @@ function requireUser_(token) {
 
   const sessionUser = publicUser_(user);
   try {
-    CacheService.getScriptCache().put(cacheKey, JSON.stringify(sessionUser), 14400);
+    CacheService.getScriptCache().put(
+      cacheKey,
+      JSON.stringify(sessionUser),
+      14400,
+    );
   } catch (e) {}
 
   return sessionUser;
@@ -238,7 +368,9 @@ function assertProjectAccess_(user, projectId) {
 function assertEdit_(user, projectId) {
   assertProjectAccess_(user, projectId);
   if (canUploadRole_(user.role)) return;
-  throw new Error("You do not have upload/entry permissions. Only EHS Lead and Asst EHS Manager can submit or modify data.");
+  throw new Error(
+    "You do not have upload/entry permissions. Only EHS Lead and Asst EHS Manager can submit or modify data.",
+  );
 }
 
 function assertDelete_(user, projectId) {
