@@ -570,6 +570,7 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         map["wm_q" + item + "_d" + day] = displayVal;
         map["grind_q" + item + "_d" + day] = displayVal;
         map["cut_q" + item + "_d" + day] = displayVal;
+        map["drill_q" + item + "_d" + day] = displayVal;
         map["q" + item + "_d" + day] = displayVal;
         map["item" + item + "_d" + day] = displayVal;
         map["item" + item + "Day" + day] = displayVal;
