@@ -506,6 +506,18 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
       fields.extinguisherSpecification || fields.specification || fields.extinguisherType || fields.make || "",
     extinguisherType:
       fields.extinguisherSpecification || fields.specification || fields.extinguisherType || fields.make || "",
+    abc_type:
+      String(fields.extinguisherSpecification || "").toLowerCase().indexOf("abc") !== -1 ? "✓" : "",
+    water_type:
+      String(fields.extinguisherSpecification || "").toLowerCase().indexOf("water") !== -1 ? "✓" : "",
+    co2_type:
+      String(fields.extinguisherSpecification || "").toLowerCase().indexOf("co2") !== -1 ? "✓" : "",
+    isAbcType:
+      String(fields.extinguisherSpecification || "").toLowerCase().indexOf("abc") !== -1 ? "✓" : "",
+    isWaterType:
+      String(fields.extinguisherSpecification || "").toLowerCase().indexOf("water") !== -1 ? "✓" : "",
+    isCo2Type:
+      String(fields.extinguisherSpecification || "").toLowerCase().indexOf("co2") !== -1 ? "✓" : "",
     supervisor: fields.supervisor || "",
     supervisorSign:
       fields.supervisorSign ||
