@@ -10,35 +10,35 @@
  */
 const BACKEND_DOCS_TEMPLATES = {
   // Work Permits (Safety Work Clearance)
-  WP_HEIGHT: '1RAX7rxlZ7fY3ec3sH9OGOcZyRGD4nRKkUDkgjpgOy5w',  // Working At Height Permit-04
-  WP_GENERAL: '1wekm-P4Jv3iz85gBld-dWNuSzVLjDlr05j4HzQeWamY', // General work permit-02
-  WP_HOT: '1XmYhVlBiJtK32y-IXRsX-5rxP_8ykACny4C-MuAl0HU',     // Hot Work Permit-03
-  WP_LIFT: '1EZEqr-YwsyFNdUI191MV-lehWlgQmVmb9z-oMxTygs0',    // Lifting Activity Permit-05
-  WP_SHAFT: '1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE',   // Shaft work permit-06
-  WP_NIGHT: '1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE',   // Night Work permit-07
+  WP_HEIGHT: "1RAX7rxlZ7fY3ec3sH9OGOcZyRGD4nRKkUDkgjpgOy5w", // Working At Height Permit-04
+  WP_GENERAL: "1wekm-P4Jv3iz85gBld-dWNuSzVLjDlr05j4HzQeWamY", // General work permit-02
+  WP_HOT: "1XmYhVlBiJtK32y-IXRsX-5rxP_8ykACny4C-MuAl0HU", // Hot Work Permit-03
+  WP_LIFT: "1EZEqr-YwsyFNdUI191MV-lehWlgQmVmb9z-oMxTygs0", // Lifting Activity Permit-05
+  WP_SHAFT: "1dp9UV5F0OEnxq7KarUhIJUXwzZQCFH-rZTgcLWTp8mE", // Shaft work permit-06
+  WP_NIGHT: "1MYVyt8LRIoBIDQRjX8W_pS7NdpVm88Me1wRWawUJSGE", // Night Work permit-07
 
   // Checklists & Equipment Inspections (awaiting native Google Doc IDs from user)
-  CL_WELD: '',
-  CL_GRIND: '',
-  CL_CUT: '',
-  CL_DRILL: '',
-  CL_FE: '',
-  CL_SCAFFOLD: '',
+  CL_WELD: "",
+  CL_GRIND: "",
+  CL_CUT: "",
+  CL_DRILL: "",
+  CL_FE: "",
+  CL_SCAFFOLD: "",
 
   // Attendances, Training & Inductions
-  CL_TBT: '',
-  CL_JST: '',
-  CL_INDUCTION: '',
+  CL_TBT: "",
+  CL_JST: "",
+  CL_INDUCTION: "",
 
   // Worker Screening & Medical
-  CL_SCREENING: '',
-  CL_MEDICAL: '',
+  CL_SCREENING: "",
+  CL_MEDICAL: "",
 
   // Stickers / Tags
-  TAG_IND: '',
-  TAG_TOOL: '',
-  TAG_FE: '',
-  TAG_RED: ''
+  TAG_IND: "",
+  TAG_TOOL: "",
+  TAG_FE: "",
+  TAG_RED: "",
 };
 
 /**
@@ -46,17 +46,20 @@ const BACKEND_DOCS_TEMPLATES = {
  * checking runtime properties first and falling back to backend defaults.
  */
 function getDocTemplateId_(formCode) {
-  if (BACKEND_DOCS_TEMPLATES[formCode] && BACKEND_DOCS_TEMPLATES[formCode].trim() !== '') {
+  if (
+    BACKEND_DOCS_TEMPLATES[formCode] &&
+    BACKEND_DOCS_TEMPLATES[formCode].trim() !== ""
+  ) {
     return BACKEND_DOCS_TEMPLATES[formCode].trim();
   }
-  let id = '';
+  let id = "";
   try {
-    if (typeof getDocTemplateRegistry_ === 'function') {
+    if (typeof getDocTemplateRegistry_ === "function") {
       const reg = getDocTemplateRegistry_();
-      id = (reg && reg[formCode]) || '';
+      id = (reg && reg[formCode]) || "";
     }
   } catch (e) {}
-  return id ? id.trim() : '';
+  return id ? id.trim() : "";
 }
 
 /**
@@ -68,124 +71,209 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
   project = project || {};
   user = user || {};
 
-  const docCode = (typeof PERMIT_DOC_CODES !== 'undefined' && PERMIT_DOC_CODES[formCode]) || formCode || 'SESIPL-EHS';
-  const contractorName = fields.contractorName || fields.contractor || project.client || 'Shankar Electricals Services I Pvt Ltd';
-  const permitNo = fields.permitNo || ('SESIPL/' + formCode.replace('WP_', '') + '/' + (submissionId ? String(submissionId).slice(-4) : '001'));
-  const emergency1 = fields.emergencyContact1 || '9591461971';
-  const emergency2 = fields.emergencyContact2 || '7899650058';
+  const docCode =
+    (typeof PERMIT_DOC_CODES !== "undefined" && PERMIT_DOC_CODES[formCode]) ||
+    formCode ||
+    "SESIPL-EHS";
+  const contractorName =
+    fields.contractorName ||
+    fields.contractor ||
+    project.client ||
+    "Shankar Electricals Services I Pvt Ltd";
+  const permitNo =
+    fields.permitNo ||
+    "SESIPL/" +
+      formCode.replace("WP_", "") +
+      "/" +
+      (submissionId ? String(submissionId).slice(-4) : "001");
+  const emergency1 = fields.emergencyContact1 || "9591461971";
+  const emergency2 = fields.emergencyContact2 || "7899650058";
 
   const map = {
     // Header & Document Info
     contractorName: contractorName,
-    projectName: project.name || 'SESIPL Site',
-    projectCode: project.code || 'PRJ',
+    projectName: project.name || "SESIPL Site",
+    projectCode: project.code || "PRJ",
     permitNo: permitNo,
     docCode: docCode,
     emergencyContact1: emergency1,
     emergencyContact2: emergency2,
 
     // General Work Details
-    area: fields.area || '',
-    location: fields.location || '',
-    date: fields.date ? displayDate_(fields.date) : (fields.workExecutionDate ? displayDate_(fields.workExecutionDate) : todayDisplay_()),
-    time: fields.time || '',
-    siteEngineerName: fields.siteEngineer || fields.siteEngineerName || '',
-    SiteEngineerName: fields.siteEngineer || fields.siteEngineerName || '',
-    siteEngineer: fields.siteEngineer || fields.siteEngineerName || '',
-    siteEngineerSign: fields.siteEngineerSign || (fields.siteEngineer ? 'Signed - ' + fields.siteEngineer : (fields.siteEngineerName ? 'Signed' : '')),
-    safetyOfficerName: fields.safetyOfficer || fields.safetyOfficerName || '',
-    safetyOfficer: fields.safetyOfficer || fields.safetyOfficerName || '',
-    safetyOfficerSign: fields.safetyOfficerSign || (fields.safetyOfficer ? 'Signed - ' + fields.safetyOfficer : (fields.safetyOfficerName ? 'Signed' : '')),
-    contractorSiteIncharge: fields.contractorInCharge || fields.contractorSiteIncharge || fields.agencySupervisor || '',
-    contractorInCharge: fields.contractorInCharge || fields.contractorSiteIncharge || fields.agencySupervisor || '',
-    contactNumber: fields.contactNumber || '',
-    descriptionOfWork: fields.descriptionOfWork || fields.workDescription || '',
-    workDescription: fields.descriptionOfWork || fields.workDescription || '',
-    workExecutionDate: fields.workExecutionDate ? displayDate_(fields.workExecutionDate) : '',
-    validFrom: fields.validFrom ? String(fields.validFrom).replace('T', ' ') : '',
-    validTo: fields.validTo ? String(fields.validTo).replace('T', ' ') : '',
-    PMCsiteEngineer: fields.closingPmcSiteEngName || fields.pmcSiteEngineer || fields.PMCsiteEngineer || '',
-    pmcSiteEngineer: fields.closingPmcSiteEngName || fields.pmcSiteEngineer || fields.PMCsiteEngineer || '',
+    area: fields.area || "",
+    location: fields.location || "",
+    date: fields.date
+      ? displayDate_(fields.date)
+      : fields.workExecutionDate
+        ? displayDate_(fields.workExecutionDate)
+        : todayDisplay_(),
+    time: fields.time || "",
+    siteEngineerName: fields.siteEngineer || fields.siteEngineerName || "",
+    SiteEngineerName: fields.siteEngineer || fields.siteEngineerName || "",
+    siteEngineer: fields.siteEngineer || fields.siteEngineerName || "",
+    siteEngineerSign:
+      fields.siteEngineerSign ||
+      (fields.siteEngineer
+        ? "Signed - " + fields.siteEngineer
+        : fields.siteEngineerName
+          ? "Signed"
+          : ""),
+    safetyOfficerName: fields.safetyOfficer || fields.safetyOfficerName || "",
+    safetyOfficer: fields.safetyOfficer || fields.safetyOfficerName || "",
+    safetyOfficerSign:
+      fields.safetyOfficerSign ||
+      (fields.safetyOfficer
+        ? "Signed - " + fields.safetyOfficer
+        : fields.safetyOfficerName
+          ? "Signed"
+          : ""),
+    contractorSiteIncharge:
+      fields.contractorInCharge ||
+      fields.contractorSiteIncharge ||
+      fields.agencySupervisor ||
+      "",
+    contractorInCharge:
+      fields.contractorInCharge ||
+      fields.contractorSiteIncharge ||
+      fields.agencySupervisor ||
+      "",
+    contactNumber: fields.contactNumber || "",
+    descriptionOfWork: fields.descriptionOfWork || fields.workDescription || "",
+    workDescription: fields.descriptionOfWork || fields.workDescription || "",
+    workExecutionDate: fields.workExecutionDate
+      ? displayDate_(fields.workExecutionDate)
+      : "",
+    validFrom: fields.validFrom
+      ? String(fields.validFrom).replace("T", " ")
+      : "",
+    validTo: fields.validTo ? String(fields.validTo).replace("T", " ") : "",
+    PMCsiteEngineer:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      "",
+    pmcSiteEngineer:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      "",
 
     // Permit Specific
-    shaftWorkmenNames: fields.workmenNames || fields.shaftWorkmenNames || '',
-    hot_other: fields.hot_other || '',
-    lift_other: fields.lift_other || '',
-    gen_other: fields.gen_other || '',
-    height_other: fields.height_other || '',
-    night_remarks: fields.night_remarks || '',
+    shaftWorkmenNames: fields.workmenNames || fields.shaftWorkmenNames || "",
+    workmenNames: fields.workmenNames || fields.shaftWorkmenNames || "",
+    hot_other: fields.hot_other || "",
+    lift_other: fields.lift_other || "",
+    gen_other: fields.gen_other || "",
+    height_other: fields.height_other || "",
+    night_remarks: fields.night_remarks || "",
 
     // Reviewed & Approved By
-    approvalEhsName: fields.approvalEhsName || '',
-    approvalEhsSign: fields.approvalEhsSign || (fields.approvalEhsName ? 'Signed' : ''),
-    approvalEhsDate: fields.approvalEhsDate ? displayDate_(fields.approvalEhsDate) : '',
-    approvalEhsTime: fields.approvalEhsTime || '',
-    approvalSiteEngName: fields.approvalSiteEngineerName || fields.approvalSiteEngName || '',
-    approvalSiteEngSign: fields.approvalSiteEngineerSign || fields.approvalSiteEngSign || (fields.approvalSiteEngineerName ? 'Signed' : ''),
-    approvalSiteEngDate: fields.approvalSiteEngineerDate ? displayDate_(fields.approvalSiteEngineerDate) : '',
-    approvalSiteEngTime: fields.approvalSiteEngineerTime || '',
+    approvalEhsName: fields.approvalEhsName || "",
+    approvalEhsSign:
+      fields.approvalEhsSign || (fields.approvalEhsName ? "Signed" : ""),
+    approvalEhsDate: fields.approvalEhsDate
+      ? displayDate_(fields.approvalEhsDate)
+      : "",
+    approvalEhsTime: fields.approvalEhsTime || "",
+    approvalSiteEngName:
+      fields.approvalSiteEngineerName || fields.approvalSiteEngName || "",
+    approvalSiteEngSign:
+      fields.approvalSiteEngineerSign ||
+      fields.approvalSiteEngSign ||
+      (fields.approvalSiteEngineerName ? "Signed" : ""),
+    approvalSiteEngDate: fields.approvalSiteEngineerDate
+      ? displayDate_(fields.approvalSiteEngineerDate)
+      : "",
+    approvalSiteEngTime: fields.approvalSiteEngineerTime || "",
 
     // Permit Closing / Cancellation
-    closingSiteEngName: fields.closingSiteEngName || '',
-    closingSiteEngSign: fields.closingSiteEngSign || (fields.closingSiteEngName ? 'Signed' : ''),
-    closingSiteEngDate: fields.closingSiteEngDate ? displayDate_(fields.closingSiteEngDate) : '',
-    closingSiteEngTime: fields.closingSiteEngTime || '',
-    closingSafetyOfficerName: fields.closingSafetyOfficerName || '',
-    closingSafetyOfficerSign: fields.closingSafetyOfficerSign || (fields.closingSafetyOfficerName ? 'Signed' : ''),
-    closingSafetyOfficerDate: fields.closingSafetyOfficerDate ? displayDate_(fields.closingSafetyOfficerDate) : '',
-    closingSafetyOfficerTime: fields.closingSafetyOfficerTime || '',
-    closingPmcSiteEngName: fields.closingPmcSiteEngName || '',
-    closingPmcSiteEngSign: fields.closingPmcSiteEngSign || (fields.closingPmcSiteEngName ? 'Signed' : ''),
-    closingPmcSiteEngDate: fields.closingPmcSiteEngDate ? displayDate_(fields.closingPmcSiteEngDate) : '',
-    closingPmcSiteEngTime: fields.closingPmcSiteEngTime || '',
+    closingSiteEngName: fields.closingSiteEngName || "",
+    closingSiteEngSign:
+      fields.closingSiteEngSign || (fields.closingSiteEngName ? "Signed" : ""),
+    closingSiteEngDate: fields.closingSiteEngDate
+      ? displayDate_(fields.closingSiteEngDate)
+      : "",
+    closingSiteEngTime: fields.closingSiteEngTime || "",
+    closingSafetyOfficerName: fields.closingSafetyOfficerName || "",
+    closingSafetyOfficerSign:
+      fields.closingSafetyOfficerSign ||
+      (fields.closingSafetyOfficerName ? "Signed" : ""),
+    closingSafetyOfficerDate: fields.closingSafetyOfficerDate
+      ? displayDate_(fields.closingSafetyOfficerDate)
+      : "",
+    closingSafetyOfficerTime: fields.closingSafetyOfficerTime || "",
+    closingPmcSiteEngName: fields.closingPmcSiteEngName || "",
+    closingPmcSiteEngSign:
+      fields.closingPmcSiteEngSign ||
+      (fields.closingPmcSiteEngName ? "Signed" : ""),
+    closingPmcSiteEngDate: fields.closingPmcSiteEngDate
+      ? displayDate_(fields.closingPmcSiteEngDate)
+      : "",
+    closingPmcSiteEngTime: fields.closingPmcSiteEngTime || "",
 
     // Worker Screening & Medical
-    workerId: fields.workerId || '',
-    workerFullName: fields.workerName || fields.workerFullName || '',
-    fatherOrHusbandName: fields.fatherName || fields.fatherOrHusbandName || '',
-    permanentAddress: fields.permanentAddress || '',
-    presentAddress: fields.presentAddress || '',
-    dob: fields.dateOfBirth ? displayDate_(fields.dateOfBirth) : (fields.dob ? displayDate_(fields.dob) : ''),
-    sex: fields.sex || '',
-    age: fields.age || '',
-    maritalStatus: fields.maritalStatus || '',
-    numChildren: fields.childrenCount || fields.numChildren || '',
-    motherTongue: fields.motherTongue || '',
-    otherLanguages: fields.languages || fields.otherLanguages || '',
-    emergencyContactPerson: fields.emergencyContact || fields.emergencyContactPerson || '',
-    identificationMark: fields.identificationMark || fields.identificationMarks || '',
-    visionStatus: fields.vision || 'Normal',
-    visionProblem: fields.visionProblem || '',
-    healthStatus: fields.health || 'Normal',
-    healthProblem: fields.healthProblem || '',
-    weightKg: fields.weightKg || '',
-    heightCm: fields.heightCms || fields.heightCm || '',
-    bloodGroup: fields.bloodGroup || '',
-    suitableEmployment: fields.suitableEmployment || '',
-    siteInchargeName: fields.siteInCharge || fields.siteInchargeName || '',
-    workerSign: fields.workerDeclarationSignature || 'Signed',
-    contractorSign: fields.contractorDeclarationSignature || 'Signed',
+    workerId: fields.workerId || "",
+    workerFullName: fields.workerName || fields.workerFullName || "",
+    fatherOrHusbandName: fields.fatherName || fields.fatherOrHusbandName || "",
+    permanentAddress: fields.permanentAddress || "",
+    presentAddress: fields.presentAddress || "",
+    dob: fields.dateOfBirth
+      ? displayDate_(fields.dateOfBirth)
+      : fields.dob
+        ? displayDate_(fields.dob)
+        : "",
+    sex: fields.sex || "",
+    age: fields.age || "",
+    maritalStatus: fields.maritalStatus || "",
+    numChildren: fields.childrenCount || fields.numChildren || "",
+    motherTongue: fields.motherTongue || "",
+    otherLanguages: fields.languages || fields.otherLanguages || "",
+    emergencyContactPerson:
+      fields.emergencyContact || fields.emergencyContactPerson || "",
+    identificationMark:
+      fields.identificationMark || fields.identificationMarks || "",
+    visionStatus: fields.vision || "Normal",
+    visionProblem: fields.visionProblem || "",
+    healthStatus: fields.health || "Normal",
+    healthProblem: fields.healthProblem || "",
+    weightKg: fields.weightKg || "",
+    heightCm: fields.heightCms || fields.heightCm || "",
+    bloodGroup: fields.bloodGroup || "",
+    suitableEmployment: fields.suitableEmployment || "",
+    siteInchargeName: fields.siteInCharge || fields.siteInchargeName || "",
+    workerSign: fields.workerDeclarationSignature || "Signed",
+    contractorSign: fields.contractorDeclarationSignature || "Signed",
 
     // Form XI Medical
-    certSerialNo: fields.certificateNo || fields.certSerialNo || '',
-    workerThumbSign: fields.workerDeclarationSignature || 'Thumb Impressed',
-    medicalOfficerSign: fields.medicalInspector || 'Verified & Sealed',
+    certSerialNo: fields.certificateNo || fields.certSerialNo || "",
+    workerThumbSign: fields.workerDeclarationSignature || "Thumb Impressed",
+    medicalOfficerSign: fields.medicalInspector || "Verified & Sealed",
 
     // TBT & Training
-    topicDiscussed: fields.topic || fields.topicDiscussed || '',
-    tbtConductedBy: fields.conductedBy || fields.tbtConductedBy || '',
-    tbtConductedBySign: fields.conductedBy ? 'Signed' : '',
-    projectManagerName: fields.projectManager || fields.projectManagerName || '',
-    projectManagerSign: fields.projectManager ? 'Signed' : '',
-    ehsOfficerSign: 'Signed',
+    topicDiscussed: fields.topic || fields.topicDiscussed || "",
+    tbtConductedBy: fields.conductedBy || fields.tbtConductedBy || "",
+    tbtConductedBySign: fields.conductedBy ? "Signed" : "",
+    projectManagerName:
+      fields.projectManager || fields.projectManagerName || "",
+    projectManagerSign: fields.projectManager ? "Signed" : "",
+    ehsOfficerSign: "Signed",
 
     // Equipment Details
-    equipmentId: fields.equipmentId || fields.equipmentNo || fields.machineNo || '',
-    equipmentNo: fields.equipmentNo || fields.equipmentId || fields.machineNo || '',
-    machineNo: fields.machineNo || fields.equipmentId || fields.equipmentNo || '',
-    makeType: fields.makeType || fields.make || '',
-    inspectionDate: fields.inspectionDate ? displayDate_(fields.inspectionDate) : '',
-    nextInspectionDate: fields.nextInspectionDate ? displayDate_(fields.nextInspectionDate) : (fields.nextDue ? displayDate_(fields.nextDue) : '')
+    equipmentId:
+      fields.equipmentId || fields.equipmentNo || fields.machineNo || "",
+    equipmentNo:
+      fields.equipmentNo || fields.equipmentId || fields.machineNo || "",
+    machineNo:
+      fields.machineNo || fields.equipmentId || fields.equipmentNo || "",
+    makeType: fields.makeType || fields.make || "",
+    inspectionDate: fields.inspectionDate
+      ? displayDate_(fields.inspectionDate)
+      : "",
+    nextInspectionDate: fields.nextInspectionDate
+      ? displayDate_(fields.nextInspectionDate)
+      : fields.nextDue
+        ? displayDate_(fields.nextDue)
+        : "",
   };
 
   // Process all keys in fields directly
@@ -197,79 +285,103 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
 
   // Generate Yes / No / NA / Not Required checkbox indicators
   for (const k in fields) {
-    const val = String(fields[k] || '').trim().toLowerCase();
-    const isYes = val === 'yes' || val === 'y' || val === 'true';
-    const isNo = val === 'no' || val === 'n';
-    const isNA = val === 'na' || val === 'n/a';
-    const isNR = val === 'not required' || val === 'nr';
+    const val = String(fields[k] || "")
+      .trim()
+      .toLowerCase();
+    const isYes = val === "yes" || val === "y" || val === "true";
+    const isNo = val === "no" || val === "n";
+    const isNA = val === "na" || val === "n/a";
+    const isNR = val === "not required" || val === "nr";
 
     // Form-specific prefix (e.g. height_q1_yes, night_q1_no)
-    map[k + '_yes'] = isYes ? '✓' : '';
-    map[k + '_no'] = isNo ? '✓' : '';
-    map[k + '_na'] = isNA ? '✓' : '';
-    map[k + '_nr'] = isNR ? '✓' : '';
+    map[k + "_yes"] = isYes ? "✓" : "";
+    map[k + "_no"] = isNo ? "✓" : "";
+    map[k + "_na"] = isNA ? "✓" : "";
+    map[k + "_nr"] = isNR ? "✓" : "";
 
     // Generic prefix (e.g. height_q1 -> q1_yes, 1_yes)
-    const match = k.match(/^(?:height|gen|hot|lift|shaft|night|wm|grind|cut|drill|fe)_?(q?\d+)/i);
+    const match = k.match(
+      /^(?:height|gen|hot|lift|shaft|night|wm|grind|cut|drill|fe)_?(q?\d+)/i,
+    );
     if (match) {
-      const numPart = match[1].toLowerCase().replace('q', '');
-      const qTag = 'q' + numPart;
-      map[qTag + '_yes'] = isYes ? '✓' : (map[qTag + '_yes'] || '');
-      map[qTag + '_no'] = isNo ? '✓' : (map[qTag + '_no'] || '');
-      map[qTag + '_na'] = isNA ? '✓' : (map[qTag + '_na'] || '');
-      map[qTag + '_nr'] = isNR ? '✓' : (map[qTag + '_nr'] || '');
+      const numPart = match[1].toLowerCase().replace("q", "");
+      const qTag = "q" + numPart;
+      map[qTag + "_yes"] = isYes ? "✓" : map[qTag + "_yes"] || "";
+      map[qTag + "_no"] = isNo ? "✓" : map[qTag + "_no"] || "";
+      map[qTag + "_na"] = isNA ? "✓" : map[qTag + "_na"] || "";
+      map[qTag + "_nr"] = isNR ? "✓" : map[qTag + "_nr"] || "";
       map[qTag] = fields[k];
 
-      map[numPart + '_yes'] = isYes ? '✓' : (map[numPart + '_yes'] || '');
-      map[numPart + '_no'] = isNo ? '✓' : (map[numPart + '_no'] || '');
-      map[numPart + '_na'] = isNA ? '✓' : (map[numPart + '_na'] || '');
-      map[numPart + '_nr'] = isNR ? '✓' : (map[numPart + '_nr'] || '');
+      map[numPart + "_yes"] = isYes ? "✓" : map[numPart + "_yes"] || "";
+      map[numPart + "_no"] = isNo ? "✓" : map[numPart + "_no"] || "";
+      map[numPart + "_na"] = isNA ? "✓" : map[numPart + "_na"] || "";
+      map[numPart + "_nr"] = isNR ? "✓" : map[numPart + "_nr"] || "";
     }
   }
 
   // Handle daily inspection checklists like item1Day1
   for (let item = 1; item <= 15; item++) {
     for (let day = 1; day <= 7; day++) {
-      const fieldKey = 'item' + item + 'Day' + day;
+      const fieldKey = "item" + item + "Day" + day;
       if (fields[fieldKey]) {
         const v = String(fields[fieldKey]).trim();
-        const isTick = v.toLowerCase() === 'yes' || v.toLowerCase() === 'y' || v === '✓';
-        const displayVal = isTick ? '✓' : v;
-        map['wm_q' + item + '_d' + day] = displayVal;
-        map['grind_q' + item + '_d' + day] = displayVal;
-        map['cut_q' + item + '_d' + day] = displayVal;
-        map['q' + item + '_d' + day] = displayVal;
-        map['item' + item + '_d' + day] = displayVal;
+        const isTick =
+          v.toLowerCase() === "yes" || v.toLowerCase() === "y" || v === "✓";
+        const displayVal = isTick ? "✓" : v;
+        map["wm_q" + item + "_d" + day] = displayVal;
+        map["grind_q" + item + "_d" + day] = displayVal;
+        map["cut_q" + item + "_d" + day] = displayVal;
+        map["q" + item + "_d" + day] = displayVal;
+        map["item" + item + "_d" + day] = displayVal;
       }
     }
   }
 
   // Handle participant rows for TBT, JST, Training, and Induction
   for (let i = 1; i <= 30; i++) {
-    const name = fields['participant' + i + 'Name'] || fields['tbt_name_' + i] || fields['train_name_' + i] || '';
-    const desig = fields['participant' + i + 'Designation'] || fields['tbt_desig_' + i] || fields['train_desig_' + i] || '';
-    const agency = fields['participant' + i + 'Company'] || fields['participant' + i + 'Agency'] || fields['tbt_agency_' + i] || fields['train_company_' + i] || '';
-    const sign = name ? (fields['participant' + i + 'Signature'] || 'Signed') : '';
+    const name =
+      fields["participant" + i + "Name"] ||
+      fields["tbt_name_" + i] ||
+      fields["train_name_" + i] ||
+      "";
+    const desig =
+      fields["participant" + i + "Designation"] ||
+      fields["tbt_desig_" + i] ||
+      fields["train_desig_" + i] ||
+      "";
+    const agency =
+      fields["participant" + i + "Company"] ||
+      fields["participant" + i + "Agency"] ||
+      fields["tbt_agency_" + i] ||
+      fields["train_company_" + i] ||
+      "";
+    const sign = name
+      ? fields["participant" + i + "Signature"] || "Signed"
+      : "";
 
-    map['tbt_name_' + i] = name;
-    map['tbt_desig_' + i] = desig;
-    map['tbt_agency_' + i] = agency;
-    map['tbt_sign_' + i] = sign;
+    map["tbt_name_" + i] = name;
+    map["tbt_desig_" + i] = desig;
+    map["tbt_agency_" + i] = agency;
+    map["tbt_sign_" + i] = sign;
 
-    map['train_name_' + i] = name;
-    map['train_desig_' + i] = desig;
-    map['train_company_' + i] = agency;
-    map['train_sign_' + i] = sign;
+    map["train_name_" + i] = name;
+    map["train_desig_" + i] = desig;
+    map["train_company_" + i] = agency;
+    map["train_sign_" + i] = sign;
 
-    const indId = fields['attendee' + i + 'Id'] || fields['ind_id_' + i] || '';
-    const indName = fields['attendee' + i + 'Name'] || fields['ind_name_' + i] || '';
-    const indDesig = fields['attendee' + i + 'Designation'] || fields['ind_desig_' + i] || '';
-    const indSign = indName ? (fields['attendee' + i + 'Signature'] || 'Signed') : '';
+    const indId = fields["attendee" + i + "Id"] || fields["ind_id_" + i] || "";
+    const indName =
+      fields["attendee" + i + "Name"] || fields["ind_name_" + i] || "";
+    const indDesig =
+      fields["attendee" + i + "Designation"] || fields["ind_desig_" + i] || "";
+    const indSign = indName
+      ? fields["attendee" + i + "Signature"] || "Signed"
+      : "";
 
-    map['ind_id_' + i] = indId;
-    map['ind_name_' + i] = indName;
-    map['ind_desig_' + i] = indDesig;
-    map['ind_sign_' + i] = indSign;
+    map["ind_id_" + i] = indId;
+    map["ind_name_" + i] = indName;
+    map["ind_desig_" + i] = indDesig;
+    map["ind_sign_" + i] = indSign;
   }
 
   // Generate uppercase, lowercase, and capitalized aliases for every placeholder
@@ -289,7 +401,12 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
 /**
  * Copies a Google Doc template, substitutes {{placeholders}}, and exports to PDF.
  */
-function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, project) {
+function generatePdfFromDocsTemplate_(
+  templateDocId,
+  placeholderMap,
+  title,
+  project,
+) {
   if (!templateDocId) {
     throw new Error("No Google Doc template ID provided.");
   }
@@ -299,9 +416,12 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
     templateFile = DriveApp.getFileById(templateDocId);
   } catch (fileErr) {
     throw new Error(
-      "Cannot access template file with ID '" + templateDocId + "'. " +
-      "Please ensure the file exists and is shared with 'Anyone with the link can view' or with your Google account. " +
-      "Details: " + fileErr.message
+      "Cannot access template file with ID '" +
+        templateDocId +
+        "'. " +
+        "Please ensure the file exists and is shared with 'Anyone with the link can view' or with your Google account. " +
+        "Details: " +
+        fileErr.message,
     );
   }
 
@@ -309,15 +429,21 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
   const mimeType = templateFile.getMimeType();
   if (mimeType !== MimeType.GOOGLE_DOCS) {
     throw new Error(
-      "The template (ID: " + templateDocId + ") is of type '" + mimeType + "', not a native Google Doc. " +
-      "If this is an uploaded Word .docx or PDF, open it in Google Drive and select File > 'Save as Google Docs', then copy the new document's ID."
+      "The template (ID: " +
+        templateDocId +
+        ") is of type '" +
+        mimeType +
+        "', not a native Google Doc. " +
+        "If this is an uploaded Word .docx or PDF, open it in Google Drive and select File > 'Save as Google Docs', then copy the new document's ID.",
     );
   }
 
   // Create working copy in designated folder
   const folder = getEhsGeneratedPdfFolder_(project);
-  const copyTitle = (title || 'EHS_Document') + '_' + new Date().getTime();
-  const docCopy = folder ? templateFile.makeCopy(copyTitle, folder) : templateFile.makeCopy(copyTitle);
+  const copyTitle = (title || "EHS_Document") + "_" + new Date().getTime();
+  const docCopy = folder
+    ? templateFile.makeCopy(copyTitle, folder)
+    : templateFile.makeCopy(copyTitle);
 
   // Retry opening the copied document with backoff to handle Google Drive indexing propagation
   let doc = null;
@@ -335,10 +461,13 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
   }
 
   if (!doc) {
-    try { docCopy.setTrashed(true); } catch (t) {}
+    try {
+      docCopy.setTrashed(true);
+    } catch (t) {}
     throw new Error(
       "The document is inaccessible. Please ensure the template file is shared with 'Anyone with the link can view' and is a native Google Doc. " +
-      "Details: " + (lastErr ? lastErr.message : "openById failed")
+        "Details: " +
+        (lastErr ? lastErr.message : "openById failed"),
     );
   }
 
@@ -348,11 +477,18 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
     doc.saveAndClose();
 
     // Convert populated doc copy to PDF
-    const pdfBlob = docCopy.getAs('application/pdf').setName((title || 'EHS_Document') + '.pdf');
-    const pdfFile = folder ? folder.createFile(pdfBlob) : DriveApp.createFile(pdfBlob);
+    const pdfBlob = docCopy
+      .getAs("application/pdf")
+      .setName((title || "EHS_Document") + ".pdf");
+    const pdfFile = folder
+      ? folder.createFile(pdfBlob)
+      : DriveApp.createFile(pdfBlob);
 
     try {
-      pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      pdfFile.setSharing(
+        DriveApp.Access.ANYONE_WITH_LINK,
+        DriveApp.Permission.VIEW,
+      );
     } catch (err) {
       Logger.log("Notice: PDF sharing setting: " + err);
     }
@@ -361,8 +497,10 @@ function generatePdfFromDocsTemplate_(templateDocId, placeholderMap, title, proj
       ok: true,
       fileId: pdfFile.getId(),
       pdfUrl: pdfFile.getUrl(),
-      downloadUrl: 'https://drive.google.com/uc?export=download&id=' + pdfFile.getId(),
-      previewUrl: 'https://drive.google.com/file/d/' + pdfFile.getId() + '/preview'
+      downloadUrl:
+        "https://drive.google.com/uc?export=download&id=" + pdfFile.getId(),
+      previewUrl:
+        "https://drive.google.com/file/d/" + pdfFile.getId() + "/preview",
     };
   } finally {
     // Remove the temporary doc copy to keep Google Drive uncluttered
@@ -385,9 +523,9 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
   const footer = doc.getFooter();
 
   // Combine text to quickly filter only placeholders present in this document
-  let fullDocText = body.getText() || '';
-  if (header) fullDocText += ' ' + (header.getText() || '');
-  if (footer) fullDocText += ' ' + (footer.getText() || '');
+  let fullDocText = body.getText() || "";
+  if (header) fullDocText += " " + (header.getText() || "");
+  if (footer) fullDocText += " " + (footer.getText() || "");
   const fullDocTextLower = fullDocText.toLowerCase();
 
   // Only perform replaceText for keys that actually appear in the document
@@ -402,8 +540,9 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
     if (!container) return;
     for (let i = 0; i < activeKeys.length; i++) {
       const key = activeKeys[i];
-      const val = placeholderMap[key] != null ? String(placeholderMap[key]) : '';
-      const regexPattern = '\\{\\{\\s*' + escapeRegex_(key) + '\\s*\\}\\}';
+      const val =
+        placeholderMap[key] != null ? String(placeholderMap[key]) : "";
+      const regexPattern = "\\{\\{\\s*" + escapeRegex_(key) + "\\s*\\}\\}";
       try {
         container.replaceText(regexPattern, val);
       } catch (e) {}
@@ -417,16 +556,18 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
 }
 
 function escapeRegex_(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function todayDisplay_() {
-  if (typeof displayDate_ === 'function' && typeof todayIso_ === 'function') {
+  if (typeof displayDate_ === "function" && typeof todayIso_ === "function") {
     return displayDate_(todayIso_());
   }
   const d = new Date();
-  const pad = function(n) { return n < 10 ? '0' + n : '' + n; };
-  return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+  const pad = function (n) {
+    return n < 10 ? "0" + n : "" + n;
+  };
+  return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear();
 }
 
 /**
@@ -435,11 +576,11 @@ function todayDisplay_() {
 function getEhsGeneratedPdfFolder_(project) {
   try {
     if (project && project.id) {
-      return getNamedSubfolder_(project, 'Generated PDFs');
+      return getNamedSubfolder_(project, "Generated PDFs");
     }
   } catch (e) {}
 
-  const folderName = 'SESIPL EHS Generated PDFs';
+  const folderName = "SESIPL EHS Generated PDFs";
   const existing = DriveApp.getFoldersByName(folderName);
   if (existing.hasNext()) {
     return existing.next();
@@ -454,61 +595,98 @@ function getEhsGeneratedPdfFolder_(project) {
  */
 function getOrGenerateSubmissionPdf_(submissionId, options) {
   options = options || {};
-  const sub = findOne_(SHEETS.SUBMISSIONS, 'id', submissionId);
+  const sub = findOne_(SHEETS.SUBMISSIONS, "id", submissionId);
   if (!sub) throw new Error("Submission not found: " + submissionId);
 
-  const project = findOne_(SHEETS.PROJECTS, 'id', sub.projectId) || { id: sub.projectId, name: 'SESIPL Project Site', code: 'PRJ' };
-  const def = FORM_DEFS.find(f => f.formCode === sub.formCode) || { formCode: sub.formCode, title: sub.formCode };
-  const fields = (typeof sub.payload === 'object' && sub.payload) ? sub.payload : JSON.parse(sub.payloadJson || '{}');
+  const project = findOne_(SHEETS.PROJECTS, "id", sub.projectId) || {
+    id: sub.projectId,
+    name: "SESIPL Project Site",
+    code: "PRJ",
+  };
+  const def = FORM_DEFS.find((f) => f.formCode === sub.formCode) || {
+    formCode: sub.formCode,
+    title: sub.formCode,
+  };
+  const fields =
+    typeof sub.payload === "object" && sub.payload
+      ? sub.payload
+      : JSON.parse(sub.payloadJson || "{}");
   const user = { employeeId: sub.submittedBy, name: sub.submittedBy };
 
   const templateDocId = getDocTemplateId_(sub.formCode);
 
-  let docErrorMsg = '';
+  let docErrorMsg = "";
   // 1. If a Google Docs template ID is configured for this form:
-  if (templateDocId && templateDocId.trim() !== '') {
+  if (templateDocId && templateDocId.trim() !== "") {
     try {
-      const placeholderMap = buildPlaceholderMap_(sub.formCode, fields, project, user, submissionId);
-      const title = (project.code || 'PRJ') + '_' + sub.formCode + '_' + submissionId;
-      const docResult = generatePdfFromDocsTemplate_(templateDocId.trim(), placeholderMap, title, project);
+      const placeholderMap = buildPlaceholderMap_(
+        sub.formCode,
+        fields,
+        project,
+        user,
+        submissionId,
+      );
+      const title =
+        (project.code || "PRJ") + "_" + sub.formCode + "_" + submissionId;
+      const docResult = generatePdfFromDocsTemplate_(
+        templateDocId.trim(),
+        placeholderMap,
+        title,
+        project,
+      );
 
       // Save pdfFileId to submission record for fast subsequent access
       try {
         sub.pdfFileId = docResult.fileId;
-        updateOne_(SHEETS.SUBMISSIONS, 'id', sub.id, { pdfFileId: docResult.fileId });
+        updateOne_(SHEETS.SUBMISSIONS, "id", sub.id, {
+          pdfFileId: docResult.fileId,
+        });
       } catch (dbErr) {
         Logger.log("Notice: Updating submission with pdfFileId: " + dbErr);
       }
 
       return {
         ok: true,
-        source: 'GOOGLE_DOCS',
+        source: "GOOGLE_DOCS",
         title: def.title,
         submission: sub,
         fileId: docResult.fileId,
         pdfUrl: docResult.pdfUrl,
         previewUrl: docResult.previewUrl,
-        downloadUrl: docResult.downloadUrl
+        downloadUrl: docResult.downloadUrl,
       };
     } catch (docErr) {
       docErrorMsg = docErr && docErr.message ? docErr.message : String(docErr);
-      Logger.log("Notice: Error generating PDF from Docs template (" + sub.formCode + "): " + docErrorMsg + ". Falling back to HTML generator.");
+      Logger.log(
+        "Notice: Error generating PDF from Docs template (" +
+          sub.formCode +
+          "): " +
+          docErrorMsg +
+          ". Falling back to HTML generator.",
+      );
     }
   }
 
   // 2. Fallback: High-fidelity HTML PDF generation
-  const isPermit = sub.formCode && sub.formCode.indexOf('WP_') === 0;
+  const isPermit = sub.formCode && sub.formCode.indexOf("WP_") === 0;
   const html = isPermit
-    ? buildWorkPermitPdfHtml_(project, def, fields, user, sub.version || 1, options)
+    ? buildWorkPermitPdfHtml_(
+        project,
+        def,
+        fields,
+        user,
+        sub.version || 1,
+        options,
+      )
     : buildFormPdfHtml_(project, def, fields, user, sub.version || 1);
 
   return {
     ok: true,
-    source: 'HTML_FALLBACK',
+    source: "HTML_FALLBACK",
     title: def.title,
     submission: sub,
     html: html,
     docError: docErrorMsg,
-    templateDocId: templateDocId
+    templateDocId: templateDocId,
   };
 }
