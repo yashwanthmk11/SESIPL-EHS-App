@@ -223,8 +223,9 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     lift_other: fields.lift_other || "",
     gen_other: fields.gen_other || "",
     height_other: fields.height_other || "",
+    other: fields.lift_other || fields.hot_other || fields.gen_other || fields.height_other || fields.night_remarks || "",
     night_remarks: fields.night_remarks || "",
-    remarks: fields.night_remarks || "",
+    remarks: fields.night_remarks || fields.lift_other || "",
 
     // Reviewed & Approved By (Permit Issuing Authority)
     approvalEhsName: fields.approvalEhsName || "",
