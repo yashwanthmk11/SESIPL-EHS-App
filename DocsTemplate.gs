@@ -459,9 +459,11 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     workerThumbSign: fields.workerDeclarationSignature || "Thumb Impressed",
     medicalOfficerSign: fields.medicalInspector || "Verified & Sealed",
 
-    // TBT & Training
+    // TBT & Training (JST)
     topicDiscussed: fields.topic || fields.topicDiscussed || "",
     topic: fields.topic || fields.topicDiscussed || "",
+    jstTopic: fields.topic || fields.topicDiscussed || "",
+    trainingTime: fields.trainingTime || fields.time || "",
     conductedBy: fields.conductedBy || fields.tbtConductedBy || "",
     tbtConductedBy: fields.conductedBy || fields.tbtConductedBy || "",
     conductedBySign:
@@ -473,10 +475,19 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     projectManagerName:
       fields.projectManager || fields.projectManagerName || "",
     projectManagerSign:
-      fields.projectManager ? "Signed - " + fields.projectManager : "Signed",
+      fields.projectManagerSignature ||
+      fields.projectManagerSign ||
+      (fields.projectManager ? "Signed - " + fields.projectManager : "Signed"),
+    projectManagerSignature:
+      fields.projectManagerSignature ||
+      fields.projectManagerSign ||
+      (fields.projectManager ? "Signed - " + fields.projectManager : "Signed"),
     keyPoints: fields.keyPoints || fields.keyPointsDiscussed || "",
     keyPointsDiscussed: fields.keyPoints || fields.keyPointsDiscussed || "",
-    ehsOfficerSign: "Signed",
+    acknowledgement:
+      fields.acknowledgement || fields.keyPoints || fields.keyPointsDiscussed || "",
+    ehsOfficerSign: fields.ehsOfficerSignature || fields.ehsOfficerSign || "Signed",
+    ehsOfficerSignature: fields.ehsOfficerSignature || fields.ehsOfficerSign || "Signed",
 
     // Equipment Details
     equipmentId:
@@ -609,6 +620,12 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     map["tbt_desig_" + i] = desig;
     map["tbt_agency_" + i] = agency;
     map["tbt_sign_" + i] = sign;
+
+    map["jst_name_" + i] = name;
+    map["jst_desig_" + i] = desig;
+    map["jst_agency_" + i] = agency;
+    map["jst_company_" + i] = agency;
+    map["jst_sign_" + i] = sign;
 
     map["participant" + i + "Name"] = name;
     map["participant" + i + "Designation"] = desig;
