@@ -505,6 +505,33 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     engineerSign:
       fields.engineerSign ||
       (fields.engineer ? "Signed - " + fields.engineer : "Signed"),
+    checkedByName:
+      fields.checkedByName || fields.checkedBy || fields.supervisor || "",
+    checkedBySign:
+      fields.checkedByName ||
+      fields.supervisorSign ||
+      (fields.checkedBy ? "Signed - " + fields.checkedBy : "Signed"),
+    ehsName:
+      fields.ehsName ||
+      fields.safetyOfficer ||
+      fields.approvalEhsName ||
+      "Ravikiran - EHS SESIPL",
+    ehsSign:
+      fields.ehsName ||
+      fields.safetyOfficerSign ||
+      fields.approvalEhsSign ||
+      "Signed",
+    reviewStatus: fields.reviewStatus || "Accepted",
+    accepted:
+      String(fields.reviewStatus || "").toLowerCase() === "accepted" ||
+      String(fields.accepted || "").toLowerCase() === "yes"
+        ? "✓"
+        : "",
+    rejected:
+      String(fields.reviewStatus || "").toLowerCase() === "rejected" ||
+      String(fields.rejected || "").toLowerCase() === "yes"
+        ? "✓"
+        : "",
     inspectionDate: fields.inspectionDate
       ? displayDate_(fields.inspectionDate)
       : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
@@ -545,16 +572,23 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     if (match) {
       const numPart = match[1].toLowerCase().replace("q", "");
       const qTag = "q" + numPart;
-      map[qTag + "_yes"] = isYes ? "✓" : map[qTag + "_yes"] || "";
-      map[qTag + "_no"] = isNo ? "✓" : map[qTag + "_no"] || "";
-      map[qTag + "_na"] = isNA ? "✓" : map[qTag + "_na"] || "";
-      map[qTag + "_nr"] = isNR ? "✓" : map[qTag + "_nr"] || "";
-      map[qTag] = fields[k];
+      if (k.toLowerCase().indexOf("choice") !== -1 || isYes || isNo || isNA || isNR) {
+        map[qTag + "_yes"] = isYes ? "✓" : map[qTag + "_yes"] || "";
+        map[qTag + "_no"] = isNo ? "✓" : map[qTag + "_no"] || "";
+        map[qTag + "_na"] = isNA ? "✓" : map[qTag + "_na"] || "";
+        map[qTag + "_nr"] = isNR ? "✓" : map[qTag + "_nr"] || "";
 
-      map[numPart + "_yes"] = isYes ? "✓" : map[numPart + "_yes"] || "";
-      map[numPart + "_no"] = isNo ? "✓" : map[numPart + "_no"] || "";
-      map[numPart + "_na"] = isNA ? "✓" : map[numPart + "_na"] || "";
-      map[numPart + "_nr"] = isNR ? "✓" : map[numPart + "_nr"] || "";
+        map[numPart + "_yes"] = isYes ? "✓" : map[numPart + "_yes"] || "";
+        map[numPart + "_no"] = isNo ? "✓" : map[numPart + "_no"] || "";
+        map[numPart + "_na"] = isNA ? "✓" : map[numPart + "_na"] || "";
+        map[numPart + "_nr"] = isNR ? "✓" : map[numPart + "_nr"] || "";
+      }
+      if (k.toLowerCase().indexOf("remarks") !== -1) {
+        map[qTag + "_remarks"] = fields[k] || "";
+        map["remarks_" + numPart] = fields[k] || "";
+      } else {
+        map[qTag] = fields[k];
+      }
     }
   }
 
