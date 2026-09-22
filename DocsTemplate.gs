@@ -92,9 +92,12 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
   const map = {
     // Header & Document Info
     contractorName: contractorName,
+    ContractorName: contractorName,
+    contractor: contractorName,
     projectName: project.name || "SESIPL Site",
     projectCode: project.code || "PRJ",
     permitNo: permitNo,
+    PermitNo: permitNo,
     docCode: docCode,
     emergencyContact1: emergency1,
     emergencyContact2: emergency2,
