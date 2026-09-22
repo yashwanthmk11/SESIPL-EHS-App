@@ -475,10 +475,18 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
       fields.equipmentNo || fields.equipmentId || fields.machineNo || "",
     machineNo:
       fields.machineNo || fields.equipmentId || fields.equipmentNo || "",
+    make: fields.make || fields.makeType || "",
     makeType: fields.makeType || fields.make || "",
+    supervisor: fields.supervisor || "",
+    supervisorSign:
+      fields.supervisorSign ||
+      (fields.supervisor ? "Signed - " + fields.supervisor : "Signed"),
+    engineerSign:
+      fields.engineerSign ||
+      (fields.engineer ? "Signed - " + fields.engineer : "Signed"),
     inspectionDate: fields.inspectionDate
       ? displayDate_(fields.inspectionDate)
-      : "",
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
     nextInspectionDate: fields.nextInspectionDate
       ? displayDate_(fields.nextInspectionDate)
       : fields.nextDue
@@ -543,6 +551,24 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         map["cut_q" + item + "_d" + day] = displayVal;
         map["q" + item + "_d" + day] = displayVal;
         map["item" + item + "_d" + day] = displayVal;
+        map["item" + item + "Day" + day] = displayVal;
+        map["item" + item + "_day" + day] = displayVal;
+        map["i" + item + "_d" + day] = displayVal;
+        map["q" + item + "d" + day] = displayVal;
+        map["d" + day + "_q" + item] = displayVal;
+        map["day" + day + "_q" + item] = displayVal;
+
+        if (day === 1) {
+          const isYes = v.toLowerCase() === "yes" || v.toLowerCase() === "y" || v === "✓";
+          const isNo = v.toLowerCase() === "no" || v.toLowerCase() === "n";
+          const isNA = v.toLowerCase() === "na" || v.toLowerCase() === "n/a";
+          map["q" + item + "_yes"] = isYes ? "✓" : map["q" + item + "_yes"] || "";
+          map["q" + item + "_no"] = isNo ? "✓" : map["q" + item + "_no"] || "";
+          map["q" + item + "_na"] = isNA ? "✓" : map["q" + item + "_na"] || "";
+          map["item" + item + "_yes"] = isYes ? "✓" : "";
+          map["item" + item + "_no"] = isNo ? "✓" : "";
+          map["item" + item + "_na"] = isNA ? "✓" : "";
+        }
       }
     }
   }
