@@ -119,6 +119,7 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
           ? "Signed"
           : ""),
     safetyOfficerName: fields.safetyOfficer || fields.safetyOfficerName || "",
+    SafetyOfficerName: fields.safetyOfficer || fields.safetyOfficerName || "",
     safetyOfficer: fields.safetyOfficer || fields.safetyOfficerName || "",
     safetyOfficerSign:
       fields.safetyOfficerSign ||
@@ -194,14 +195,22 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
       ? displayDate_(fields.closingSiteEngDate)
       : "",
     closingSiteEngTime: fields.closingSiteEngTime || "",
-    closingSafetyOfficerName: fields.closingSafetyOfficerName || "",
+    closingSafetyOfficerName:
+      fields.closingSafetyOfficerName ||
+      fields.safetyOfficer ||
+      fields.safetyOfficerName ||
+      "",
     closingSafetyOfficerSign:
       fields.closingSafetyOfficerSign ||
-      (fields.closingSafetyOfficerName ? "Signed" : ""),
+      (fields.closingSafetyOfficerName
+        ? "Signed"
+        : (fields.safetyOfficer
+          ? "Signed - " + fields.safetyOfficer
+          : (fields.safetyOfficerName ? "Signed" : ""))),
     closingSafetyOfficerDate: fields.closingSafetyOfficerDate
       ? displayDate_(fields.closingSafetyOfficerDate)
-      : "",
-    closingSafetyOfficerTime: fields.closingSafetyOfficerTime || "",
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    closingSafetyOfficerTime: fields.closingSafetyOfficerTime || fields.time || "",
     closingPmcSiteEngName: fields.closingPmcSiteEngName || "",
     closingPmcSiteEngSign:
       fields.closingPmcSiteEngSign ||
