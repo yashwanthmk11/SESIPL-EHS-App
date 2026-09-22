@@ -489,15 +489,23 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     ehsOfficerSign: fields.ehsOfficerSignature || fields.ehsOfficerSign || "Signed",
     ehsOfficerSignature: fields.ehsOfficerSignature || fields.ehsOfficerSign || "Signed",
 
-    // Equipment Details
+    // Equipment & Extinguisher Details
     equipmentId:
-      fields.equipmentId || fields.equipmentNo || fields.machineNo || "",
+      fields.equipmentId || fields.equipmentNo || fields.extinguisherNo || fields.machineNo || "",
     equipmentNo:
-      fields.equipmentNo || fields.equipmentId || fields.machineNo || "",
+      fields.equipmentNo || fields.extinguisherNo || fields.equipmentId || fields.machineNo || "",
+    extinguisherNo:
+      fields.extinguisherNo || fields.equipmentNo || fields.equipmentId || "",
     machineNo:
       fields.machineNo || fields.equipmentId || fields.equipmentNo || "",
-    make: fields.make || fields.makeType || "",
+    make: fields.make || fields.makeType || fields.extinguisherSpecification || "",
     makeType: fields.makeType || fields.make || "",
+    extinguisherSpecification:
+      fields.extinguisherSpecification || fields.specification || fields.extinguisherType || fields.make || "",
+    specification:
+      fields.extinguisherSpecification || fields.specification || fields.extinguisherType || fields.make || "",
+    extinguisherType:
+      fields.extinguisherSpecification || fields.specification || fields.extinguisherType || fields.make || "",
     supervisor: fields.supervisor || "",
     supervisorSign:
       fields.supervisorSign ||
