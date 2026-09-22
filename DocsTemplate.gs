@@ -111,6 +111,9 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     siteEngineerName: fields.siteEngineer || fields.siteEngineerName || "",
     SiteEngineerName: fields.siteEngineer || fields.siteEngineerName || "",
     siteEngineer: fields.siteEngineer || fields.siteEngineerName || "",
+    requestingSiteEngineerName: fields.siteEngineer || fields.siteEngineerName || "",
+    RequestingSiteEngineerName: fields.siteEngineer || fields.siteEngineerName || "",
+    requestingSiteEngineer: fields.siteEngineer || fields.siteEngineerName || "",
     siteEngineerSign:
       fields.siteEngineerSign ||
       (fields.siteEngineer
@@ -118,6 +121,44 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         : fields.siteEngineerName
           ? "Signed"
           : ""),
+    SiteEngineerSign:
+      fields.siteEngineerSign ||
+      (fields.siteEngineer
+        ? "Signed - " + fields.siteEngineer
+        : fields.siteEngineerName
+          ? "Signed"
+          : ""),
+    requestingSiteEngineerSign:
+      fields.siteEngineerSign ||
+      (fields.siteEngineer
+        ? "Signed - " + fields.siteEngineer
+        : fields.siteEngineerName
+          ? "Signed"
+          : ""),
+    RequestingSiteEngineerSign:
+      fields.siteEngineerSign ||
+      (fields.siteEngineer
+        ? "Signed - " + fields.siteEngineer
+        : fields.siteEngineerName
+          ? "Signed"
+          : ""),
+    siteEngineerDate: fields.siteEngineerDate
+      ? displayDate_(fields.siteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    SiteEngineerDate: fields.siteEngineerDate
+      ? displayDate_(fields.siteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    requestingSiteEngineerDate: fields.siteEngineerDate
+      ? displayDate_(fields.siteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    RequestingSiteEngineerDate: fields.siteEngineerDate
+      ? displayDate_(fields.siteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    siteEngineerTime: fields.siteEngineerTime || fields.time || "",
+    SiteEngineerTime: fields.siteEngineerTime || fields.time || "",
+    requestingSiteEngineerTime: fields.siteEngineerTime || fields.time || "",
+    RequestingSiteEngineerTime: fields.siteEngineerTime || fields.time || "",
+
     safetyOfficerName: fields.safetyOfficer || fields.safetyOfficerName || "",
     SafetyOfficerName: fields.safetyOfficer || fields.safetyOfficerName || "",
     safetyOfficer: fields.safetyOfficer || fields.safetyOfficerName || "",
@@ -128,6 +169,22 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         : fields.safetyOfficerName
           ? "Signed"
           : ""),
+    SafetyOfficerSign:
+      fields.safetyOfficerSign ||
+      (fields.safetyOfficer
+        ? "Signed - " + fields.safetyOfficer
+        : fields.safetyOfficerName
+          ? "Signed"
+          : ""),
+    safetyOfficerDate: fields.safetyOfficerDate
+      ? displayDate_(fields.safetyOfficerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    SafetyOfficerDate: fields.safetyOfficerDate
+      ? displayDate_(fields.safetyOfficerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    safetyOfficerTime: fields.safetyOfficerTime || fields.time || "",
+    SafetyOfficerTime: fields.safetyOfficerTime || fields.time || "",
+
     contractorSiteIncharge:
       fields.contractorInCharge ||
       fields.contractorSiteIncharge ||
@@ -169,33 +226,107 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     night_remarks: fields.night_remarks || "",
     remarks: fields.night_remarks || "",
 
-    // Reviewed & Approved By
+    // Reviewed & Approved By (Permit Issuing Authority)
     approvalEhsName: fields.approvalEhsName || "",
+    approvalEhsOfficerName: fields.approvalEhsName || "",
+    ApprovalEhsName: fields.approvalEhsName || "",
     approvalEhsSign:
+      fields.approvalEhsSign || (fields.approvalEhsName ? "Signed" : ""),
+    ApprovalEhsSign:
       fields.approvalEhsSign || (fields.approvalEhsName ? "Signed" : ""),
     approvalEhsDate: fields.approvalEhsDate
       ? displayDate_(fields.approvalEhsDate)
-      : "",
-    approvalEhsTime: fields.approvalEhsTime || "",
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    ApprovalEhsDate: fields.approvalEhsDate
+      ? displayDate_(fields.approvalEhsDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    approvalEhsTime: fields.approvalEhsTime || fields.time || "",
+    ApprovalEhsTime: fields.approvalEhsTime || fields.time || "",
+
     approvalSiteEngName:
       fields.approvalSiteEngineerName || fields.approvalSiteEngName || "",
+    approvalSiteEngineerName:
+      fields.approvalSiteEngineerName || fields.approvalSiteEngName || "",
+    ApprovalSiteEngineerName:
+      fields.approvalSiteEngineerName || fields.approvalSiteEngName || "",
+    issuingSiteEngineerName:
+      fields.approvalSiteEngineerName || fields.approvalSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
+    IssuingSiteEngineerName:
+      fields.approvalSiteEngineerName || fields.approvalSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
+    issuingSiteEngineer:
+      fields.approvalSiteEngineerName || fields.approvalSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
     approvalSiteEngSign:
       fields.approvalSiteEngineerSign ||
       fields.approvalSiteEngSign ||
       (fields.approvalSiteEngineerName ? "Signed" : ""),
+    approvalSiteEngineerSign:
+      fields.approvalSiteEngineerSign ||
+      fields.approvalSiteEngSign ||
+      (fields.approvalSiteEngineerName ? "Signed" : ""),
+    ApprovalSiteEngineerSign:
+      fields.approvalSiteEngineerSign ||
+      fields.approvalSiteEngSign ||
+      (fields.approvalSiteEngineerName ? "Signed" : ""),
+    issuingSiteEngineerSign:
+      fields.approvalSiteEngineerSign ||
+      fields.approvalSiteEngSign ||
+      (fields.approvalSiteEngineerName ? "Signed" : (fields.siteEngineerSign ? fields.siteEngineerSign : "Signed")),
+    IssuingSiteEngineerSign:
+      fields.approvalSiteEngineerSign ||
+      fields.approvalSiteEngSign ||
+      (fields.approvalSiteEngineerName ? "Signed" : (fields.siteEngineerSign ? fields.siteEngineerSign : "Signed")),
     approvalSiteEngDate: fields.approvalSiteEngineerDate
       ? displayDate_(fields.approvalSiteEngineerDate)
-      : "",
-    approvalSiteEngTime: fields.approvalSiteEngineerTime || "",
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    approvalSiteEngineerDate: fields.approvalSiteEngineerDate
+      ? displayDate_(fields.approvalSiteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    ApprovalSiteEngineerDate: fields.approvalSiteEngineerDate
+      ? displayDate_(fields.approvalSiteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    issuingSiteEngineerDate: fields.approvalSiteEngineerDate
+      ? displayDate_(fields.approvalSiteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    IssuingSiteEngineerDate: fields.approvalSiteEngineerDate
+      ? displayDate_(fields.approvalSiteEngineerDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    approvalSiteEngTime: fields.approvalSiteEngineerTime || fields.time || "",
+    approvalSiteEngineerTime: fields.approvalSiteEngineerTime || fields.time || "",
+    ApprovalSiteEngineerTime: fields.approvalSiteEngineerTime || fields.time || "",
+    issuingSiteEngineerTime: fields.approvalSiteEngineerTime || fields.time || "",
+    IssuingSiteEngineerTime: fields.approvalSiteEngineerTime || fields.time || "",
 
     // Permit Closing / Cancellation
-    closingSiteEngName: fields.closingSiteEngName || "",
+    // Requesting Authority
+    closingSiteEngName: fields.closingSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
+    closingSiteEngineerName: fields.closingSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
+    ClosingSiteEngineerName: fields.closingSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
+    closingRequestingSiteEngineerName: fields.closingSiteEngName || fields.siteEngineer || fields.siteEngineerName || "",
     closingSiteEngSign:
-      fields.closingSiteEngSign || (fields.closingSiteEngName ? "Signed" : ""),
+      fields.closingSiteEngSign || (fields.closingSiteEngName ? "Signed" : (fields.siteEngineer ? "Signed - " + fields.siteEngineer : "Signed")),
+    closingSiteEngineerSign:
+      fields.closingSiteEngSign || (fields.closingSiteEngName ? "Signed" : (fields.siteEngineer ? "Signed - " + fields.siteEngineer : "Signed")),
+    ClosingSiteEngineerSign:
+      fields.closingSiteEngSign || (fields.closingSiteEngName ? "Signed" : (fields.siteEngineer ? "Signed - " + fields.siteEngineer : "Signed")),
+    closingRequestingSiteEngineerSign:
+      fields.closingSiteEngSign || (fields.closingSiteEngName ? "Signed" : (fields.siteEngineer ? "Signed - " + fields.siteEngineer : "Signed")),
     closingSiteEngDate: fields.closingSiteEngDate
       ? displayDate_(fields.closingSiteEngDate)
-      : "",
-    closingSiteEngTime: fields.closingSiteEngTime || "",
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    closingSiteEngineerDate: fields.closingSiteEngDate
+      ? displayDate_(fields.closingSiteEngDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    ClosingSiteEngineerDate: fields.closingSiteEngDate
+      ? displayDate_(fields.closingSiteEngDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    closingRequestingSiteEngineerDate: fields.closingSiteEngDate
+      ? displayDate_(fields.closingSiteEngDate)
+      : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
+    closingSiteEngTime: fields.closingSiteEngTime || fields.time || "",
+    closingSiteEngineerTime: fields.closingSiteEngTime || fields.time || "",
+    ClosingSiteEngineerTime: fields.closingSiteEngTime || fields.time || "",
+    closingRequestingSiteEngineerTime: fields.closingSiteEngTime || fields.time || "",
+
     closingSafetyOfficerName:
       fields.closingSafetyOfficerName ||
       fields.safetyOfficer ||
@@ -212,14 +343,79 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
       ? displayDate_(fields.closingSafetyOfficerDate)
       : (fields.date ? displayDate_(fields.date) : todayDisplay_()),
     closingSafetyOfficerTime: fields.closingSafetyOfficerTime || fields.time || "",
-    closingPmcSiteEngName: fields.closingPmcSiteEngName || "",
+
+    // Issuing Authority (PMC / Site Engineer)
+    closingPmcSiteEngName:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      fields.approvalSiteEngineerName ||
+      fields.approvalSiteEngName ||
+      "",
+    closingPmcSiteEngineerName:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      fields.approvalSiteEngineerName ||
+      fields.approvalSiteEngName ||
+      "",
+    ClosingPmcSiteEngineerName:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      fields.approvalSiteEngineerName ||
+      fields.approvalSiteEngName ||
+      "",
+    closingIssuingSiteEngineerName:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      fields.approvalSiteEngineerName ||
+      fields.approvalSiteEngName ||
+      "",
+    ClosingIssuingSiteEngineerName:
+      fields.closingPmcSiteEngName ||
+      fields.pmcSiteEngineer ||
+      fields.PMCsiteEngineer ||
+      fields.approvalSiteEngineerName ||
+      fields.approvalSiteEngName ||
+      "",
     closingPmcSiteEngSign:
       fields.closingPmcSiteEngSign ||
-      (fields.closingPmcSiteEngName ? "Signed" : ""),
+      (fields.closingPmcSiteEngName ? "Signed" : "Signed"),
+    closingPmcSiteEngineerSign:
+      fields.closingPmcSiteEngSign ||
+      (fields.closingPmcSiteEngName ? "Signed" : "Signed"),
+    ClosingPmcSiteEngineerSign:
+      fields.closingPmcSiteEngSign ||
+      (fields.closingPmcSiteEngName ? "Signed" : "Signed"),
+    closingIssuingSiteEngineerSign:
+      fields.closingPmcSiteEngSign ||
+      (fields.closingPmcSiteEngName ? "Signed" : "Signed"),
     closingPmcSiteEngDate: fields.closingPmcSiteEngDate
       ? displayDate_(fields.closingPmcSiteEngDate)
-      : "",
-    closingPmcSiteEngTime: fields.closingPmcSiteEngTime || "",
+      : (fields.approvalSiteEngineerDate
+        ? displayDate_(fields.approvalSiteEngineerDate)
+        : (fields.date ? displayDate_(fields.date) : todayDisplay_())),
+    closingPmcSiteEngineerDate: fields.closingPmcSiteEngDate
+      ? displayDate_(fields.closingPmcSiteEngDate)
+      : (fields.approvalSiteEngineerDate
+        ? displayDate_(fields.approvalSiteEngineerDate)
+        : (fields.date ? displayDate_(fields.date) : todayDisplay_())),
+    ClosingPmcSiteEngineerDate: fields.closingPmcSiteEngDate
+      ? displayDate_(fields.closingPmcSiteEngDate)
+      : (fields.approvalSiteEngineerDate
+        ? displayDate_(fields.approvalSiteEngineerDate)
+        : (fields.date ? displayDate_(fields.date) : todayDisplay_())),
+    closingIssuingSiteEngineerDate: fields.closingPmcSiteEngDate
+      ? displayDate_(fields.closingPmcSiteEngDate)
+      : (fields.approvalSiteEngineerDate
+        ? displayDate_(fields.approvalSiteEngineerDate)
+        : (fields.date ? displayDate_(fields.date) : todayDisplay_())),
+    closingPmcSiteEngTime: fields.closingPmcSiteEngTime || fields.approvalSiteEngineerTime || fields.time || "",
+    closingPmcSiteEngineerTime: fields.closingPmcSiteEngTime || fields.approvalSiteEngineerTime || fields.time || "",
+    ClosingPmcSiteEngineerTime: fields.closingPmcSiteEngTime || fields.approvalSiteEngineerTime || fields.time || "",
+    closingIssuingSiteEngineerTime: fields.closingPmcSiteEngTime || fields.approvalSiteEngineerTime || fields.time || "",
 
     // Worker Screening & Medical
     workerId: fields.workerId || "",
