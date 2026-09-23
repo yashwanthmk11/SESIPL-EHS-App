@@ -636,8 +636,16 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         map[numPart + "_nr"] = isNR ? "✓" : map[numPart + "_nr"] || "";
       }
       if (k.toLowerCase().indexOf("remarks") !== -1) {
-        map[qTag + "_remarks"] = fields[k] || "";
-        map["remarks_" + numPart] = fields[k] || "";
+        const remVal = fields[k] != null ? String(fields[k]) : "";
+        map[qTag + "_remarks"] = remVal;
+        map[qTag + "_remark"] = remVal;
+        map["remarks_" + numPart] = remVal;
+        map["remarks" + numPart] = remVal;
+        map["remark_" + numPart] = remVal;
+        map["remark" + numPart] = remVal;
+        map["item" + numPart + "Remarks"] = remVal;
+        map["item" + numPart + "_remarks"] = remVal;
+        map["r" + numPart] = remVal;
       } else {
         map[qTag] = fields[k];
       }
@@ -702,6 +710,49 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
       map["q" + item + "_remarks"] = String(fields[remarksKey]);
       map["scaff_q" + item + "_remarks"] = String(fields[remarksKey]);
       map["scaffold_q" + item + "_remarks"] = String(fields[remarksKey]);
+    }
+  }
+
+  // Handle per-item remarks for Drilling Machine, Fire Extinguisher, Scaffolding, etc.
+  for (let item = 1; item <= 15; item++) {
+    const itemRem =
+      fields["drill_q" + item + "_remarks"] ||
+      fields["drill_q" + item + "_remark"] ||
+      fields["fe_q" + item + "_remarks"] ||
+      fields["fe_q" + item + "_remark"] ||
+      fields["scaff_q" + item + "_remarks"] ||
+      fields["scaffold_q" + item + "_remarks"] ||
+      fields["item" + item + "Remarks"] ||
+      fields["item" + item + "_remarks"] ||
+      fields["q" + item + "_remarks"] ||
+      fields["remarks" + item] ||
+      fields["remarks_" + item] ||
+      "";
+    if (itemRem) {
+      const sRem = String(itemRem);
+      map["q" + item + "_remarks"] = sRem;
+      map["q" + item + "_remark"] = sRem;
+      map["remarks" + item] = sRem;
+      map["remarks_" + item] = sRem;
+      map["remark" + item] = sRem;
+      map["remark_" + item] = sRem;
+      map["drill_q" + item + "_remarks"] = sRem;
+      map["drill_q" + item + "_remark"] = sRem;
+      map["drill_remarks" + item] = sRem;
+      map["drill_remarks_" + item] = sRem;
+      map["drill_r" + item] = sRem;
+      map["fe_q" + item + "_remarks"] = sRem;
+      map["fe_q" + item + "_remark"] = sRem;
+      map["fe_remarks" + item] = sRem;
+      map["fe_remarks_" + item] = sRem;
+      map["fe_r" + item] = sRem;
+      map["scaff_q" + item + "_remarks"] = sRem;
+      map["scaff_q" + item + "_remark"] = sRem;
+      map["scaffold_q" + item + "_remarks"] = sRem;
+      map["scaffold_q" + item + "_remark"] = sRem;
+      map["item" + item + "Remarks"] = sRem;
+      map["item" + item + "_remarks"] = sRem;
+      map["r" + item] = sRem;
     }
   }
 
@@ -960,6 +1011,9 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
   const header = doc.getHeader();
   const footer = doc.getFooter();
 
+  // First pass: replace row-by-row placeholders in all tables (e.g. {{remarks}}, {{yes}}, {{no}} in table rows)
+  replaceTablePlaceholdersRowByRow_(doc, placeholderMap);
+
   // Combine text to quickly filter only placeholders present in this document
   let fullDocText = body.getText() || "";
   if (header) fullDocText += " " + (header.getText() || "");
@@ -991,6 +1045,108 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
   replaceInContainer(body);
   if (header) replaceInContainer(header);
   if (footer) replaceInContainer(footer);
+}
+
+/**
+ * Processes tables in Google Docs to replace row-level placeholders (such as {{remarks}},
+ * {{yes}}, {{no}}) with each item row's specific values instead of a single global replacement.
+ */
+function replaceTablePlaceholdersRowByRow_(doc, placeholderMap) {
+  try {
+    const body = doc.getBody();
+    if (!body) return;
+    const tables = body.getTables();
+    if (!tables || tables.length === 0) return;
+
+    for (let t = 0; t < tables.length; t++) {
+      const table = tables[t];
+      const numRows = table.getNumRows();
+      if (numRows <= 1) continue;
+
+      let itemCounter = 0;
+      for (let r = 0; r < numRows; r++) {
+        const row = table.getRow(r);
+        const cellCount = row.getNumCells();
+        if (cellCount === 0) continue;
+
+        const rowText = row.getText() || "";
+        // Skip header rows (e.g. contains "DESCRIPTION" or "SL NO" without mustache brackets)
+        const isHeaderRow =
+          (rowText.toLowerCase().indexOf("description") !== -1 ||
+            rowText.toLowerCase().indexOf("sl no") !== -1 ||
+            rowText.toLowerCase().indexOf("sl.no") !== -1 ||
+            rowText.toLowerCase().indexOf("items to be checked") !== -1) &&
+          rowText.indexOf("{{") === -1;
+
+        if (isHeaderRow) {
+          continue;
+        }
+
+        // Check if first cell has an item number like "1", "2", "3" or "Item 1"
+        const firstCellText = row.getCell(0).getText().trim();
+        const numMatch = firstCellText.match(/^(?:item\s*)?(\d+)/i);
+        let currentItemNum = numMatch ? parseInt(numMatch[1], 10) : 0;
+
+        if (!currentItemNum) {
+          itemCounter++;
+          currentItemNum = itemCounter;
+        } else {
+          itemCounter = currentItemNum;
+        }
+
+        if (currentItemNum > 0 && currentItemNum <= 30) {
+          const rowRemark =
+            placeholderMap["q" + currentItemNum + "_remarks"] != null
+              ? placeholderMap["q" + currentItemNum + "_remarks"]
+              : placeholderMap["drill_q" + currentItemNum + "_remarks"] != null
+                ? placeholderMap["drill_q" + currentItemNum + "_remarks"]
+                : placeholderMap["fe_q" + currentItemNum + "_remarks"] != null
+                  ? placeholderMap["fe_q" + currentItemNum + "_remarks"]
+                  : placeholderMap["scaff_q" + currentItemNum + "_remarks"] != null
+                    ? placeholderMap["scaff_q" + currentItemNum + "_remarks"]
+                    : placeholderMap["remarks" + currentItemNum] != null
+                      ? placeholderMap["remarks" + currentItemNum]
+                      : placeholderMap["remarks_" + currentItemNum] != null
+                        ? placeholderMap["remarks_" + currentItemNum]
+                        : placeholderMap["item" + currentItemNum + "Remarks"] != null
+                          ? placeholderMap["item" + currentItemNum + "Remarks"]
+                          : "";
+
+          const rowYes =
+            placeholderMap["q" + currentItemNum + "_yes"] ||
+            placeholderMap["drill_q" + currentItemNum + "_yes"] ||
+            placeholderMap["fe_q" + currentItemNum + "_yes"] ||
+            placeholderMap["scaff_q" + currentItemNum + "_yes"] ||
+            placeholderMap[currentItemNum + "_yes"] ||
+            "";
+
+          const rowNo =
+            placeholderMap["q" + currentItemNum + "_no"] ||
+            placeholderMap["drill_q" + currentItemNum + "_no"] ||
+            placeholderMap["fe_q" + currentItemNum + "_no"] ||
+            placeholderMap["scaff_q" + currentItemNum + "_no"] ||
+            placeholderMap[currentItemNum + "_no"] ||
+            "";
+
+          for (let c = 0; c < cellCount; c++) {
+            const cell = row.getCell(c);
+            const cText = cell.getText();
+            if (/\{\{\s*remarks?\s*\}\}/i.test(cText)) {
+              cell.replaceText("(?i)\\{\\{\\s*remarks?\\s*\\}\\}", rowRemark);
+            }
+            if (/\{\{\s*yes\s*\}\}/i.test(cText)) {
+              cell.replaceText("(?i)\\{\\{\\s*yes\s*\\}\\}", rowYes);
+            }
+            if (/\{\{\s*no\s*\}\}/i.test(cText)) {
+              cell.replaceText("(?i)\\{\\{\\s*no\s*\\}\\}", rowNo);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    Logger.log("Notice: Table row placeholder replacement error: " + err);
+  }
 }
 
 function escapeRegex_(str) {

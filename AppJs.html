@@ -3751,8 +3751,28 @@
         const num = idx + 1;
         const keyPrefix =
           formCode === "CL_DRILL" ? "drill_q" + num : "fe_q" + num;
-        const curChoice = p[keyPrefix + "_choice"] || p[keyPrefix] || "Yes";
-        const curRemarks = p[keyPrefix + "_remarks"] || "";
+        const curChoice =
+          p[keyPrefix + "_choice"] ||
+          p[keyPrefix] ||
+          p["drill_q" + num + "_choice"] ||
+          p["fe_q" + num + "_choice"] ||
+          p["q" + num + "_choice"] ||
+          p["q" + num] ||
+          p["item" + num] ||
+          "Yes";
+        const curRemarks =
+          p[keyPrefix + "_remarks"] ||
+          p[keyPrefix + "_remark"] ||
+          p["drill_q" + num + "_remarks"] ||
+          p["drill_q" + num + "_remark"] ||
+          p["fe_q" + num + "_remarks"] ||
+          p["fe_q" + num + "_remark"] ||
+          p["q" + num + "_remarks"] ||
+          p["q" + num + "_remark"] ||
+          p["remarks" + num] ||
+          p["remarks_" + num] ||
+          p["item" + num + "Remarks"] ||
+          "";
 
         return (
           '<tr style="border-bottom:1px solid #e2e8f0;background:' +
