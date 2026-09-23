@@ -7,6 +7,7 @@
   let MODULE = null;
   let CHARTS = [];
   let MUTATION_IN_FLIGHT = false;
+  let CURRENT_PERMIT_PREVIEW_STATE = null;
   const MUTATING_CALLS = new Set([
     "apiSubmitForm",
     "apiReview",
@@ -2351,15 +2352,7 @@
                               return (
                                 '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Submission\',\'' +
                                 s.id +
-                                "','" +
-                                esc(f.title) +
-                                " (v" +
-                                s.version +
-                                ")',{projectId:'" +
-                                s.projectId +
-                                "',status:'" +
-                                s.status +
-                                '\'})" title="View discussion thread">💬' +
+                                '\')" title="View discussion thread">💬' +
                                 (subCm.length ? " " + subCm.length : "") +
                                 "</button>"
                               );
@@ -3245,14 +3238,12 @@
       "</div>" +
       "</div>" +
       '<div style="margin-top:6px;text-align:right">' +
-      '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" onclick="document.getElementById(\'wp-url-signedPermitFile\').value=\'' +
+      '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" data-field="signedPermitFile" data-url="' +
       esc(
         pCfg.defaultSignedUrl ||
           "https://drive.google.com/open?id=DEMO_SIGNED_PTW",
       ) +
-      "';document.getElementById('wp-preview-signedPermitFile').textContent='Attached Placeholder: " +
-      esc(pCfg.defaultSignedUrl || "") +
-      "'\">+ Insert Sample Link</button>" +
+      '" onclick="insertWpSampleDoc(this.getAttribute(\'data-field\'), this.getAttribute(\'data-url\'))">+ Insert Sample Link</button>' +
       "</div>" +
       "</div>" +
       '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1;display:flex;flex-direction:column;justify-content:space-between">' +
@@ -3279,11 +3270,9 @@
       "</div>" +
       "</div>" +
       '<div style="margin-top:6px;text-align:right">' +
-      '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" onclick="document.getElementById(\'wp-url-swmsFile\').value=\'' +
+      '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" data-field="swmsFile" data-url="' +
       esc(pCfg.defaultSwmsUrl || "SWMS-SESIPL-Standard-Method.pdf") +
-      "';document.getElementById('wp-preview-swmsFile').textContent='Attached Placeholder: " +
-      esc(pCfg.defaultSwmsUrl || "") +
-      "'\">+ Insert Sample Doc</button>" +
+      '" onclick="insertWpSampleDoc(this.getAttribute(\'data-field\'), this.getAttribute(\'data-url\'))">+ Insert Sample Doc</button>' +
       "</div>" +
       "</div>" +
       '<div style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1;display:flex;flex-direction:column;justify-content:space-between">' +
@@ -3310,11 +3299,9 @@
       "</div>" +
       "</div>" +
       '<div style="margin-top:6px;text-align:right">' +
-      '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" onclick="document.getElementById(\'wp-url-preWorkPhoto\').value=\'' +
+      '<button type="button" class="btn tiny" style="background:#e0f2fe;color:#0369a1;border:none;font-size:10.5px;padding:3px 7px;border-radius:4px;cursor:pointer" data-field="preWorkPhoto" data-url="' +
       esc(pCfg.defaultPhotoUrl || "Site_PreWork_Inspection.jpg") +
-      "';document.getElementById('wp-preview-preWorkPhoto').textContent='Attached Placeholder: " +
-      esc(pCfg.defaultPhotoUrl || "") +
-      "'\">+ Insert Sample Photo</button>" +
+      '" onclick="insertWpSampleDoc(this.getAttribute(\'data-field\'), this.getAttribute(\'data-url\'))">+ Insert Sample Photo</button>' +
       "</div>" +
       "</div>" +
       "</div>" +
@@ -3354,6 +3341,14 @@
     }
   }
   window.handleWpFilePlaceholder = handleWpFilePlaceholder;
+
+  function insertWpSampleDoc(fieldKey, sampleUrl) {
+    const urlInput = document.getElementById("wp-url-" + fieldKey);
+    if (urlInput) urlInput.value = sampleUrl || "";
+    const previewDiv = document.getElementById("wp-preview-" + fieldKey);
+    if (previewDiv) previewDiv.textContent = "Attached Placeholder: " + (sampleUrl || "");
+  }
+  window.insertWpSampleDoc = insertWpSampleDoc;
 
   /* =========================================================
      SPECIALIZED EHS FORM BUILDERS: 7-DAY, INSPECTIONS, ATTENDANCE, SCREENING
@@ -4712,13 +4707,7 @@
               const commentPill = cm.length
                 ? '<button type="button" class="comment-count-btn has-comments" onclick="openComments(\'Submission\',\'' +
                   s.id +
-                  "','" +
-                  esc(s.title) +
-                  "',{projectId:'" +
-                  s.projectId +
-                  "',status:'" +
-                  s.status +
-                  "'})\">" +
+                  '\')">' +
                   '<span class="comment-icon">💬</span> ' +
                   cm.length +
                   (cm.length === 1 ? " comment" : " comments") +
@@ -4733,13 +4722,7 @@
                   "</div>"
                 : '<button type="button" class="comment-count-btn" onclick="openComments(\'Submission\',\'' +
                   s.id +
-                  "','" +
-                  esc(s.title) +
-                  "',{projectId:'" +
-                  s.projectId +
-                  "',status:'" +
-                  s.status +
-                  "'})\">" +
+                  '\')">' +
                   '<span class="comment-icon">💬</span> Add note' +
                   "</button>";
 
@@ -4757,34 +4740,16 @@
                 actions +=
                   '<button class="btn small" onclick="openReviewModal(\'' +
                   s.id +
-                  "','" +
-                  esc(s.title) +
-                  "','" +
-                  esc(pj ? pj.name : s.projectId) +
-                  "','" +
-                  esc(s.submittedBy) +
-                  "','APPROVE')\">Approve</button>";
+                  "',null,null,null,'APPROVE')\">Approve</button>";
                 actions +=
                   '<button class="btn small danger" onclick="openReviewModal(\'' +
                   s.id +
-                  "','" +
-                  esc(s.title) +
-                  "','" +
-                  esc(pj ? pj.name : s.projectId) +
-                  "','" +
-                  esc(s.submittedBy) +
-                  "','REJECT')\">Return</button>";
+                  "',null,null,null,'REJECT')\">Return</button>";
               }
               actions +=
-                "<button class=\"ghost\" onclick=\"openComments('Submission','" +
+                '<button class="ghost" onclick="openComments(\'Submission\',\'' +
                 s.id +
-                "','" +
-                esc(s.title) +
-                "',{projectId:'" +
-                s.projectId +
-                "',status:'" +
-                s.status +
-                "'})\">Discuss</button>";
+                '\')">Discuss</button>';
 
               if (canManage) {
                 actions +=
@@ -5459,13 +5424,7 @@
                   return (
                     '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Observation\',\'' +
                     r.id +
-                    "','Observation " +
-                    esc(r.reportNo || r.id) +
-                    "',{projectId:'" +
-                    r.projectId +
-                    "',status:'" +
-                    r.status +
-                    '\'})" title="Observation comments & PMC discussion">💬' +
+                    '\')" title="Observation comments & PMC discussion">💬' +
                     (obsCm.length ? " " + obsCm.length : "") +
                     "</button>"
                   );
@@ -5887,6 +5846,16 @@
       }
     }, 400);
   }
+  window.printHtmlViaIframe_ = printHtmlViaIframe_;
+
+  function printCurrentPermitPreview() {
+    if (CURRENT_PERMIT_PREVIEW_STATE && CURRENT_PERMIT_PREVIEW_STATE.html) {
+      printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html);
+    } else {
+      alert("No printable document content available.");
+    }
+  }
+  window.printCurrentPermitPreview = printCurrentPermitPreview;
 
   async function viewSubmissionPdf(submissionId) {
     setLoading(true, "Compiling submission PDF...");
@@ -5958,7 +5927,7 @@
           "</div>" +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
           (res.html
-            ? '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html)">🖨️ Print</button>'
+            ? '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printCurrentPermitPreview()">🖨️ Print</button>'
             : "") +
           '<a href="' +
           esc(res.pdfUrl) +
@@ -6000,7 +5969,7 @@
           '<p class="muted" style="margin:2px 0 0;font-size:12px">All entered data formatted for PDF export.</p>' +
           "</div>" +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-          '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html)">🖨️ Print / Save as PDF</button>' +
+          '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printCurrentPermitPreview()">🖨️ Print / Save as PDF</button>' +
           '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
           "</div>" +
           "</div>" +
@@ -6689,9 +6658,9 @@
           "Print / Save as PDF Preview" +
           "</button>") +
       (url
-        ? '<button type="button" class="ghost small" style="font-size:12px;color:#64748b;margin-top:2px" onclick="navigator.clipboard.writeText(\'' +
+        ? '<button type="button" class="ghost small" style="font-size:12px;color:#64748b;margin-top:2px" data-copy-link="' +
           esc(downloadUrl || url) +
-          "');showToast('Link copied to clipboard!', 'info')\">" +
+          '" onclick="if(navigator.clipboard)navigator.clipboard.writeText(this.getAttribute(\'data-copy-link\'));showToast(\'Link copied to clipboard!\', \'info\')">' +
           "📋 Copy Link" +
           "</button>"
         : "") +
@@ -7451,9 +7420,9 @@
           "Download in Excel Format (.xlsx)" +
           "</button>") +
       (url
-        ? '<button type="button" class="ghost small" style="font-size:12px;color:#64748b;margin-top:2px" onclick="navigator.clipboard.writeText(\'' +
+        ? '<button type="button" class="ghost small" style="font-size:12px;color:#64748b;margin-top:2px" data-copy-link="' +
           esc(downloadUrl || url) +
-          "');showToast('Link copied to clipboard!', 'info')\">" +
+          '" onclick="if(navigator.clipboard)navigator.clipboard.writeText(this.getAttribute(\'data-copy-link\'));showToast(\'Link copied to clipboard!\', \'info\')">' +
           "📋 Copy Link" +
           "</button>"
         : "") +
@@ -9374,8 +9343,6 @@
             : "") +
           '        <button class="btn secondary small" onclick="sendObservationReminder(\'' +
           esc(obs.id) +
-          "','" +
-          esc(obs.responsible || "Concerned Engineer") +
           "')\">📢 Send Direct Reminder</button>" +
           "      </div>" +
           "    </div>" +
@@ -9705,6 +9672,10 @@
   window.openCloseObservationModal = openCloseObservationModal;
 
   function sendObservationReminder(obsId, personName) {
+    if (!personName) {
+      const obs = (STATE.observations || []).find((o) => o.id === obsId);
+      personName = (obs && (obs.responsible || obs.auditedBy)) || "Concerned Engineer";
+    }
     showToast(
       "📢 Direct reminder dispatched to " +
         personName +
@@ -11401,11 +11372,11 @@
               "</span>" +
               '    <div style="display:flex;gap:6px">' +
               (isVideo
-                ? '      <button class="btn small" style="background:#7c3aed;color:#fff;font-weight:700;padding:4px 10px" onclick="openTrainingVideoModal(\'' +
+                ? '      <button class="btn small" style="background:#7c3aed;color:#fff;font-weight:700;padding:4px 10px" data-url="' +
                   esc(m.url) +
-                  "','" +
+                  '" data-title="' +
                   esc(m.title) +
-                  "')\">▶ Play</button>"
+                  '" onclick="openTrainingVideoModal(this.getAttribute(\'data-url\'), this.getAttribute(\'data-title\'))">▶ Play</button>'
                 : '      <a href="' +
                   esc(m.url) +
                   '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;padding:4px 10px;text-decoration:none">View / Open ↗</a>') +
@@ -11529,11 +11500,11 @@
               '    <span style="font-size:12px;color:#334155">👥 Pending Personnel: <b style="color:#0f172a">' +
               esc(t.pendingWorkers) +
               "</b></span>" +
-              '    <button class="btn small" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" onclick="sendTrainingReminderToDept(\'' +
+              '    <button class="btn small" style="background:#0f766e;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px" data-id="' +
               esc(t.id) +
-              "','" +
+              '" data-dept="' +
               esc(t.dept) +
-              "')\">" +
+              '" onclick="sendTrainingReminderToDept(this.getAttribute(\'data-id\'), this.getAttribute(\'data-dept\'))">' +
               "      📢 Send Reminder to Dept" +
               "    </button>" +
               "  </div>" +
@@ -13990,6 +13961,23 @@
 
   function openComments(entityType, entityId, title, meta) {
     meta = meta || {};
+    if (!title || !meta.projectId || !meta.status) {
+      if (entityType === "Submission") {
+        const sub = (STATE.submissions || []).find((s) => s.id === entityId);
+        if (sub) {
+          if (!title) title = sub.title || ("Submission " + sub.id);
+          if (!meta.projectId) meta.projectId = sub.projectId;
+          if (!meta.status) meta.status = sub.status;
+        }
+      } else if (entityType === "Observation") {
+        const obs = (STATE.observations || []).find((o) => o.id === entityId);
+        if (obs) {
+          if (!title) title = "Observation " + (obs.reportNo || obs.id);
+          if (!meta.projectId) meta.projectId = obs.projectId;
+          if (!meta.status) meta.status = obs.status;
+        }
+      }
+    }
     const projectId =
       meta.projectId ||
       currentProjectId() ||
@@ -14245,6 +14233,15 @@
     submitter,
     defaultAction,
   ) {
+    const s = (STATE.submissions || []).find((x) => x.id === id);
+    if (s) {
+      if (!formTitle) formTitle = s.title;
+      if (!projectName) {
+        const pj = (STATE.projects || []).find((p) => p.id === s.projectId);
+        projectName = pj ? pj.name : s.projectId;
+      }
+      if (!submitter) submitter = s.submittedBy;
+    }
     let currentAction = defaultAction || "APPROVE";
 
     function getModalHtml(act, commentText) {
