@@ -5961,14 +5961,14 @@
           '<p class="muted" style="margin:2px 0 0;font-size:12px">Generated from Google Docs template with submitted data sitting in placeholders.</p>' +
           "</div>" +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-          (res.html
-            ? '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printCurrentPermitPreview()">🖨️ Print / Save as PDF</button>'
-            : "") +
-          '<button type="button" class="btn small secondary" style="font-weight:700" onclick="downloadCurrentSubmissionPdf()">⬇ Download PDF</button>' +
           (res.pdfUrl
             ? '<a href="' +
               esc(res.pdfUrl) +
-              '" target="_blank" rel="noopener noreferrer" class="btn small secondary" style="font-weight:700;text-decoration:none">↗ Open in Drive</a>'
+              '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Google Drive</a>'
+            : "") +
+          '<button type="button" class="btn small secondary" style="font-weight:700" onclick="downloadCurrentSubmissionPdf()">⬇ Download PDF</button>' +
+          (res.html
+            ? '<button type="button" class="btn small secondary" style="font-weight:700" onclick="printCurrentPermitPreview()">🖨️ Print Preview</button>'
             : "") +
           '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
           "</div>" +

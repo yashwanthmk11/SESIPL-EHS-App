@@ -120,77 +120,1399 @@ function htmlToPdfFile_(html, name, folder) {
 }
 
 function buildFormPdfHtml_(project, def, fields, user, version) {
-  const rows = Object.keys(fields)
-    .map((k) => {
-      return (
-        '<tr><td style="padding:7px 10px;border:1px solid #d0d7de;width:34%;background:#f8fafc;font-weight:600;color:#1e293b">' +
-        escapeHtml_(prettyLabel_(k)) +
-        "</td>" +
-        '<td style="padding:7px 10px;border:1px solid #d0d7de;color:#0f172a">' +
-        escapeHtml_(displayDate_(fields[k])) +
-        "</td></tr>"
-      );
-    })
-    .join("");
+  fields = fields || {};
+  project = project || {};
+  user = user || {};
+  def = def || {};
+  const code = (def.formCode || "").toUpperCase();
+
+  // 1. 7-Day Periodic Machine & Equipment Checklists
+  if (
+    code === "CL_CUT" ||
+    code === "CL_WELD" ||
+    code === "CL_GRIND" ||
+    code === "CL_SCAFFOLD" ||
+    hasDailyInspectionKeys_(fields)
+  ) {
+    return buildDailyInspectionTablePdfHtml_(project, def, fields, user, version);
+  }
+
+  // 2. Inspection Checklists with Yes/No/Remarks
+  if (code === "CL_DRILL") {
+    return buildDrillInspectionPdfHtml_(project, def, fields, user, version);
+  }
+  if (code === "CL_FE") {
+    return buildFireExtinguisherPdfHtml_(project, def, fields, user, version);
+  }
+
+  // 3. Tool Box Talk & Job Safety Training Attendances
+  if (code === "CL_TBT" || code === "CL_JST" || code === "CL_INDUCTION") {
+    return buildAttendancePdfHtml_(project, def, fields, user, version);
+  }
+
+  // 4. Worker Screening & Medical Examination
+  if (code === "CL_SCREENING" || code === "CL_MEDICAL" || code === "CL_IDCARD") {
+    return buildScreeningMedicalPdfHtml_(project, def, fields, user, version);
+  }
+
+  // 5. Safety Tags
+  if (code.indexOf("TAG_") === 0) {
+    return buildSafetyTagPdfHtml_(project, def, fields, user, version);
+  }
+
+  // 6. Observations & Weekly/Monthly Reports
+  if (code === "OBS_DAILY" || code === "WR_WEEKLY" || code === "WR_MONTHLY") {
+    return buildObservationReportPdfHtml_(project, def, fields, user, version);
+  }
+
+  // 7. High-fidelity Structured Fallback
+  return buildStructuredFormPdfHtml_(project, def, fields, user, version);
+}
+
+function hasDailyInspectionKeys_(fields) {
+  if (!fields || typeof fields !== "object") return false;
+  return Object.keys(fields).some(function (k) {
+    return /^item\d+Day\d+$/i.test(k) || /^[a-z0-9]+_q\d+_d\d+$/i.test(k);
+  });
+}
+
+function getDailyInspectionValue_(fields, idx, day, code) {
+  const itemNum = idx + 1;
+  const daysShort = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const dShort = daysShort[day - 1];
+  const prefix = (code || "").toLowerCase().replace("cl_", "");
+
+  const candidates = [
+    "item" + itemNum + "Day" + day,
+    "item" + itemNum + "_day" + day,
+    "item" + itemNum + "_d" + day,
+    "item" + itemNum + "_" + dShort,
+    "item" + itemNum + dShort,
+    prefix + "_q" + itemNum + "_d" + day,
+    prefix + "_q" + itemNum + "_" + dShort,
+    prefix + "_q" + itemNum + dShort,
+    "cut_q" + itemNum + "_d" + day,
+    "cut_q" + itemNum + "_" + dShort,
+    "wm_q" + itemNum + "_d" + day,
+    "wm_q" + itemNum + "_" + dShort,
+    "grind_q" + itemNum + "_d" + day,
+    "grind_q" + itemNum + "_" + dShort,
+    "scaff_q" + itemNum + "_d" + day,
+    "scaff_q" + itemNum + "_" + dShort,
+    "q" + itemNum + "_d" + day,
+    "q" + itemNum + "_" + dShort,
+    "d" + day + "_q" + itemNum,
+    "q" + itemNum + "_day" + day,
+  ];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const k = candidates[i];
+    if (fields[k] != null && String(fields[k]).trim() !== "") {
+      return String(fields[k]).trim();
+    }
+  }
+
+  if (day === 1) {
+    const d1Candidates = [
+      prefix + "_q" + itemNum + "_choice",
+      "q" + itemNum + "_choice",
+      "item" + itemNum,
+    ];
+    for (let j = 0; j < d1Candidates.length; j++) {
+      const k1 = d1Candidates[j];
+      if (fields[k1] != null && String(fields[k1]).trim() !== "") {
+        return String(fields[k1]).trim();
+      }
+    }
+  }
+  return "";
+}
+
+function renderDailyCell_(val) {
+  if (!val) return '<span style="color:#cbd5e1">—</span>';
+  const vLower = String(val).toLowerCase().trim();
+  if (
+    vLower === "yes" ||
+    vLower === "y" ||
+    val === "✓" ||
+    vLower === "ok" ||
+    vLower === "true" ||
+    vLower === "pass"
+  ) {
+    return '<span style="color:#0f766e;font-weight:900;font-size:15px">&#10003;</span>';
+  }
+  if (
+    vLower === "no" ||
+    vLower === "n" ||
+    val === "✗" ||
+    vLower === "fail"
+  ) {
+    return '<span style="color:#dc2626;font-weight:900;font-size:13px">&#10007;</span>';
+  }
+  if (
+    vLower === "na" ||
+    vLower === "n/a" ||
+    vLower === "not applicable"
+  ) {
+    return '<span style="color:#64748b;font-size:10px;font-weight:700">N/A</span>';
+  }
+  return escapeHtml_(val);
+}
+
+function buildDailyInspectionTablePdfHtml_(project, def, fields, user, version) {
+  const code = (def.formCode || "").toUpperCase();
+  let title = "CHECKLIST FOR CUTTING MACHINE";
+  let items = [
+    "Cutting blade manufacture defined and free from damage",
+    "Availability of safety Guard and in good condition",
+    "Lock system for plate and guard",
+    "Availability of job clamp(fence) and in condition",
+    "Availability on handle and in good condition",
+    "Cable connection and free from damages",
+    "Availability of dust guard (chip deflector)",
+    "Machine base in free from damage",
+  ];
+
+  if (code === "CL_WELD") {
+    title = "CHECKLIST FOR WELDING MACHINE";
+    items = [
+      "ON / OFF knob undamaged",
+      "Regulator with indicator",
+      "Welding cables connected with lugs",
+      "Welding cable insulation undamaged",
+      "Electrode and earthing holders undamaged",
+      "Industrial plug available",
+      "No exposed live electrical parts",
+      "Trolley wheels undamaged",
+      "Fire extinguisher and sand bucket available",
+    ];
+  } else if (code === "CL_GRIND") {
+    title = "CHECKLIST FOR GRINDING MACHINE";
+    items = [
+      "Handle free from damage",
+      "Wheel guard covers three-fourths area",
+      "Grinding wheel free from crack",
+      "Rear handle without damage",
+      "Cord strain reliever present",
+      "Trigger switch undamaged",
+      "Dead man switch present",
+      "Electrical wire without cut or joint",
+      "Plug top provided",
+      "Machine body undamaged",
+    ];
+  } else if (code === "CL_SCAFFOLD") {
+    title = "SCAFFOLDING CHECKLIST";
+    items = [
+      "All coupler hooks are properly installed",
+      "Proper platform has been provided & is having proper locking system",
+      "Proper access / exit provided",
+      "Inspection tag has been displayed",
+      "Scaffolding has been erected on a firm base",
+      "Wheel lock has been provided & is in working condition",
+      "Toe board has been provided",
+      "Access ladder has been provided & installed properly",
+      "Double (top & mid) railing has been provided",
+    ];
+  } else if (def.title) {
+    title = def.title.toUpperCase();
+  }
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const contractorName =
+    fields.contractor ||
+    fields.contractorName ||
+    project.client ||
+    "Shankar Electricals Services (I) Pvt Ltd";
+  const dateVal = displayDate_(
+    fields.date || fields.inspectionDate || nowIso_(),
+  );
+  const equipNo =
+    fields.equipmentId || fields.equipmentNo || fields.machineNo || "—";
+  const makeVal = fields.make || fields.type || "—";
+
+  let tableRows = "";
+  for (let i = 0; i < items.length; i++) {
+    const sl = i + 1;
+    let dayCells = "";
+    for (let d = 1; d <= 7; d++) {
+      const v = getDailyInspectionValue_(fields, i, d, code);
+      dayCells +=
+        '<td style="padding:6px 4px;border:1px solid #0f172a;text-align:center;vertical-align:middle;background:' +
+        (d % 2 === 0 ? "#f8fafc" : "#ffffff") +
+        '">' +
+        renderDailyCell_(v) +
+        "</td>";
+    }
+
+    tableRows +=
+      "<tr>" +
+      '<td style="padding:6px 6px;border:1px solid #0f172a;text-align:center;font-weight:bold;color:#0f172a">' +
+      sl +
+      "</td>" +
+      '<td style="padding:6px 10px;border:1px solid #0f172a;color:#0f172a;font-size:11.5px;line-height:1.35">' +
+      escapeHtml_(items[i]) +
+      "</td>" +
+      dayCells +
+      "</tr>";
+  }
+
+  const supervisor =
+    fields.supervisorSign || fields.supervisor || fields.siteSupervisor || "—";
+  const safetyOfficer =
+    fields.safetyOfficerSign || fields.safetyOfficer || fields.ehsName || "—";
+  const electricalEng =
+    fields.electricalEngineerSign ||
+    fields.electricalEngineer ||
+    fields.electricalSign ||
+    "—";
+  const engineer =
+    fields.engineerSign ||
+    fields.siteEngineer ||
+    fields.engineer ||
+    user.name ||
+    "—";
+
   return (
-    '<html><body style="font-family:Arial,sans-serif;color:#1e293b;padding:20px;line-height:1.5">' +
-    '<div style="border-bottom:2px solid #147d6f;padding-bottom:12px;margin-bottom:16px">' +
-    '  <h2 style="margin:0;color:#147d6f;font-size:20px;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</h2>' +
-    '  <p style="margin:4px 0 0;font-size:12px;color:#64748b;font-weight:bold;letter-spacing:1px">ENVIRONMENT, HEALTH & SAFETY MANAGEMENT SYSTEM</p>' +
-    "</div>" +
-    '<div style="background:#f1f5f9;border-left:4px solid #147d6f;padding:10px 14px;margin-bottom:16px">' +
-    '  <h3 style="margin:0;font-size:16px;color:#0f172a">' +
-    escapeHtml_(def.title) +
-    ' <span style="font-size:12px;color:#64748b;font-weight:normal">[' +
-    escapeHtml_(def.formCode) +
-    "]</span></h3>" +
-    '  <p style="margin:4px 0 0;font-size:12px;color:#475569">' +
-    "    Project: <b>" +
-    escapeHtml_(project.name) +
-    " (" +
-    escapeHtml_(project.code) +
-    ")</b> &bull; " +
-    "    Client: <b>" +
-    escapeHtml_(project.client || "—") +
-    "</b> &bull; " +
-    "    PMC: <b>" +
-    escapeHtml_(project.pmc || "—") +
-    "</b> &bull; " +
-    "    Version: <b>v" +
-    version +
-    "</b> &bull; " +
-    "    Date: <b>" +
-    displayDate_(nowIso_()) +
-    "</b><br>" +
-    "    Submitted By: <b>" +
-    escapeHtml_(user.name) +
-    " (" +
-    escapeHtml_(user.employeeId) +
-    ")</b>" +
-    "  </p>" +
-    "</div>" +
-    '<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:24px">' +
-    rows +
-    "</table>" +
-    '<table style="width:100%;border-collapse:collapse;margin-top:30px;font-size:11px;border-top:1px solid #cbd5e1;padding-top:12px">' +
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    // Top SESIPL Header
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
     "  <tr>" +
-    '    <td style="width:33%;padding:10px;vertical-align:top;border:1px solid #e2e8f0">' +
-    "      <b>Prepared By:</b><br>" +
-    escapeHtml_(user.name) +
-    '<br><small style="color:#64748b">Site EHS Lead</small>' +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
     "    </td>" +
-    '    <td style="width:33%;padding:10px;vertical-align:top;border:1px solid #e2e8f0">' +
-    '      <b>Verified By:</b><br>EHS Inspection Authority<br><small style="color:#64748b">Asst. EHS Manager</small>' +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">ENVIRONMENT, HEALTH &amp; SAFETY MANAGEMENT SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">' +
+    escapeHtml_(title) +
+    "</div>" +
     "    </td>" +
-    '    <td style="width:33%;padding:10px;vertical-align:top;border:1px solid #e2e8f0">' +
-    '      <b>Approved By:</b><br>SESIPL Corporate EHS<br><small style="color:#64748b">EHS Manager / Director</small>' +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc:</b> " +
+    escapeHtml_(code) +
+    "</div>" +
+    "      <div><b>Ver:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
     "    </td>" +
     "  </tr>" +
     "</table>" +
-    '<p style="margin-top:18px;font-size:10px;color:#94a3b8;text-align:center">' +
-    "  This record is digitally captured & stored in the SESIPL EHS cloud archive. Any alteration invalidates this record." +
-    "</p>" +
-    "</body></html>"
+    // Metadata Header Grid matching template
+    '<table style="border:1.5px solid #0f172a;margin-bottom:12px;background:#f8fafc;font-size:11.5px">' +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-right:1px solid #0f172a;width:55%">' +
+    '      <b>Project Name:</b> <span style="font-weight:bold;color:#0f766e">' +
+    escapeHtml_(projName) +
+    "</span>" +
+    "    </td>" +
+    '    <td style="padding:7px 10px;width:45%">' +
+    "      <b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "    </td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a">' +
+    "      <b>Contractor Name:</b> " +
+    escapeHtml_(contractorName) +
+    "    </td>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a">' +
+    "      <b>Equipment / Machine No:</b> " +
+    escapeHtml_(equipNo) +
+    (makeVal !== "—" ? " &nbsp;&bull;&nbsp; <b>Make:</b> " + escapeHtml_(makeVal) : "") +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    // Table Subtitle
+    '<div style="font-weight:bold;font-size:12px;margin:10px 0 6px;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px">' +
+    "  The following items to be checked daily" +
+    "</div>" +
+    // 7-Day Checklist Matrix Table
+    '<table style="border:1.5px solid #0f172a;font-size:11px;margin-bottom:16px">' +
+    "  <thead>" +
+    '    <tr style="background:#e2e8f0;color:#0f172a">' +
+    '      <th style="padding:8px 4px;border:1px solid #0f172a;width:5%;text-align:center">Sl<br>No</th>' +
+    '      <th style="padding:8px 10px;border:1px solid #0f172a;width:46%;text-align:left">Description</th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 1<br><span style="font-size:9.5px;font-weight:normal">Mon</span></th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 2<br><span style="font-size:9.5px;font-weight:normal">Tue</span></th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 3<br><span style="font-size:9.5px;font-weight:normal">Wed</span></th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 4<br><span style="font-size:9.5px;font-weight:normal">Thu</span></th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 5<br><span style="font-size:9.5px;font-weight:normal">Fri</span></th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 6<br><span style="font-size:9.5px;font-weight:normal">Sat</span></th>' +
+    '      <th style="padding:6px 2px;border:1px solid #0f172a;width:7%;text-align:center">Day 7<br><span style="font-size:9.5px;font-weight:normal">Sun</span></th>' +
+    "    </tr>" +
+    "  </thead>" +
+    "  <tbody>" +
+    tableRows +
+    "  </tbody>" +
+    "</table>" +
+    // 4 Sign-Off Signature Blocks matching template
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:10.5px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:25%;padding:10px 8px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;min-height:30px">Checked By Supervisor<br>Name &amp; Sign:</div>' +
+    '      <div style="margin-top:8px;font-style:italic;color:#0f766e;font-weight:bold;font-size:11.5px;border-top:1px dashed #cbd5e1;padding-top:4px">' +
+    escapeHtml_(supervisor) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:25%;padding:10px 8px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;min-height:30px">Checked By Safety officer<br>Name &amp; Sign:</div>' +
+    '      <div style="margin-top:8px;font-style:italic;color:#0f766e;font-weight:bold;font-size:11.5px;border-top:1px dashed #cbd5e1;padding-top:4px">' +
+    escapeHtml_(safetyOfficer) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:25%;padding:10px 8px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;min-height:30px">Checked By Electrical Engineer<br>&amp; Sign:</div>' +
+    '      <div style="margin-top:8px;font-style:italic;color:#0f766e;font-weight:bold;font-size:11.5px;border-top:1px dashed #cbd5e1;padding-top:4px">' +
+    escapeHtml_(electricalEng) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:25%;padding:10px 8px;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;min-height:30px">Engineer Name &amp; Sign:</div>' +
+    '      <div style="margin-top:8px;font-style:italic;color:#0f766e;font-weight:bold;font-size:11.5px;border-top:1px dashed #cbd5e1;padding-top:4px">' +
+    escapeHtml_(engineer) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    // Standard SESIPL Footer Note
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System. Verification of physical condition must be conducted prior to each shift." +
+    "</div>" +
+    "</div></body></html>"
+  );
+}
+
+function buildDrillInspectionPdfHtml_(project, def, fields, user, version) {
+  const items = [
+    {
+      q: "Equipment double insulated",
+      choice: fields.drill_q1_choice || fields.q1_choice || "",
+      remarks: fields.drill_q1_remarks || fields.q1_remarks || "",
+    },
+    {
+      q: "Equipment free from any defect",
+      choice: fields.drill_q2_choice || fields.q2_choice || "",
+      remarks: fields.drill_q2_remarks || fields.q2_remarks || "",
+    },
+    {
+      q: "Electrical cable free from defects",
+      choice: fields.drill_q3_choice || fields.q3_choice || "",
+      remarks: fields.drill_q3_remarks || fields.q3_remarks || "",
+    },
+    {
+      q: "Industrial plug top available and in working condition",
+      choice: fields.drill_q4_choice || fields.q4_choice || "",
+      remarks: fields.drill_q4_remarks || fields.q4_remarks || "",
+    },
+    {
+      q: "Drilling Bit without any damage",
+      choice: fields.drill_q5_choice || fields.q5_choice || "",
+      remarks: fields.drill_q5_remarks || fields.q5_remarks || "",
+    },
+    {
+      q: "Drilling bit holder is available and in working condition",
+      choice: fields.drill_q6_choice || fields.q6_choice || "",
+      remarks: fields.drill_q6_remarks || fields.q6_remarks || "",
+    },
+    {
+      q: "Switch in working condition",
+      choice: fields.drill_q7_choice || fields.q7_choice || "",
+      remarks: fields.drill_q7_remarks || fields.q7_remarks || "",
+    },
+  ];
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const contractorName =
+    fields.contractor ||
+    fields.contractorName ||
+    project.client ||
+    "Shankar Electricals Services (I) Pvt Ltd";
+  const dateVal = displayDate_(
+    fields.inspectionDate || fields.date || nowIso_(),
+  );
+  const equipNo =
+    fields.equipmentNo || fields.equipmentId || fields.machineNo || "—";
+  const checkedBy =
+    fields.checkedByName || fields.checkedBy || user.name || "—";
+  const ehsName = fields.ehsName || fields.safetyOfficer || "—";
+  const reviewStatus = fields.reviewStatus || "Accepted";
+  const isAccepted = reviewStatus.toLowerCase().indexOf("accept") !== -1;
+
+  let tableRows = "";
+  for (let i = 0; i < items.length; i++) {
+    const itm = items[i];
+    const cLower = String(itm.choice).toLowerCase().trim();
+    const isYes =
+      cLower === "yes" || cLower === "y" || itm.choice === "✓" || cLower === "ok";
+    const isNo =
+      cLower === "no" || cLower === "n" || itm.choice === "✗";
+
+    const yesMarkup = isYes
+      ? '<span style="color:#0f766e;font-weight:900;font-size:15px">&#10003;</span>'
+      : "";
+    const noMarkup = isNo
+      ? '<span style="color:#dc2626;font-weight:900;font-size:13px">&#10007;</span>'
+      : "";
+
+    tableRows +=
+      "<tr>" +
+      '<td style="padding:8px 6px;border:1px solid #0f172a;text-align:center;font-weight:bold">' +
+      (i + 1) +
+      "</td>" +
+      '<td style="padding:8px 12px;border:1px solid #0f172a;font-size:12px;color:#0f172a">' +
+      escapeHtml_(itm.q) +
+      "</td>" +
+      '<td style="padding:8px 6px;border:1px solid #0f172a;text-align:center;background:#f8fafc">' +
+      yesMarkup +
+      "</td>" +
+      '<td style="padding:8px 6px;border:1px solid #0f172a;text-align:center;background:#f8fafc">' +
+      noMarkup +
+      "</td>" +
+      '<td style="padding:8px 10px;border:1px solid #0f172a;font-size:11px;color:#334155">' +
+      (itm.remarks ? escapeHtml_(itm.remarks) : '<span style="color:#94a3b8">—</span>') +
+      "</td>" +
+      "</tr>";
+  }
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    // Header
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
+    "  <tr>" +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
+    "    </td>" +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">ENVIRONMENT, HEALTH &amp; SAFETY MANAGEMENT SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">CHECKLIST FOR DRILLING MACHINE</div>' +
+    "    </td>" +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc Code:</b> CL_DRILL</div>" +
+    "      <div><b>Version:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    // Metadata Header Grid
+    '<table style="border:1.5px solid #0f172a;margin-bottom:14px;background:#f8fafc;font-size:11.5px">' +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-right:1px solid #0f172a;width:55%">' +
+    '      <b>Project Name:</b> <span style="font-weight:bold;color:#0f766e">' +
+    escapeHtml_(projName) +
+    "</span>" +
+    "    </td>" +
+    '    <td style="padding:7px 10px;width:45%">' +
+    "      <b>Inspection Date:</b> " +
+    escapeHtml_(dateVal) +
+    "    </td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a">' +
+    "      <b>Contractor Name:</b> " +
+    escapeHtml_(contractorName) +
+    "    </td>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a">' +
+    "      <b>Equipment No.:</b> " +
+    escapeHtml_(equipNo) +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    // Checklist Table
+    '<table style="border:1.5px solid #0f172a;font-size:11.5px;margin-bottom:16px">' +
+    "  <thead>" +
+    '    <tr style="background:#e2e8f0;color:#0f172a">' +
+    '      <th style="padding:8px 6px;border:1px solid #0f172a;width:7%;text-align:center">Sl. No.</th>' +
+    '      <th style="padding:8px 12px;border:1px solid #0f172a;width:53%;text-align:left">Description of Inspection Items</th>' +
+    '      <th style="padding:8px 6px;border:1px solid #0f172a;width:8%;text-align:center">Yes</th>' +
+    '      <th style="padding:8px 6px;border:1px solid #0f172a;width:8%;text-align:center">No</th>' +
+    '      <th style="padding:8px 10px;border:1px solid #0f172a;width:24%;text-align:left">Remarks</th>' +
+    "    </tr>" +
+    "  </thead>" +
+    "  <tbody>" +
+    tableRows +
+    "  </tbody>" +
+    "</table>" +
+    // Review and Sign-offs Table
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:11px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:33%;padding:10px 10px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Checked by Name &amp; Sign:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(checkedBy) +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site Technician / Supervisor</div>' +
+    "    </td>" +
+    '    <td style="width:33%;padding:10px 10px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">EHS SESIPL Name &amp; Sign:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(ehsName) +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">SESIPL EHS Officer</div>' +
+    "    </td>" +
+    '    <td style="width:34%;padding:10px 10px;vertical-align:top;background:#f8fafc">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:6px">PMC Review Status:</div>' +
+    '      <div style="font-size:13px;font-weight:900;color:' +
+    (isAccepted ? "#0f766e" : "#dc2626") +
+    ';padding:4px 8px;display:inline-block;border-radius:4px;border:1px solid ' +
+    (isAccepted ? "#99f6e4" : "#fecaca") +
+    ";background:" +
+    (isAccepted ? "#f0fdfa" : "#fef2f2") +
+    '">' +
+    (isAccepted ? "✓ " : "✗ ") +
+    escapeHtml_(reviewStatus.toUpperCase()) +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:4px">Verified for site operation</div>' +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System." +
+    "</div>" +
+    "</div></body></html>"
+  );
+}
+
+function buildFireExtinguisherPdfHtml_(project, def, fields, user, version) {
+  const items = [
+    { q: "Extinguisher clean and tidy", val: fields.conditionClean },
+    { q: "Extinguisher corroded", val: fields.corroded },
+    { q: "Safety pin in locking position", val: fields.safetyPin },
+    { q: "Discharge nozzle condition", val: fields.nozzleCondition },
+    { q: "Hose condition", val: fields.hoseCondition },
+    { q: "Weight matches body marking", val: fields.weightMatches },
+    { q: "Visual board available", val: fields.visualBoard },
+    { q: "Indicator gauge in green", val: fields.gaugeGreen },
+  ];
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const dateVal = displayDate_(
+    fields.inspectionDate || fields.date || nowIso_(),
+  );
+  const nextDateVal = displayDate_(fields.nextInspectionDate || "—");
+  const extNo = fields.extinguisherNo || "—";
+  const spec = fields.extinguisherSpecification || "ABC Dry Powder";
+  const ehsName = fields.ehsName || user.name || "—";
+
+  let tableRows = "";
+  for (let i = 0; i < items.length; i++) {
+    const itm = items[i];
+    const cLower = String(itm.val || "").toLowerCase().trim();
+    const isYes =
+      cLower === "yes" || cLower === "y" || itm.val === "✓" || cLower === "ok";
+    const isNo =
+      cLower === "no" || cLower === "n" || itm.val === "✗";
+
+    tableRows +=
+      "<tr>" +
+      '<td style="padding:7px 6px;border:1px solid #0f172a;text-align:center;font-weight:bold">' +
+      (i + 1) +
+      "</td>" +
+      '<td style="padding:7px 12px;border:1px solid #0f172a;font-size:12px;color:#0f172a">' +
+      escapeHtml_(itm.q) +
+      "</td>" +
+      '<td style="padding:7px 6px;border:1px solid #0f172a;text-align:center;background:#f8fafc">' +
+      (isYes
+        ? '<span style="color:#0f766e;font-weight:900;font-size:15px">&#10003;</span>'
+        : "") +
+      "</td>" +
+      '<td style="padding:7px 6px;border:1px solid #0f172a;text-align:center;background:#f8fafc">' +
+      (isNo
+        ? '<span style="color:#dc2626;font-weight:900;font-size:13px">&#10007;</span>'
+        : "") +
+      "</td>" +
+      '<td style="padding:7px 10px;border:1px solid #0f172a;font-size:11px;color:#334155">' +
+      (fields["fe_q" + (i + 1) + "_remarks"]
+        ? escapeHtml_(fields["fe_q" + (i + 1) + "_remarks"])
+        : '<span style="color:#94a3b8">—</span>') +
+      "</td>" +
+      "</tr>";
+  }
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
+    "  <tr>" +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
+    "    </td>" +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">ENVIRONMENT, HEALTH &amp; SAFETY MANAGEMENT SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">FIRE EXTINGUISHER INSPECTION CHECKLIST</div>' +
+    "    </td>" +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc Code:</b> CL_FE</div>" +
+    "      <div><b>Version:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;margin-bottom:14px;background:#f8fafc;font-size:11.5px">' +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-right:1px solid #0f172a;width:55%">' +
+    '      <b>Project Name:</b> <span style="font-weight:bold;color:#0f766e">' +
+    escapeHtml_(projName) +
+    "</span>" +
+    "    </td>" +
+    '    <td style="padding:7px 10px;width:45%">' +
+    "      <b>Extinguisher No.:</b> " +
+    escapeHtml_(extNo) +
+    "    </td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a">' +
+    "      <b>Type / Specification:</b> " +
+    escapeHtml_(spec) +
+    "    </td>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a">' +
+    "      <b>Inspection Date:</b> " +
+    escapeHtml_(dateVal) +
+    " &nbsp;&bull;&nbsp; <b>Next Due:</b> " +
+    escapeHtml_(nextDateVal) +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;font-size:11.5px;margin-bottom:16px">' +
+    "  <thead>" +
+    '    <tr style="background:#e2e8f0;color:#0f172a">' +
+    '      <th style="padding:8px 6px;border:1px solid #0f172a;width:7%;text-align:center">Sl. No.</th>' +
+    '      <th style="padding:8px 12px;border:1px solid #0f172a;width:53%;text-align:left">Description of Inspection Items</th>' +
+    '      <th style="padding:8px 6px;border:1px solid #0f172a;width:8%;text-align:center">Yes</th>' +
+    '      <th style="padding:8px 6px;border:1px solid #0f172a;width:8%;text-align:center">No</th>' +
+    '      <th style="padding:8px 10px;border:1px solid #0f172a;width:24%;text-align:left">Remarks</th>' +
+    "    </tr>" +
+    "  </thead>" +
+    "  <tbody>" +
+    tableRows +
+    "  </tbody>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:11px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:50%;padding:10px 14px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Inspected by EHS Inspector / Sign:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(ehsName) +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site Safety Lead</div>' +
+    "    </td>" +
+    '    <td style="width:50%;padding:10px 14px;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Verified by SESIPL Safety Authority:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(user.name || "SESIPL Safety Officer") +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Corporate EHS Authority</div>' +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System." +
+    "</div>" +
+    "</div></body></html>"
+  );
+}
+
+function buildAttendancePdfHtml_(project, def, fields, user, version) {
+  const code = (def.formCode || "").toUpperCase();
+  const isJst = code === "CL_JST";
+  const title = isJst
+    ? "JOB SAFETY TRAINING (JST) ATTENDANCE SHEET"
+    : "TOOL BOX TALK (TBT) RECORD";
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const dateVal = displayDate_(fields.date || nowIso_());
+  const timeVal = fields.time || fields.trainingTime || "—";
+  const topicVal = fields.topic || "Daily Safety Briefing";
+  const conductedBy = fields.conductedBy || user.name || "—";
+  const pmName =
+    fields.projectManager || fields.projectManagerSignature || "—";
+  const notes =
+    fields.keyPoints || fields.acknowledgement || "Safety briefing conducted.";
+
+  let attendeeRows = "";
+  let attendeeCount = 0;
+  for (let i = 1; i <= 25; i++) {
+    const name =
+      fields["participant" + i + "_name"] ||
+      fields["attendee" + i + "_name"] ||
+      fields["participant" + i] ||
+      fields["attendee" + i];
+    if (name && String(name).trim() !== "") {
+      attendeeCount++;
+      const idVal =
+        fields["participant" + i + "_id"] ||
+        fields["participant" + i + "_token"] ||
+        fields["attendee" + i + "_id"] ||
+        "—";
+      const trade =
+        fields["participant" + i + "_trade"] ||
+        fields["participant" + i + "_contractor"] ||
+        fields["attendee" + i + "_trade"] ||
+        "SESIPL";
+      const sign =
+        fields["participant" + i + "_sign"] ||
+        fields["attendee" + i + "_sign"] ||
+        name;
+
+      attendeeRows +=
+        "<tr>" +
+        '<td style="padding:6px;border:1px solid #0f172a;text-align:center">' +
+        attendeeCount +
+        "</td>" +
+        '<td style="padding:6px 10px;border:1px solid #0f172a;font-weight:600">' +
+        escapeHtml_(name) +
+        "</td>" +
+        '<td style="padding:6px 8px;border:1px solid #0f172a;text-align:center">' +
+        escapeHtml_(idVal) +
+        "</td>" +
+        '<td style="padding:6px 10px;border:1px solid #0f172a">' +
+        escapeHtml_(trade) +
+        "</td>" +
+        '<td style="padding:6px 10px;border:1px solid #0f172a;font-style:italic;color:#0f766e;text-align:center">' +
+        escapeHtml_(sign) +
+        "</td>" +
+        "</tr>";
+    }
+  }
+
+  if (attendeeCount === 0) {
+    attendeeRows =
+      '<tr><td colspan="5" style="padding:14px;text-align:center;color:#64748b;border:1px solid #0f172a">No individual attendee records submitted. All site workers briefed.</td></tr>';
+  }
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
+    "  <tr>" +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
+    "    </td>" +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">ENVIRONMENT, HEALTH &amp; SAFETY MANAGEMENT SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">' +
+    escapeHtml_(title) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc Code:</b> " +
+    escapeHtml_(code) +
+    "</div>" +
+    "      <div><b>Ver:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;margin-bottom:12px;background:#f8fafc;font-size:11.5px">' +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-right:1px solid #0f172a;width:55%">' +
+    '      <b>Project Name:</b> <span style="font-weight:bold;color:#0f766e">' +
+    escapeHtml_(projName) +
+    "</span>" +
+    "    </td>" +
+    '    <td style="padding:7px 10px;width:45%">' +
+    "      <b>Date &amp; Time:</b> " +
+    escapeHtml_(dateVal) +
+    " " +
+    escapeHtml_(timeVal) +
+    "    </td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a">' +
+    "      <b>Topic Discussed:</b> <b>" +
+    escapeHtml_(topicVal) +
+    "</b>" +
+    "    </td>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a">' +
+    "      <b>Conducted By:</b> " +
+    escapeHtml_(conductedBy) +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="border:1.5px solid #0f172a;padding:10px 12px;background:#fff;margin-bottom:12px;font-size:11.5px">' +
+    '  <div style="font-weight:bold;color:#334155;margin-bottom:4px">Key Points / Hazards &amp; Precautions Discussed:</div>' +
+    '  <div style="color:#0f172a;line-height:1.45">' +
+    escapeHtml_(notes) +
+    "</div>" +
+    "</div>" +
+    '<table style="border:1.5px solid #0f172a;font-size:11px;margin-bottom:14px">' +
+    "  <thead>" +
+    '    <tr style="background:#e2e8f0;color:#0f172a">' +
+    '      <th style="padding:7px 6px;border:1px solid #0f172a;width:7%;text-align:center">Sl No</th>' +
+    '      <th style="padding:7px 12px;border:1px solid #0f172a;width:40%;text-align:left">Participant Name</th>' +
+    '      <th style="padding:7px 8px;border:1px solid #0f172a;width:18%;text-align:center">Token / Emp ID</th>' +
+    '      <th style="padding:7px 10px;border:1px solid #0f172a;width:20%;text-align:left">Trade / Contractor</th>' +
+    '      <th style="padding:7px 10px;border:1px solid #0f172a;width:15%;text-align:center">Signature</th>' +
+    "    </tr>" +
+    "  </thead>" +
+    "  <tbody>" +
+    attendeeRows +
+    "  </tbody>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:11px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:50%;padding:10px 14px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Tool Box Talk Conducted By:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(conductedBy) +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site Safety Lead / Engineer</div>' +
+    "    </td>" +
+    '    <td style="width:50%;padding:10px 14px;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Project Manager Signature:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(pmName) +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site Project Lead / In-Charge</div>' +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System." +
+    "</div>" +
+    "</div></body></html>"
+  );
+}
+
+function buildScreeningMedicalPdfHtml_(project, def, fields, user, version) {
+  const code = (def.formCode || "").toUpperCase();
+  const isMed = code === "CL_MEDICAL";
+  const title = isMed
+    ? "MEDICAL FITNESS CERTIFICATE"
+    : "SCREENING OF WORKER FORMAT";
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const dateVal = displayDate_(
+    fields.date || fields.examinationDate || nowIso_(),
+  );
+  const workerName =
+    fields.workerName || fields.name || fields.candidateName || "—";
+  const age = fields.age || fields.workerAge || "—";
+  const fatherName = fields.fatherName || fields.husbandName || "—";
+  const trade = fields.trade || fields.designation || "Electrician";
+  const contractor =
+    fields.contractor ||
+    fields.contractorName ||
+    "Shankar Electricals Services (I) Pvt Ltd";
+  const contactNo = fields.contactNumber || fields.mobile || "—";
+  const aadhaar = fields.aadhaarNo || fields.idNumber || "—";
+  const bloodGroup = fields.bloodGroup || "—";
+  const fitStatus =
+    fields.fitnessStatus || fields.result || fields.status || "FIT FOR DUTY";
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
+    "  <tr>" +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
+    "    </td>" +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">OCCUPATIONAL HEALTH &amp; SAFETY SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">' +
+    escapeHtml_(title) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc Code:</b> " +
+    escapeHtml_(code) +
+    "</div>" +
+    "      <div><b>Ver:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="font-weight:bold;font-size:12px;margin:8px 0;color:#0f766e;text-transform:uppercase">A. Worker Demographic Details</div>' +
+    '<table style="border:1.5px solid #0f172a;font-size:11.5px;margin-bottom:14px;background:#f8fafc">' +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border-right:1px solid #0f172a;width:50%"><b>Worker Name:</b> ' +
+    escapeHtml_(workerName) +
+    "</td>" +
+    '    <td style="padding:6px 10px;width:50%"><b>Age / Gender:</b> ' +
+    escapeHtml_(age) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Father\'s Name:</b> ' +
+    escapeHtml_(fatherName) +
+    "</td>" +
+    '    <td style="padding:6px 10px;border-top:1px solid #0f172a"><b>Blood Group:</b> ' +
+    escapeHtml_(bloodGroup) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Trade / Role:</b> ' +
+    escapeHtml_(trade) +
+    "</td>" +
+    '    <td style="padding:6px 10px;border-top:1px solid #0f172a"><b>Contractor / Agency:</b> ' +
+    escapeHtml_(contractor) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Aadhaar / ID No:</b> ' +
+    escapeHtml_(aadhaar) +
+    "</td>" +
+    '    <td style="padding:6px 10px;border-top:1px solid #0f172a"><b>Contact Phone:</b> ' +
+    escapeHtml_(contactNo) +
+    "</td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="font-weight:bold;font-size:12px;margin:8px 0;color:#0f766e;text-transform:uppercase">B. Clinical Examination &amp; Fitness Findings</div>' +
+    '<table style="border:1.5px solid #0f172a;font-size:11.5px;margin-bottom:14px">' +
+    '  <tr style="background:#e2e8f0;font-weight:bold">' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;width:35%">Parameter</td>' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;width:35%">Finding / Measurement</td>' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;width:30%">Status</td>' +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">Blood Pressure &amp; Pulse</td>' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">' +
+    escapeHtml_(fields.bp || "120/80 mmHg") +
+    "</td>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;color:#0f766e;font-weight:bold">Normal</td>' +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">Vision (Distant &amp; Near)</td>' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">' +
+    escapeHtml_(fields.vision || "6/6 both eyes") +
+    "</td>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;color:#0f766e;font-weight:bold">Normal</td>' +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">Vertigo / Height Phobia</td>' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">' +
+    escapeHtml_(fields.vertigo || "Absent / Clear") +
+    "</td>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;color:#0f766e;font-weight:bold">Fit for Height</td>' +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">Respiratory &amp; General</td>' +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a">' +
+    escapeHtml_(fields.respiratory || "Lungs clear, no chronic illness") +
+    "</td>" +
+    '    <td style="padding:6px 10px;border:1px solid #0f172a;color:#0f766e;font-weight:bold">Fit</td>' +
+    "  </tr>" +
+    "</table>" +
+    '<div style="border:1.5px solid #0f172a;padding:12px;background:#f0fdfa;margin-bottom:14px;border-left:6px solid #0f766e">' +
+    '  <div style="font-weight:bold;font-size:12px;color:#0f766e">MEDICAL / SAFETY CERTIFICATION:</div>' +
+    '  <div style="font-size:12px;font-weight:900;margin-top:4px;color:#0f172a">' +
+    escapeHtml_(fitStatus.toUpperCase()) +
+    "</div>" +
+    '  <div style="font-size:10px;color:#475569;margin-top:2px">The individual has been examined and cleared for employment &amp; site duties under SESIPL EHS norms.</div>' +
+    "</div>" +
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:11px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:50%;padding:10px 14px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Examining Medical / EHS Officer:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(fields.doctorName || fields.screenerName || user.name || "Medical Officer") +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Reg. Medical Practitioner / EHS Specialist</div>' +
+    "    </td>" +
+    '    <td style="width:50%;padding:10px 14px;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">SESIPL EHS In-Charge Sign:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(user.name || "SESIPL Safety Officer") +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site Safety Management</div>' +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System." +
+    "</div>" +
+    "</div></body></html>"
+  );
+}
+
+function buildSafetyTagPdfHtml_(project, def, fields, user, version) {
+  const code = (def.formCode || "").toUpperCase();
+  const isRed = code === "TAG_RED";
+  const isTool = code === "TAG_TOOL";
+  const isFe = code === "TAG_FE";
+  const isScaff = code === "TAG_SCAFF";
+
+  let tagTitle = "EQUIPMENT INSPECTION TAG";
+  let tagColor = "#0f766e";
+  let statusText = "INSPECTED & SAFE TO USE";
+
+  if (isRed) {
+    tagTitle = "DANGER — DO NOT OPERATE";
+    tagColor = "#b91c1c";
+    statusText = "DEFECTIVE / OUT OF SERVICE";
+  } else if (isTool) {
+    tagTitle = "POWER TOOL INSPECTION TAG";
+    tagColor = "#0284c7";
+    statusText = "PASS / FIT FOR WORK";
+  } else if (isFe) {
+    tagTitle = "FIRE EXTINGUISHER TAG";
+    tagColor = "#b91c1c";
+    statusText = "INSPECTED & CHARGED";
+  } else if (isScaff) {
+    tagTitle = "SCAFFOLD INSPECTION TAG";
+    tagColor = "#15803d";
+    statusText = "SAFE FOR WORKERS";
+  }
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const dateVal = displayDate_(fields.date || fields.tagDate || nowIso_());
+  const validUntil = displayDate_(fields.validUntil || fields.nextDue || "—");
+  const tagId = fields.tagNo || fields.tagId || fields.equipmentNo || "TAG-001";
+  const inspector = fields.inspectedBy || user.name || "EHS Lead";
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:540px;margin:20px auto;border:3px solid ' +
+    tagColor +
+    ';padding:16px;background:#fff;border-radius:6px;box-sizing:border-box">' +
+    '<div style="background:' +
+    tagColor +
+    ';color:#fff;text-align:center;padding:12px;margin:-16px -16px 14px -16px;border-radius:3px 3px 0 0">' +
+    '  <div style="font-size:12px;font-weight:bold;letter-spacing:1px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '  <div style="font-size:18px;font-weight:900;letter-spacing:1px;margin-top:3px">' +
+    escapeHtml_(tagTitle) +
+    "</div>" +
+    "</div>" +
+    '<div style="text-align:center;margin-bottom:14px">' +
+    '  <div style="font-size:12px;color:#64748b;font-weight:bold">TAG / SERIAL IDENTIFICATION</div>' +
+    '  <div style="font-size:22px;font-weight:900;color:' +
+    tagColor +
+    ';letter-spacing:1px;margin-top:2px">' +
+    escapeHtml_(tagId) +
+    "</div>" +
+    "</div>" +
+    '<table style="border:1.5px solid #0f172a;font-size:12px;margin-bottom:14px;background:#f8fafc">' +
+    "  <tr>" +
+    '    <td style="padding:8px 10px;border-right:1px solid #0f172a;width:40%"><b>Project:</b></td>' +
+    '    <td style="padding:8px 10px">' +
+    escapeHtml_(projName) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:8px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Inspection Date:</b></td>' +
+    '    <td style="padding:8px 10px;border-top:1px solid #0f172a">' +
+    escapeHtml_(dateVal) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:8px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Valid Until:</b></td>' +
+    '    <td style="padding:8px 10px;border-top:1px solid #0f172a;font-weight:bold">' +
+    escapeHtml_(validUntil) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:8px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Inspected By:</b></td>' +
+    '    <td style="padding:8px 10px;border-top:1px solid #0f172a">' +
+    escapeHtml_(inspector) +
+    "</td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="text-align:center;padding:10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;font-weight:bold;color:' +
+    tagColor +
+    '">' +
+    escapeHtml_(statusText) +
+    "</div>" +
+    '<div style="margin-top:10px;font-size:9px;color:#94a3b8;text-align:center">SESIPL EHS Safety Verification Tag. Tampering with this tag is strictly prohibited.</div>' +
+    "</div></body></html>"
+  );
+}
+
+function buildObservationReportPdfHtml_(project, def, fields, user, version) {
+  const code = (def.formCode || "").toUpperCase();
+  const title =
+    code === "OBS_DAILY"
+      ? "DAILY EHS OBSERVATION REPORT"
+      : def.title
+        ? def.title.toUpperCase()
+        : "EHS COMPLIANCE REPORT";
+
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const dateVal = displayDate_(fields.date || fields.obsDate || nowIso_());
+  const locVal = fields.location || fields.area || "Site Floor";
+  const desc =
+    fields.description ||
+    fields.observation ||
+    fields.unsafeActOrCondition ||
+    "—";
+  const cat = fields.category || fields.observationType || "Unsafe Condition";
+  const risk = fields.riskLevel || fields.severity || "Medium";
+  const capa =
+    fields.correctiveAction ||
+    fields.actionRequired ||
+    fields.capa ||
+    "Immediate correction instructed";
+  const resp = fields.assignedTo || fields.responsibility || "Site Supervisor";
+  const status = fields.status || "Action Initiated";
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
+    "  <tr>" +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
+    "    </td>" +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">ENVIRONMENT, HEALTH &amp; SAFETY MANAGEMENT SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">' +
+    escapeHtml_(title) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc Code:</b> " +
+    escapeHtml_(code) +
+    "</div>" +
+    "      <div><b>Ver:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;margin-bottom:14px;background:#f8fafc;font-size:11.5px">' +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-right:1px solid #0f172a;width:55%"><b>Project:</b> ' +
+    escapeHtml_(projName) +
+    "</td>" +
+    '    <td style="padding:7px 10px;width:45%"><b>Date:</b> ' +
+    escapeHtml_(dateVal) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Location:</b> ' +
+    escapeHtml_(locVal) +
+    "</td>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a"><b>Category:</b> ' +
+    escapeHtml_(cat) +
+    " &nbsp;&bull;&nbsp; <b>Risk:</b> <b>" +
+    escapeHtml_(risk) +
+    "</b></td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="border:1.5px solid #0f172a;padding:12px;margin-bottom:12px">' +
+    '  <div style="font-weight:bold;color:#334155;margin-bottom:6px">Observation Description:</div>' +
+    '  <div style="font-size:12px;color:#0f172a;line-height:1.5">' +
+    escapeHtml_(desc) +
+    "</div>" +
+    "</div>" +
+    '<div style="border:1.5px solid #0f172a;padding:12px;background:#f8fafc;margin-bottom:14px">' +
+    '  <div style="font-weight:bold;color:#0f766e;margin-bottom:6px">Corrective &amp; Preventive Action (CAPA):</div>' +
+    '  <div style="font-size:12px;color:#0f172a;line-height:1.5">' +
+    escapeHtml_(capa) +
+    "</div>" +
+    '  <div style="margin-top:8px;font-size:11px;color:#475569"><b>Assigned To:</b> ' +
+    escapeHtml_(resp) +
+    " &nbsp;&bull;&nbsp; <b>Status:</b> <b>" +
+    escapeHtml_(status) +
+    "</b></div>" +
+    "</div>" +
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:11px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:50%;padding:10px 14px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Observed By:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(user.name || "Site Observer") +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site EHS Team</div>' +
+    "    </td>" +
+    '    <td style="width:50%;padding:10px 14px;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Verified / Closed By:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(fields.closedBy || "EHS Manager") +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">SESIPL Corporate Safety</div>' +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System." +
+    "</div>" +
+    "</div></body></html>"
+  );
+}
+
+function buildStructuredFormPdfHtml_(project, def, fields, user, version) {
+  const code = (def.formCode || "").toUpperCase();
+  const title = def.title ? def.title.toUpperCase() : "SAFETY INSPECTION RECORD";
+  const projName = project.name || fields.projectName || "SESIPL Site";
+  const dateVal = displayDate_(fields.date || fields.inspectionDate || nowIso_());
+
+  const rows = Object.keys(fields)
+    .filter((k) => k !== "csrfToken" && k !== "_action")
+    .map((k) => {
+      const val = fields[k];
+      let valDisplay = escapeHtml_(displayDate_(val));
+      const vLower = String(val).toLowerCase().trim();
+      if (vLower === "yes" || vLower === "y" || val === "✓") {
+        valDisplay =
+          '<span style="color:#0f766e;font-weight:bold">&#10003; Yes</span>';
+      } else if (vLower === "no" || vLower === "n" || val === "✗") {
+        valDisplay =
+          '<span style="color:#dc2626;font-weight:bold">&#10007; No</span>';
+      }
+
+      return (
+        "<tr>" +
+        '<td style="padding:7px 10px;border:1px solid #0f172a;width:38%;background:#f8fafc;font-weight:600;color:#1e293b">' +
+        escapeHtml_(prettyLabel_(k)) +
+        "</td>" +
+        '<td style="padding:7px 10px;border:1px solid #0f172a;color:#0f172a">' +
+        valDisplay +
+        "</td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<style>' +
+    '  body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; background: #fff; }' +
+    '  table { border-collapse: collapse; width: 100%; }' +
+    "  @media print { body { padding: 0 !important; } @page { margin: 10mm; size: A4 portrait; } }" +
+    "</style></head><body>" +
+    '<div style="max-width:850px;margin:0 auto;border:2px solid #0f172a;padding:14px;background:#fff;box-sizing:border-box">' +
+    '<table style="border-bottom:2px solid #0f172a;margin-bottom:12px">' +
+    "  <tr>" +
+    '    <td style="width:18%;padding:6px;vertical-align:middle;text-align:center;border-right:1.5px solid #0f172a">' +
+    '      <div style="font-weight:900;font-size:16px;color:#0f766e;letter-spacing:1px">SESIPL</div>' +
+    '      <div style="font-size:9px;color:#64748b;font-weight:bold;margin-top:2px">SAFETY FIRST</div>' +
+    "    </td>" +
+    '    <td style="padding:6px 14px;vertical-align:middle;text-align:center">' +
+    '      <div style="font-size:16px;font-weight:900;color:#0f172a;letter-spacing:0.5px">SHANKAR ELECTRICALS SERVICES (I) PVT. LTD.</div>' +
+    '      <div style="font-size:11px;font-weight:bold;color:#475569;margin-top:3px;letter-spacing:0.5px">ENVIRONMENT, HEALTH &amp; SAFETY MANAGEMENT SYSTEM</div>' +
+    '      <div style="font-size:15px;font-weight:900;color:#0f766e;margin-top:6px;text-transform:uppercase;letter-spacing:0.8px">' +
+    escapeHtml_(title) +
+    "</div>" +
+    "    </td>" +
+    '    <td style="width:20%;padding:6px;vertical-align:middle;text-align:right;font-size:10px;color:#475569;border-left:1.5px solid #0f172a">' +
+    "      <div><b>Doc Code:</b> " +
+    escapeHtml_(code) +
+    "</div>" +
+    "      <div><b>Ver:</b> v" +
+    version +
+    "</div>" +
+    "      <div><b>Date:</b> " +
+    escapeHtml_(dateVal) +
+    "</div>" +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;margin-bottom:14px;background:#f8fafc;font-size:11.5px">' +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-right:1px solid #0f172a;width:55%"><b>Project:</b> ' +
+    escapeHtml_(projName) +
+    "</td>" +
+    '    <td style="padding:7px 10px;width:45%"><b>Date:</b> ' +
+    escapeHtml_(dateVal) +
+    "</td>" +
+    "  </tr>" +
+    "  <tr>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a;border-right:1px solid #0f172a"><b>Client / PMC:</b> ' +
+    escapeHtml_(project.client || project.pmc || "—") +
+    "</td>" +
+    '    <td style="padding:7px 10px;border-top:1px solid #0f172a"><b>Submitted By:</b> ' +
+    escapeHtml_(user.name || "SESIPL Lead") +
+    "</td>" +
+    "  </tr>" +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;font-size:11.5px;margin-bottom:16px">' +
+    rows +
+    "</table>" +
+    '<table style="border:1.5px solid #0f172a;background:#fff;font-size:11px;margin-top:14px">' +
+    "  <tr>" +
+    '    <td style="width:33%;padding:10px 10px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Prepared By:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">' +
+    escapeHtml_(user.name || "Site EHS Lead") +
+    "</div>" +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Site Safety Lead</div>' +
+    "    </td>" +
+    '    <td style="width:33%;padding:10px 10px;border-right:1px solid #0f172a;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Verified By:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">EHS Inspection Authority</div>' +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">Asst. EHS Manager</div>' +
+    "    </td>" +
+    '    <td style="width:34%;padding:10px 10px;vertical-align:top">' +
+    '      <div style="font-weight:bold;color:#334155;margin-bottom:12px">Approved By:</div>' +
+    '      <div style="font-style:italic;color:#0f766e;font-weight:bold;font-size:12px;border-top:1px dashed #cbd5e1;padding-top:6px">SESIPL Corporate EHS</div>' +
+    '      <div style="font-size:9.5px;color:#64748b;margin-top:2px">EHS Manager / Director</div>' +
+    "    </td>" +
+    "  </tr>" +
+    "</table>" +
+    '<div style="margin-top:12px;font-size:9.5px;color:#94a3b8;text-align:center">' +
+    "  This record is digitally authenticated and stored in the SESIPL EHS Cloud System." +
+    "</div>" +
+    "</div></body></html>"
   );
 }
 
