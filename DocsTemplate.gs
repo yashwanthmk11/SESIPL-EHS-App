@@ -668,6 +668,15 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         map["d" + day + "_q" + item] = displayVal;
         map["day" + day + "_q" + item] = displayVal;
 
+        const daysShort = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+        const dShort = daysShort[day - 1];
+        map["item" + item + "_" + dShort] = displayVal;
+        map["item" + item + dShort] = displayVal;
+        map["q" + item + "_" + dShort] = displayVal;
+        map["q" + item + dShort] = displayVal;
+        map["scaff_q" + item + "_" + dShort] = displayVal;
+        map["scaffold_q" + item + "_" + dShort] = displayVal;
+
         if (day === 1) {
           const isYes = v.toLowerCase() === "yes" || v.toLowerCase() === "y" || v === "✓";
           const isNo = v.toLowerCase() === "no" || v.toLowerCase() === "n";
@@ -694,6 +703,51 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
       map["scaff_q" + item + "_remarks"] = String(fields[remarksKey]);
       map["scaffold_q" + item + "_remarks"] = String(fields[remarksKey]);
     }
+  }
+
+  // Handle bottom weekly sign-off table (Monday to Sunday)
+  const weekdaysList = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const weekdaysFullList = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ];
+  for (let d = 1; d <= 7; d++) {
+    const sDay = weekdaysList[d - 1];
+    const fDay = weekdaysFullList[d - 1];
+    const inspectorName =
+      fields["nameDay" + d] ||
+      fields["day" + d + "Name"] ||
+      fields["name_" + sDay] ||
+      fields["name_" + fDay] ||
+      fields.supervisor ||
+      fields.supervisorSign ||
+      (user && user.name ? user.name : "Supervisor");
+    const inspectorSign =
+      fields["signDay" + d] ||
+      fields["day" + d + "Sign"] ||
+      fields["sign_" + sDay] ||
+      fields["sign_" + fDay] ||
+      fields.supervisorSign ||
+      "Signed";
+
+    map["name_" + sDay] = inspectorName;
+    map["name_" + fDay] = inspectorName;
+    map["name" + fDay.charAt(0).toUpperCase() + fDay.slice(1)] = inspectorName;
+    map["day" + d + "_name"] = inspectorName;
+    map["name_day" + d] = inspectorName;
+    map["day" + d + "Name"] = inspectorName;
+
+    map["sign_" + sDay] = inspectorSign;
+    map["sign_" + fDay] = inspectorSign;
+    map["sign" + fDay.charAt(0).toUpperCase() + fDay.slice(1)] = inspectorSign;
+    map["day" + d + "_sign"] = inspectorSign;
+    map["sign_day" + d] = inspectorSign;
+    map["day" + d + "Sign"] = inspectorSign;
   }
 
   // Handle participant rows for TBT, JST, Training, and Induction

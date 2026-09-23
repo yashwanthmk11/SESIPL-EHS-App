@@ -2949,14 +2949,15 @@ function getFormFields_(formCode) {
       ])
       .concat(inductionAttendees),
     CL_SCAFFOLD: dailyInspectionFields([
-      "All coupler hooks properly installed",
-      "Proper platform and locking system provided",
-      "Inspection tag displayed",
-      "Scaffold erected on firm base",
-      "Wheel lock provided and working",
-      "Toe board provided",
-      "Access ladder properly installed",
-      "Double top and mid railing provided",
+      "All coupler hooks are properly installed",
+      "Proper platform has been provided & is having proper locking system",
+      "Proper platform has been provided & is having proper locking system",
+      "Inspection tag has been displayed",
+      "Scaffolding has been erected on a firm base",
+      "Wheel lock has been provided & is in working condition",
+      "Toe board has been provided",
+      "Access ladder has been provided & installed properly",
+      "Double (top & mid) railing has been provided",
     ]),
     CL_MEDICAL: common.concat([
       {
