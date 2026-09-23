@@ -873,9 +873,60 @@
     vertical-align: top;
   }
   th {
-    color: var(--muted);
-    font-weight: 650;
+    color: #1e293b;
+    font-weight: 700;
     font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+  thead th {
+    color: #1e293b;
+    font-weight: 700;
+  }
+  /* High-contrast crisp white headers for all dark/teal table headers across the app */
+  tr[style*="background:#0f766e"] th,
+  tr[style*="background: #0f766e"] th,
+  tr[style*="background:#147d6f"] th,
+  tr[style*="background: #147d6f"] th,
+  tr[style*="background:#1e293b"] th,
+  tr[style*="background:#2e75b6"] th,
+  tr[style*="background:#385723"] th,
+  tr[style*="background:#7f7f7f"] th,
+  tr[style*="color:#ffffff"] th,
+  tr[style*="color: #ffffff"] th,
+  tr[style*="color:#fff"] th,
+  tr[style*="color: #fff"] th,
+  th[style*="background:#0f766e"],
+  th[style*="background: #0f766e"],
+  th[style*="background:#2e75b6"],
+  th[style*="background:#385723"],
+  th[style*="color:#ffffff"],
+  th[style*="color: #ffffff"],
+  th[style*="color:#fff"],
+  th[style*="color: #fff"] {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+  }
+  tr[style*="background:#0f766e"] th small,
+  tr[style*="background: #0f766e"] th small,
+  tr[style*="color:#ffffff"] th small,
+  tr[style*="color: #ffffff"] th small,
+  th[style*="color:#ffffff"] small,
+  th small {
+    color: #ccfbf1 !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+  }
+  /* Clear readable dark text on light-colored subheaders */
+  tr[style*="background:#f2f2f2"] th,
+  tr[style*="background:#e2e8f0"] th,
+  tr[style*="background:#f8fafc"] th,
+  tr[style*="background:#ffffff"] th,
+  tr[style*="background:#d9d9d9"] th,
+  tr[style*="background:#fef3c7"] th,
+  tr[style*="background:#bfbfbf"] th,
+  tr[style*="background:#ffc000"] th {
+    color: #0f172a !important;
+    font-weight: 800 !important;
   }
   .row-actions {
     display: flex;
