@@ -5862,7 +5862,49 @@
       alert("No printable document content available.");
     }
   }
-  window.printCurrentPermitPreview = printCurrentPermitPreview;
+  let CURRENT_PDF_DOWNLOAD_STATE = null;
+
+  function downloadBase64Pdf(base64Data, fileName) {
+    try {
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteNumbers], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "Document.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+    } catch (e) {
+      console.warn("Direct blob download error:", e);
+      if (CURRENT_PDF_DOWNLOAD_STATE && CURRENT_PDF_DOWNLOAD_STATE.downloadUrl) {
+        window.open(CURRENT_PDF_DOWNLOAD_STATE.downloadUrl, "_blank");
+      }
+    }
+  }
+  window.downloadBase64Pdf = downloadBase64Pdf;
+
+  function downloadCurrentSubmissionPdf() {
+    if (CURRENT_PDF_DOWNLOAD_STATE && CURRENT_PDF_DOWNLOAD_STATE.base64) {
+      downloadBase64Pdf(
+        CURRENT_PDF_DOWNLOAD_STATE.base64,
+        CURRENT_PDF_DOWNLOAD_STATE.filename,
+      );
+    } else if (
+      CURRENT_PDF_DOWNLOAD_STATE &&
+      CURRENT_PDF_DOWNLOAD_STATE.downloadUrl
+    ) {
+      window.open(CURRENT_PDF_DOWNLOAD_STATE.downloadUrl, "_blank");
+    } else {
+      alert("No download URL or data available.");
+    }
+  }
+  window.downloadCurrentSubmissionPdf = downloadCurrentSubmissionPdf;
 
   async function viewSubmissionPdf(submissionId) {
     setLoading(true, "Compiling submission PDF...");
@@ -5881,46 +5923,32 @@
         if (res.html) {
           CURRENT_PERMIT_PREVIEW_STATE = { html: res.html, title: res.title };
         }
-        let frameSrc = "";
-        if (res.base64Pdf) {
-          try {
-            const byteCharacters = atob(res.base64Pdf);
-            const byteNumbers = new Uint8Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const blob = new Blob([byteNumbers], { type: "application/pdf" });
-            frameSrc = URL.createObjectURL(blob);
-          } catch (e) {
-            console.warn("Could not create Blob URL for PDF:", e);
-          }
-        }
+        CURRENT_PDF_DOWNLOAD_STATE = {
+          base64: res.base64Pdf || "",
+          filename:
+            (res.title || "Submission").replace(/[^\w\s-]/g, "") + ".pdf",
+          downloadUrl: res.downloadUrl || res.pdfUrl || "",
+        };
 
-        const previewContainer = frameSrc
-          ? '<iframe src="' +
-            frameSrc +
-            '" style="width:100%;height:75vh;border:none;border-radius:4px;background:#fff"></iframe>'
-          : res.html
-            ? '<div style="background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.2);border-radius:4px;padding:24px;max-width:800px;margin:0 auto;max-height:75vh;overflow-y:auto">' +
-              res.html +
-              "</div>"
-            : '<div style="background:#ffffff;border-radius:6px;padding:36px 20px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.1)">' +
-              '<div style="font-size:42px;margin-bottom:12px">📄</div>' +
-              '<h4 style="margin:0 0 8px;font-size:16px;color:#0f172a;font-weight:800">Official Document Generated Successfully</h4>' +
-              '<p class="muted" style="margin:0 0 16px;font-size:13px">Your submission has been compiled into the official Google Docs PDF template and saved to Google Drive.</p>' +
-              '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">' +
-              (res.pdfUrl
-                ? '<a href="' +
-                  esc(res.pdfUrl) +
-                  '" target="_blank" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Google Drive</a>'
-                : "") +
-              (res.downloadUrl
-                ? '<a href="' +
-                  esc(res.downloadUrl) +
-                  '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>'
-                : "") +
-              "</div>" +
-              "</div>";
+        const previewContainer = res.html
+          ? '<div style="background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.2);border-radius:4px;padding:24px;max-width:820px;margin:0 auto;max-height:75vh;overflow-y:auto">' +
+            res.html +
+            "</div>"
+          : '<div style="background:#ffffff;border-radius:6px;padding:36px 20px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.1)">' +
+            '<div style="font-size:42px;margin-bottom:12px">📄</div>' +
+            '<h4 style="margin:0 0 8px;font-size:16px;color:#0f172a;font-weight:800">' +
+            esc(res.title || "Official Document") +
+            "</h4>" +
+            '<p class="muted" style="margin:0 0 16px;font-size:13px">Your submission has been compiled into the official Google Docs PDF template and saved to Google Drive.</p>' +
+            '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">' +
+            (res.pdfUrl
+              ? '<a href="' +
+                esc(res.pdfUrl) +
+                '" target="_blank" rel="noopener noreferrer" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Google Drive</a>'
+              : "") +
+            '<button type="button" class="btn small secondary" style="font-weight:700" onclick="downloadCurrentSubmissionPdf()">⬇ Download PDF</button>' +
+            "</div>" +
+            "</div>";
 
         const modalHtml =
           '<div style="max-width:960px;margin:0 auto;text-align:left">' +
@@ -5934,14 +5962,14 @@
           "</div>" +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
           (res.html
-            ? '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printCurrentPermitPreview()">🖨️ Print</button>'
+            ? '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printCurrentPermitPreview()">🖨️ Print / Save as PDF</button>'
             : "") +
-          '<a href="' +
-          esc(res.pdfUrl) +
-          '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">↗ Open in Drive</a>' +
-          '<a href="' +
-          esc(res.downloadUrl) +
-          '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>' +
+          '<button type="button" class="btn small secondary" style="font-weight:700" onclick="downloadCurrentSubmissionPdf()">⬇ Download PDF</button>' +
+          (res.pdfUrl
+            ? '<a href="' +
+              esc(res.pdfUrl) +
+              '" target="_blank" rel="noopener noreferrer" class="btn small secondary" style="font-weight:700;text-decoration:none">↗ Open in Drive</a>'
+            : "") +
           '<button type="button" class="ghost" onclick="hideModal()">✕ Close</button>' +
           "</div>" +
           "</div>" +
