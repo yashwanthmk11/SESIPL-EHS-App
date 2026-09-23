@@ -354,7 +354,7 @@ const DEFAULT_DOC_TEMPLATE_REGISTRY = {
   CL_GRIND: "1c7T1ip1jnnz9Tc0b61fASMYOBKC2z2zonVN1SUC3aVA", // Grinding Machine Checklist
   CL_DRILL: "1x18zs1fBXgPJqlejQqUgMIy6juMhQb_rQSGMZOdt9ug", // Drilling Machine
   CL_FE: "1H87LMWzmqgIWHPpm54O4vQUrq6rvh4yAi6u5ZPDelns", // Fire Extinguisher
-  CL_SCAFFOLD: "l0KyOAHOAr7ulkv3TPgHOJqF3vaywUvD9mncVF1s", // Scaffolding checklist
+  CL_SCAFFOLD: "10J-l0KyOAHOAr7ulkv3TPgHOJqF3vaywUvD9mncVF1s", // Scaffolding checklist
   CL_CUT: "",
 
   // Attendances & Inductions
