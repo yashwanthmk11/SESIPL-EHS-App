@@ -517,11 +517,15 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     ehsOfficerSign: fields.ehsOfficerSignature || fields.ehsOfficerSign || "Signed",
     ehsOfficerSignature: fields.ehsOfficerSignature || fields.ehsOfficerSign || "Signed",
 
-    // Equipment & Extinguisher Details
+    // Equipment, Scaffold & Extinguisher Details
     equipmentId:
-      fields.equipmentId || fields.equipmentNo || fields.extinguisherNo || fields.machineNo || "",
+      fields.equipmentId || fields.equipmentNo || fields.scaffoldId || fields.scaffoldNo || fields.extinguisherNo || fields.machineNo || "",
     equipmentNo:
-      fields.equipmentNo || fields.extinguisherNo || fields.equipmentId || fields.machineNo || "",
+      fields.equipmentNo || fields.scaffoldNo || fields.scaffoldId || fields.extinguisherNo || fields.equipmentId || fields.machineNo || "",
+    scaffoldId:
+      fields.scaffoldId || fields.scaffoldNo || fields.equipmentId || fields.equipmentNo || "",
+    scaffoldNo:
+      fields.scaffoldNo || fields.scaffoldId || fields.equipmentId || fields.equipmentNo || "",
     extinguisherNo:
       fields.extinguisherNo || fields.equipmentNo || fields.equipmentId || "",
     machineNo:
@@ -653,6 +657,8 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         map["grind_q" + item + "_d" + day] = displayVal;
         map["cut_q" + item + "_d" + day] = displayVal;
         map["drill_q" + item + "_d" + day] = displayVal;
+        map["scaff_q" + item + "_d" + day] = displayVal;
+        map["scaffold_q" + item + "_d" + day] = displayVal;
         map["q" + item + "_d" + day] = displayVal;
         map["item" + item + "_d" + day] = displayVal;
         map["item" + item + "Day" + day] = displayVal;
@@ -669,11 +675,24 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
           map["q" + item + "_yes"] = isYes ? "✓" : map["q" + item + "_yes"] || "";
           map["q" + item + "_no"] = isNo ? "✓" : map["q" + item + "_no"] || "";
           map["q" + item + "_na"] = isNA ? "✓" : map["q" + item + "_na"] || "";
+          map["scaff_q" + item + "_yes"] = isYes ? "✓" : map["scaff_q" + item + "_yes"] || "";
+          map["scaff_q" + item + "_no"] = isNo ? "✓" : map["scaff_q" + item + "_no"] || "";
+          map["scaff_q" + item + "_na"] = isNA ? "✓" : map["scaff_q" + item + "_na"] || "";
+          map["scaffold_q" + item + "_yes"] = isYes ? "✓" : map["scaffold_q" + item + "_yes"] || "";
+          map["scaffold_q" + item + "_no"] = isNo ? "✓" : map["scaffold_q" + item + "_no"] || "";
+          map["scaffold_q" + item + "_na"] = isNA ? "✓" : map["scaffold_q" + item + "_na"] || "";
           map["item" + item + "_yes"] = isYes ? "✓" : "";
           map["item" + item + "_no"] = isNo ? "✓" : "";
           map["item" + item + "_na"] = isNA ? "✓" : "";
         }
       }
+    }
+    const remarksKey = "item" + item + "Remarks";
+    if (fields[remarksKey]) {
+      map[remarksKey] = String(fields[remarksKey]);
+      map["q" + item + "_remarks"] = String(fields[remarksKey]);
+      map["scaff_q" + item + "_remarks"] = String(fields[remarksKey]);
+      map["scaffold_q" + item + "_remarks"] = String(fields[remarksKey]);
     }
   }
 
