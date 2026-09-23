@@ -13454,6 +13454,11 @@
 
     showModal(modalHtml);
 
+    const listCont = $("notif-list-container");
+    if (listCont) listCont.scrollTop = 0;
+    const modalCard = $("modal-card");
+    if (modalCard) modalCard.scrollTop = 0;
+
     items.forEach((n) => {
       const card = $("notif-card-" + n.id);
       if (card) attachNotifSwipe(card, n);
@@ -13625,30 +13630,46 @@
     }
     updateNotifBadge();
 
-    // 3. Staggered card swipe-out animation
+    // 3. Staggered or instant fade animation
     const cards = list.querySelectorAll(".notif-card");
-    cards.forEach((c, idx) => {
+    if (cards.length > 12) {
+      list.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+      list.style.opacity = "0";
+      list.style.transform = "scale(0.98)";
       setTimeout(() => {
-        c.style.transition = "transform 0.25s ease, opacity 0.25s ease";
-        c.style.transform = "translateX(120%)";
-        c.style.opacity = "0";
-        const wrap = c.parentElement;
-        if (wrap) wrap.classList.add("dismissing");
-      }, idx * 25);
-    });
-
-    // 4. Render clean empty state
-    setTimeout(
-      () => {
         list.innerHTML =
           '<div class="notif-empty-state"><div class="notif-empty-icon">✓</div><h4>All caught up!</h4><p class="muted">No active notifications</p></div>';
+        list.style.opacity = "1";
+        list.style.transform = "none";
         const clearBtn = $("notif-clear-all-btn");
         if (clearBtn) clearBtn.style.display = "none";
         const countBadge = $("notif-unread-count");
         if (countBadge) countBadge.textContent = "0";
-      },
-      Math.min(cards.length * 25 + 150, 600),
-    );
+      }, 200);
+    } else {
+      cards.forEach((c, idx) => {
+        setTimeout(() => {
+          c.style.transition = "transform 0.25s ease, opacity 0.25s ease";
+          c.style.transform = "translateX(120%)";
+          c.style.opacity = "0";
+          const wrap = c.parentElement;
+          if (wrap) wrap.classList.add("dismissing");
+        }, idx * 25);
+      });
+
+      // 4. Render clean empty state
+      setTimeout(
+        () => {
+          list.innerHTML =
+            '<div class="notif-empty-state"><div class="notif-empty-icon">✓</div><h4>All caught up!</h4><p class="muted">No active notifications</p></div>';
+          const clearBtn = $("notif-clear-all-btn");
+          if (clearBtn) clearBtn.style.display = "none";
+          const countBadge = $("notif-unread-count");
+          if (countBadge) countBadge.textContent = "0";
+        },
+        Math.min(cards.length * 25 + 150, 600),
+      );
+    }
 
     // 5. Tell server in background
     try {
