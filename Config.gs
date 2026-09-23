@@ -355,7 +355,7 @@ const DEFAULT_DOC_TEMPLATE_REGISTRY = {
   CL_DRILL: "1x18zs1fBXgPJqlejQqUgMIy6juMhQb_rQSGMZOdt9ug", // Drilling Machine
   CL_FE: "1H87LMWzmqgIWHPpm54O4vQUrq6rvh4yAi6u5ZPDelns", // Fire Extinguisher
   CL_SCAFFOLD: "10J-l0KyOAHOAr7ulkv3TPgHOJqF3vaywUvD9mncVF1s", // Scaffolding checklist
-  CL_CUT: "",
+  CL_CUT: "1nl_Li5fmcrallVIHe1UwbgkWDfUYPcVSVPmABZbgtyw", // Cutting Machine Checklist
 
   // Attendances & Inductions
   CL_TBT: "1vt3LBwuRnbo_Av2zaLVPsDK00ZT1-hiNN09fntRAYXE", // Tool Box Talk
@@ -2428,6 +2428,12 @@ function getFormFields_(formCode) {
         required: true,
       },
       {
+        key: "electricalEngineerSign",
+        label: "Electrical Engineer Name / Signature",
+        type: "text",
+        required: false,
+      },
+      {
         key: "engineerSign",
         label: "Electrical / Mechanical Engineer Name / Signature",
         type: "text",
@@ -2876,14 +2882,14 @@ function getFormFields_(formCode) {
       "Machine body undamaged",
     ]),
     CL_CUT: dailyInspectionFields([
-      "Cutting blade defined and undamaged",
-      "Safety guard available and good",
+      "Cutting blade manufacture defined and free from damage",
+      "Availability of safety Guard and in good condition",
       "Lock system for plate and guard",
-      "Job clamp / fence available",
-      "Handle available and good",
-      "Cable connection undamaged",
-      "Dust guard / chip deflector available",
-      "Machine base undamaged",
+      "Availability of job clamp(fence) and in condition",
+      "Availability on handle and in good condition",
+      "Cable connection and free from damages",
+      "Availability of dust guard (chip deflector)",
+      "Machine base in free from damage",
     ]),
     CL_TBT: common
       .concat([

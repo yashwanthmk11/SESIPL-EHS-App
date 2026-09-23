@@ -3703,9 +3703,19 @@
       '" required style="padding:6px;font-size:12px;width:100%">' +
       "</div>" +
       "<div>" +
-      '<label style="font-size:11.5px">Mech / Electrical Engineer & Sign</label>' +
+      '<label style="font-size:11.5px">Electrical Engineer Name & Sign</label>' +
+      '<input type="text" name="electricalEngineerSign" value="' +
+      esc(
+        p.electricalEngineerSign ||
+          p.engineerSign ||
+          "Checked - Electrical Engineer",
+      ) +
+      '" style="padding:6px;font-size:12px;width:100%">' +
+      "</div>" +
+      "<div>" +
+      '<label style="font-size:11.5px">Engineer Name & Sign</label>' +
       '<input type="text" name="engineerSign" value="' +
-      esc(p.engineerSign || "Checked - Site Engineer") +
+      esc(p.engineerSign || "Verified - Site Engineer") +
       '" required style="padding:6px;font-size:12px;width:100%">' +
       "</div>" +
       "</div>" +

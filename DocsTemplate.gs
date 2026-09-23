@@ -23,7 +23,7 @@ const BACKEND_DOCS_TEMPLATES = {
   CL_DRILL: "1x18zs1fBXgPJqlejQqUgMIy6juMhQb_rQSGMZOdt9ug", // Drilling Machine
   CL_FE: "1H87LMWzmqgIWHPpm54O4vQUrq6rvh4yAi6u5ZPDelns", // Fire Extinguisher
   CL_SCAFFOLD: "10J-l0KyOAHOAr7ulkv3TPgHOJqF3vaywUvD9mncVF1s", // Scaffolding checklist
-  CL_CUT: "",
+  CL_CUT: "1nl_Li5fmcrallVIHe1UwbgkWDfUYPcVSVPmABZbgtyw", // Cutting Machine Checklist
 
   // Attendances, Training & Inductions
   CL_TBT: "1vt3LBwuRnbo_Av2zaLVPsDK00ZT1-hiNN09fntRAYXE", // Tool Box Talk
@@ -554,6 +554,18 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     supervisorSign:
       fields.supervisorSign ||
       (fields.supervisor ? "Signed - " + fields.supervisor : "Signed"),
+    safetyOfficer: fields.safetyOfficer || "",
+    safetyOfficerSign:
+      fields.safetyOfficerSign ||
+      fields.ehsSign ||
+      (fields.safetyOfficer ? "Signed - " + fields.safetyOfficer : "Signed"),
+    electricalEngineer: fields.electricalEngineer || "",
+    electricalEngineerSign:
+      fields.electricalEngineerSign ||
+      fields.engineerSign ||
+      (fields.electricalEngineer
+        ? "Signed - " + fields.electricalEngineer
+        : "Signed"),
     engineerSign:
       fields.engineerSign ||
       (fields.engineer ? "Signed - " + fields.engineer : "Signed"),
@@ -684,6 +696,12 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
         map["q" + item + dShort] = displayVal;
         map["scaff_q" + item + "_" + dShort] = displayVal;
         map["scaffold_q" + item + "_" + dShort] = displayVal;
+        map["cut_q" + item + "_" + dShort] = displayVal;
+        map["cut_q" + item + dShort] = displayVal;
+        map["wm_q" + item + "_" + dShort] = displayVal;
+        map["wm_q" + item + dShort] = displayVal;
+        map["grind_q" + item + "_" + dShort] = displayVal;
+        map["grind_q" + item + dShort] = displayVal;
 
         if (day === 1) {
           const isYes = v.toLowerCase() === "yes" || v.toLowerCase() === "y" || v === "✓";
@@ -798,8 +816,69 @@ function buildPlaceholderMap_(formCode, fields, project, user, submissionId) {
     map["sign" + fDay.charAt(0).toUpperCase() + fDay.slice(1)] = inspectorSign;
     map["day" + d + "_sign"] = inspectorSign;
     map["sign_day" + d] = inspectorSign;
-    map["day" + d + "Sign"] = inspectorSign;
   }
+
+  // Aliases for 4 checklist signatures: Supervisor, Safety Officer, Electrical Engineer, and Engineer
+  const supSign = map.supervisorSign || "Signed - Supervisor";
+  const supName = map.supervisor || "Supervisor";
+  const soSign = map.safetyOfficerSign || "Signed - Safety Officer";
+  const soName = map.safetyOfficer || "Safety Officer";
+  const eeSign = map.electricalEngineerSign || "Signed - Electrical Engineer";
+  const eeName = map.electricalEngineer || "Electrical Engineer";
+  const engSign = map.engineerSign || "Signed - Site Engineer";
+  const engName = map.engineer || "Site Engineer";
+
+  // Supervisor
+  map["checked_by_supervisor_name_&_sign"] = supSign;
+  map["checked_by_supervisor_name_and_sign"] = supSign;
+  map["checked_by_supervisor_name_sign"] = supSign;
+  map["checked_by_supervisor"] = supSign;
+  map["checkedBySupervisorNameAndSign"] = supSign;
+  map["checkedBySupervisorNameSign"] = supSign;
+  map["checkedBySupervisorSign"] = supSign;
+  map["checkedBySupervisorName"] = supName;
+  map["checkedBySupervisor"] = supName;
+  map["supervisor_sign"] = supSign;
+  map["supervisor_name"] = supName;
+
+  // Safety Officer
+  map["checked_by_safety_officer_name_&_sign"] = soSign;
+  map["checked_by_safety_officer_name_and_sign"] = soSign;
+  map["checked_by_safety_officer_name_sign"] = soSign;
+  map["checked_by_safety_officer"] = soSign;
+  map["checkedBySafetyOfficerNameAndSign"] = soSign;
+  map["checkedBySafetyOfficerNameSign"] = soSign;
+  map["checkedBySafetyOfficerSign"] = soSign;
+  map["checkedBySafetyOfficerName"] = soName;
+  map["checkedBySafetyOfficer"] = soName;
+  map["safety_officer_sign"] = soSign;
+  map["safety_officer_name"] = soName;
+
+  // Electrical Engineer
+  map["checked_by_electrical_engineer_name_&_sign"] = eeSign;
+  map["checked_by_electrical_engineer_name_and_sign"] = eeSign;
+  map["checked_by_electrical_engineer_name_sign"] = eeSign;
+  map["checked_by_electrical_engineer"] = eeSign;
+  map["checkedByElectricalEngineerNameAndSign"] = eeSign;
+  map["checkedByElectricalEngineerNameSign"] = eeSign;
+  map["checkedByElectricalEngineerSign"] = eeSign;
+  map["checkedByElectricalEngineerName"] = eeName;
+  map["checkedByElectricalEngineer"] = eeName;
+  map["electrical_engineer_sign"] = eeSign;
+  map["electrical_engineer_name"] = eeName;
+  map["electricalEngineerSign"] = eeSign;
+  map["electricalEngineer"] = eeName;
+
+  // Engineer
+  map["engineer_name_&_sign"] = engSign;
+  map["engineer_name_and_sign"] = engSign;
+  map["engineer_name_sign"] = engSign;
+  map["engineer_sign"] = engSign;
+  map["engineer_name"] = engName;
+  map["engineerNameAndSign"] = engSign;
+  map["engineerNameSign"] = engSign;
+  map["engineerSign"] = engSign;
+  map["engineer"] = engName;
 
   // Handle participant rows for TBT, JST, Training, and Induction
   for (let i = 1; i <= 30; i++) {
@@ -1053,6 +1132,37 @@ function replacePlaceholdersInDoc_(doc, placeholderMap) {
   replaceInContainer(body);
   if (header) replaceInContainer(header);
   if (footer) replaceInContainer(footer);
+
+  // Handle plain-text labeled templates if any unbracketed labels remain
+  try {
+    const cleanDocText = body.getText() || "";
+    if (cleanDocText.indexOf("{{") === -1) {
+      if (placeholderMap.projectName) {
+        body.replaceText("(?i)(Project Name:\\s*)\\t+", "$1" + placeholderMap.projectName + "\t");
+      }
+      if (placeholderMap.contractor) {
+        body.replaceText("(?i)(Contractor Name:\\s*)\\t+", "$1" + placeholderMap.contractor + "\t");
+      }
+      if (placeholderMap.date || placeholderMap.inspectionDate) {
+        const dVal = placeholderMap.date || placeholderMap.inspectionDate;
+        body.replaceText("(?i)(Date:\\s*)\\t+", "$1" + dVal + "\t");
+      }
+      if (placeholderMap.supervisorSign) {
+        body.replaceText("(?i)(Checked By Supervisor Name & Sign\\s*)(?:\\t|\\r?\\n|$)", "$1: " + placeholderMap.supervisorSign + "\n");
+      }
+      if (placeholderMap.safetyOfficerSign) {
+        body.replaceText("(?i)(Checked By Safety officer Name & Sign\\s*)(?:\\t|\\r?\\n|$)", "$1: " + placeholderMap.safetyOfficerSign + "\n");
+      }
+      if (placeholderMap.electricalEngineerSign) {
+        body.replaceText("(?i)(Checked By Electrical Engineer & Sign\\s*)(?:\\t|\\r?\\n|$)", "$1: " + placeholderMap.electricalEngineerSign + "\n");
+      }
+      if (placeholderMap.engineerSign) {
+        body.replaceText("(?i)((?:Checked By )?Engineer Name & Sign\\s*)(?:\\t|\\r?\\n|$)", "$1: " + placeholderMap.engineerSign + "\n");
+      }
+    }
+  } catch (err) {
+    Logger.log("Notice: Plain label replacement error: " + err);
+  }
 }
 
 /**
@@ -1087,6 +1197,49 @@ function replaceTablePlaceholdersRowByRow_(doc, placeholderMap) {
           rowText.indexOf("{{") === -1;
 
         if (isHeaderRow) {
+          continue;
+        }
+
+        const isSignRow =
+          rowText.toLowerCase().indexOf("supervisor") !== -1 ||
+          rowText.toLowerCase().indexOf("safety officer") !== -1 ||
+          rowText.toLowerCase().indexOf("electrical engineer") !== -1 ||
+          rowText.toLowerCase().indexOf("engineer name") !== -1 ||
+          (rowText.toLowerCase().indexOf("checked by") !== -1 &&
+            rowText.toLowerCase().indexOf("items to be checked") === -1);
+
+        if (isSignRow) {
+          for (let c = 0; c < cellCount; c++) {
+            const cell = row.getCell(c);
+            const cText = cell.getText() || "";
+            const cLower = cText.toLowerCase();
+
+            if (cLower.indexOf("supervisor") !== -1) {
+              if (/\{\{[^}]+\}\}/.test(cText)) {
+                cell.replaceText("(?i)\\{\\{[^}]+\\}\\}", placeholderMap.supervisorSign || "");
+              } else if (cLower.indexOf("signed") === -1 && placeholderMap.supervisorSign) {
+                cell.setText(cText.trim() + "\n" + placeholderMap.supervisorSign);
+              }
+            } else if (cLower.indexOf("safety officer") !== -1) {
+              if (/\{\{[^}]+\}\}/.test(cText)) {
+                cell.replaceText("(?i)\\{\\{[^}]+\\}\\}", placeholderMap.safetyOfficerSign || "");
+              } else if (cLower.indexOf("signed") === -1 && placeholderMap.safetyOfficerSign) {
+                cell.setText(cText.trim() + "\n" + placeholderMap.safetyOfficerSign);
+              }
+            } else if (cLower.indexOf("electrical engineer") !== -1) {
+              if (/\{\{[^}]+\}\}/.test(cText)) {
+                cell.replaceText("(?i)\\{\\{[^}]+\\}\\}", placeholderMap.electricalEngineerSign || "");
+              } else if (cLower.indexOf("signed") === -1 && placeholderMap.electricalEngineerSign) {
+                cell.setText(cText.trim() + "\n" + placeholderMap.electricalEngineerSign);
+              }
+            } else if (cLower.indexOf("engineer") !== -1) {
+              if (/\{\{[^}]+\}\}/.test(cText)) {
+                cell.replaceText("(?i)\\{\\{[^}]+\\}\\}", placeholderMap.engineerSign || "");
+              } else if (cLower.indexOf("signed") === -1 && placeholderMap.engineerSign) {
+                cell.setText(cText.trim() + "\n" + placeholderMap.engineerSign);
+              }
+            }
+          }
           continue;
         }
 
@@ -1147,6 +1300,48 @@ function replaceTablePlaceholdersRowByRow_(doc, placeholderMap) {
             }
             if (/\{\{\s*no\s*\}\}/i.test(cText)) {
               cell.replaceText("(?i)\\{\\{\\s*no\s*\\}\\}", rowNo);
+            }
+            if (/\{\{\s*na\s*\}\}/i.test(cText)) {
+              cell.replaceText("(?i)\\{\\{\\s*na\s*\\}\\}", placeholderMap["item" + currentItemNum + "_na"] || "✓");
+            }
+
+            // 7-day checklist column handling (Sl No, Description, Day 1..Day 7)
+            if (cellCount >= 9 && c >= 2 && c <= 8) {
+              const day = c - 1;
+              const daysShort = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+              const dShort = daysShort[day - 1];
+              const cellDayVal =
+                placeholderMap["cut_q" + currentItemNum + "_d" + day] ||
+                placeholderMap["cut_q" + currentItemNum + "_" + dShort] ||
+                placeholderMap["item" + currentItemNum + "Day" + day] ||
+                placeholderMap["item" + currentItemNum + "_d" + day] ||
+                placeholderMap["wm_q" + currentItemNum + "_d" + day] ||
+                placeholderMap["grind_q" + currentItemNum + "_d" + day] ||
+                placeholderMap["q" + currentItemNum + "_d" + day] ||
+                "✓";
+
+              if (/\{\{[^}]+\}\}/.test(cText)) {
+                cell.replaceText("(?i)\\{\\{[^}]+\\}\\}", cellDayVal);
+              } else if (!cText || !cText.trim()) {
+                cell.setText(cellDayVal);
+              }
+            } else {
+              for (let day = 1; day <= 7; day++) {
+                const daysShort = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+                const dShort = daysShort[day - 1];
+                const dayRegex = new RegExp("\\{\\{\\s*(?:day_?" + day + "|d" + day + "|" + dShort + ")\\s*\\}\\}", "i");
+                if (dayRegex.test(cText)) {
+                  const cellDayVal =
+                    placeholderMap["cut_q" + currentItemNum + "_d" + day] ||
+                    placeholderMap["item" + currentItemNum + "Day" + day] ||
+                    placeholderMap["item" + currentItemNum + "_d" + day] ||
+                    placeholderMap["wm_q" + currentItemNum + "_d" + day] ||
+                    placeholderMap["grind_q" + currentItemNum + "_d" + day] ||
+                    placeholderMap["q" + currentItemNum + "_d" + day] ||
+                    "✓";
+                  cell.replaceText("(?i)\\{\\{\\s*(?:day_?" + day + "|d" + day + "|" + dShort + ")\\s*\\}\\}", cellDayVal);
+                }
+              }
             }
           }
         }
