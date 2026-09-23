@@ -5902,6 +5902,9 @@
       }
 
       if (res.source === "GOOGLE_DOCS") {
+        if (res.html) {
+          CURRENT_PERMIT_PREVIEW_STATE = { html: res.html, title: res.title };
+        }
         let frameSrc = "";
         if (res.base64Pdf) {
           try {
@@ -5921,23 +5924,27 @@
           ? '<iframe src="' +
             frameSrc +
             '" style="width:100%;height:75vh;border:none;border-radius:4px;background:#fff"></iframe>'
-          : '<div style="background:#ffffff;border-radius:6px;padding:36px 20px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.1)">' +
-            '<div style="font-size:42px;margin-bottom:12px">📄</div>' +
-            '<h4 style="margin:0 0 8px;font-size:16px;color:#0f172a;font-weight:800">Official Document Generated Successfully</h4>' +
-            '<p class="muted" style="margin:0 0 16px;font-size:13px">Your submission has been compiled into the official Google Docs PDF template and saved to Google Drive.</p>' +
-            '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">' +
-            (res.pdfUrl
-              ? '<a href="' +
-                esc(res.pdfUrl) +
-                '" target="_blank" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Google Drive</a>'
-              : "") +
-            (res.downloadUrl
-              ? '<a href="' +
-                esc(res.downloadUrl) +
-                '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>'
-              : "") +
-            "</div>" +
-            "</div>";
+          : res.html
+            ? '<div style="background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.2);border-radius:4px;padding:24px;max-width:800px;margin:0 auto;max-height:75vh;overflow-y:auto">' +
+              res.html +
+              "</div>"
+            : '<div style="background:#ffffff;border-radius:6px;padding:36px 20px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.1)">' +
+              '<div style="font-size:42px;margin-bottom:12px">📄</div>' +
+              '<h4 style="margin:0 0 8px;font-size:16px;color:#0f172a;font-weight:800">Official Document Generated Successfully</h4>' +
+              '<p class="muted" style="margin:0 0 16px;font-size:13px">Your submission has been compiled into the official Google Docs PDF template and saved to Google Drive.</p>' +
+              '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">' +
+              (res.pdfUrl
+                ? '<a href="' +
+                  esc(res.pdfUrl) +
+                  '" target="_blank" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Google Drive</a>'
+                : "") +
+              (res.downloadUrl
+                ? '<a href="' +
+                  esc(res.downloadUrl) +
+                  '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>'
+                : "") +
+              "</div>" +
+              "</div>";
 
         const modalHtml =
           '<div style="max-width:960px;margin:0 auto;text-align:left">' +
@@ -5950,9 +5957,12 @@
           '<p class="muted" style="margin:2px 0 0;font-size:12px">Generated from Google Docs template with submitted data sitting in placeholders.</p>' +
           "</div>" +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          (res.html
+            ? '<button type="button" class="btn small" style="background:#0f766e;color:#fff;font-weight:700" onclick="printHtmlViaIframe_(CURRENT_PERMIT_PREVIEW_STATE.html)">🖨️ Print</button>'
+            : "") +
           '<a href="' +
           esc(res.pdfUrl) +
-          '" target="_blank" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Drive</a>' +
+          '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">↗ Open in Drive</a>' +
           '<a href="' +
           esc(res.downloadUrl) +
           '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>' +

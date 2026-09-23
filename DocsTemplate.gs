@@ -1247,6 +1247,20 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
         Logger.log("Notice: Updating submission with pdfFileId: " + dbErr);
       }
 
+      let html = "";
+      try {
+        const isPermit = sub.formCode && sub.formCode.indexOf("WP_") === 0;
+        html = isPermit
+          ? buildWorkPermitPdfHtml_(
+              project,
+              def,
+              fields,
+              user,
+              sub.version || 1,
+            )
+          : buildFormPdfHtml_(project, def, fields, user, sub.version || 1);
+      } catch (hErr) {}
+
       return {
         ok: true,
         source: "GOOGLE_DOCS",
@@ -1257,6 +1271,7 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
         previewUrl: docResult.previewUrl,
         downloadUrl: docResult.downloadUrl,
         base64Pdf: docResult.base64Pdf || "",
+        html: html,
       };
     } catch (docErr) {
       docErrorMsg = docErr && docErr.message ? docErr.message : String(docErr);
