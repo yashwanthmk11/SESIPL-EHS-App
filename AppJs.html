@@ -5902,6 +5902,43 @@
       }
 
       if (res.source === "GOOGLE_DOCS") {
+        let frameSrc = "";
+        if (res.base64Pdf) {
+          try {
+            const byteCharacters = atob(res.base64Pdf);
+            const byteNumbers = new Uint8Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const blob = new Blob([byteNumbers], { type: "application/pdf" });
+            frameSrc = URL.createObjectURL(blob);
+          } catch (e) {
+            console.warn("Could not create Blob URL for PDF:", e);
+          }
+        }
+
+        const previewContainer = frameSrc
+          ? '<iframe src="' +
+            frameSrc +
+            '" style="width:100%;height:75vh;border:none;border-radius:4px;background:#fff"></iframe>'
+          : '<div style="background:#ffffff;border-radius:6px;padding:36px 20px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.1)">' +
+            '<div style="font-size:42px;margin-bottom:12px">📄</div>' +
+            '<h4 style="margin:0 0 8px;font-size:16px;color:#0f172a;font-weight:800">Official Document Generated Successfully</h4>' +
+            '<p class="muted" style="margin:0 0 16px;font-size:13px">Your submission has been compiled into the official Google Docs PDF template and saved to Google Drive.</p>' +
+            '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">' +
+            (res.pdfUrl
+              ? '<a href="' +
+                esc(res.pdfUrl) +
+                '" target="_blank" class="btn small" style="background:#0f766e;color:#fff;font-weight:700;text-decoration:none">↗ Open in Google Drive</a>'
+              : "") +
+            (res.downloadUrl
+              ? '<a href="' +
+                esc(res.downloadUrl) +
+                '" target="_blank" class="btn small secondary" style="font-weight:700;text-decoration:none">⬇ Download PDF</a>'
+              : "") +
+            "</div>" +
+            "</div>";
+
         const modalHtml =
           '<div style="max-width:960px;margin:0 auto;text-align:left">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
@@ -5923,9 +5960,7 @@
           "</div>" +
           "</div>" +
           '<div style="background:#475569;padding:12px;border-radius:8px">' +
-          '<iframe src="' +
-          esc(res.previewUrl) +
-          '" style="width:100%;height:75vh;border:none;border-radius:4px;background:#fff"></iframe>' +
+          previewContainer +
           "</div>" +
           "</div>";
         showModal(modalHtml);

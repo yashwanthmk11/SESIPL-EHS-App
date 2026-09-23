@@ -982,6 +982,13 @@ function generatePdfFromDocsTemplate_(
       Logger.log("Notice: PDF sharing setting: " + err);
     }
 
+    let base64Pdf = "";
+    try {
+      base64Pdf = Utilities.base64Encode(pdfBlob.getBytes());
+    } catch (b64Err) {
+      Logger.log("Notice: Base64 encoding PDF: " + b64Err);
+    }
+
     return {
       ok: true,
       fileId: pdfFile.getId(),
@@ -990,6 +997,7 @@ function generatePdfFromDocsTemplate_(
         "https://drive.google.com/uc?export=download&id=" + pdfFile.getId(),
       previewUrl:
         "https://drive.google.com/file/d/" + pdfFile.getId() + "/preview",
+      base64Pdf: base64Pdf,
     };
   } finally {
     // Remove the temporary doc copy to keep Google Drive uncluttered
@@ -1248,6 +1256,7 @@ function getOrGenerateSubmissionPdf_(submissionId, options) {
         pdfUrl: docResult.pdfUrl,
         previewUrl: docResult.previewUrl,
         downloadUrl: docResult.downloadUrl,
+        base64Pdf: docResult.base64Pdf || "",
       };
     } catch (docErr) {
       docErrorMsg = docErr && docErr.message ? docErr.message : String(docErr);
