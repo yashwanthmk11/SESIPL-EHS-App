@@ -522,14 +522,7 @@ const FORM_DEFS = [
     entryType: "FORM",
     slaHours: 8,
   },
-  {
-    formCode: "WP_UPLOAD",
-    module: "PERMIT",
-    title: "Work Permit File Upload (Signed PTW Scan / Copy)",
-    cadence: "AS_REQUIRED",
-    entryType: "UPLOAD",
-    slaHours: 0,
-  },
+
   {
     formCode: "EHS_UPLOAD",
     module: "EHS_DOCS",

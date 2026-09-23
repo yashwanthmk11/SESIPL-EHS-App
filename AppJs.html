@@ -2289,7 +2289,7 @@
     $("page-sub").textContent = isOneTime
       ? "Bulk upload project documents. Files are stored directly in the project library without approval."
       : isPermit
-        ? "Digital & physical high-risk safety clearance permits. Download standard blank formats or submit with attached files."
+        ? "Digital high-risk safety clearance permits. Complete and submit online safety clearance forms with digital verification."
         : moduleIds.indexOf("WEEKLY") >= 0
           ? "Upload signed weekly and monthly EHS reports directly to the project document library."
           : "Submit official daily safety checklists and formats. Submissions compile to official PDFs.";
@@ -3306,9 +3306,6 @@
       "</div>" +
       "</div>" +
       "</div>" +
-      (upload
-        ? '<div class="full" style="margin-bottom:16px"><label style="font-weight:700">Attach Document / Scan</label><input type="file" id="up-file"></div>'
-        : "") +
       '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #e2e8f0;flex-wrap:wrap;gap:10px">' +
       '<button type="button" class="btn small" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:700" onclick="fillPermitPlaceholders(\'' +
       esc(formCode) +
