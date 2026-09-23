@@ -1273,3 +1273,15 @@ function getNamedSubfolder_(project, name) {
   const it = pf.getFoldersByName(name);
   return it.hasNext() ? it.next() : pf.createFolder(name);
 }
+
+function syncFormCatalog() {
+  const ssId =
+    (typeof DATABASE_SPREADSHEET_ID !== "undefined" && DATABASE_SPREADSHEET_ID) ||
+    PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+  if (!ssId) return { ok: false, error: "No spreadsheet ID configured" };
+  const ss = SpreadsheetApp.openById(ssId);
+  const sh = ensureSheetSchema_(ss, SHEETS.FORM_CATALOG, HEADERS.FormCatalog);
+  batchWriteObjects_(sh, HEADERS.FormCatalog, FORM_DEFS);
+  Logger.log("Synchronized " + FORM_DEFS.length + " catalog forms to sheet.");
+  return { ok: true, count: FORM_DEFS.length };
+}

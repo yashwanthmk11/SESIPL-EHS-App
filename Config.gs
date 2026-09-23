@@ -571,14 +571,6 @@ const FORM_DEFS = [
     slaHours: 0,
   },
   {
-    formCode: "CL_SCREENING",
-    module: "CHECKLIST",
-    title: "Screening of Worker Format",
-    cadence: "DAILY",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
     formCode: "CL_DRILL",
     module: "CHECKLIST",
     title: "Drilling Machine Checklist",
@@ -627,14 +619,6 @@ const FORM_DEFS = [
     slaHours: 24,
   },
   {
-    formCode: "CL_MEDICAL",
-    module: "CHECKLIST",
-    title: "Medical Certificate (Form XI)",
-    cadence: "DAILY",
-    entryType: "FORM",
-    slaHours: 24,
-  },
-  {
     formCode: "CL_FE",
     module: "CHECKLIST",
     title: "Fire Extinguisher Checklist",
@@ -643,7 +627,23 @@ const FORM_DEFS = [
     slaHours: 24,
   },
 
-  // One-time Document Uploads (Remaining Checklists & Tags)
+  // One-time Document Uploads (Remaining Checklists, Screening, Medical & Tags)
+  {
+    formCode: "CL_SCREENING",
+    module: "EHS_DOCS",
+    title: "Screening of Worker Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
+  {
+    formCode: "CL_MEDICAL",
+    module: "EHS_DOCS",
+    title: "Medical Certificate (Form XI) Upload",
+    cadence: "ONETIME",
+    entryType: "UPLOAD",
+    slaHours: 0,
+  },
   {
     formCode: "CL_IDCARD",
     module: "EHS_DOCS",

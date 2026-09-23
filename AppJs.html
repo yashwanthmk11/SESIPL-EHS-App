@@ -2326,7 +2326,7 @@
                     : "") +
                 "</div>" +
                 (f.entryType === "UPLOAD"
-                  ? documentLibraryRows(f.module)
+                  ? documentLibraryRows(f.module, f.formCode)
                   : mine.length
                     ? '<table style="margin-top:8px"><thead><tr><th>Status</th><th>Ver</th><th>By</th><th>At</th><th></th></tr></thead><tbody>' +
                       mine
@@ -2397,16 +2397,21 @@
             .join("");
   }
 
-  function documentLibraryRows(moduleId) {
+  function documentLibraryRows(moduleId, formCode) {
     const pId = currentProjectId();
     const isLead = USER && USER.role === "EHS_LEAD";
     const files = (STATE.library || [])
       .filter(
-        (file) =>
-          (isLead
+        (file) => {
+          const projMatch = isLead
             ? file.projectId === pId || file.projectId === "*"
-            : !pId || file.projectId === pId || file.projectId === "*") &&
-          file.module === moduleId,
+            : !pId || file.projectId === pId || file.projectId === "*";
+          if (!projMatch) return false;
+          if (formCode && file.tags) {
+            return file.tags.indexOf(formCode) >= 0;
+          }
+          return file.module === moduleId;
+        },
       )
       .slice()
       .reverse();
@@ -6010,10 +6015,10 @@
           ],
         },
         {
-          name: "Worker Screening & Medical",
+          name: "Worker Screening & Medical (Uploads / Templates)",
           items: [
-            { code: "CL_SCREENING", title: "Screening of Worker Form" },
-            { code: "CL_MEDICAL", title: "Form XI Medical Certificate" },
+            { code: "CL_SCREENING", title: "Screening of Worker (Upload / Blank Template)" },
+            { code: "CL_MEDICAL", title: "Form XI Medical Certificate (Upload / Blank Template)" },
           ],
         },
         {
