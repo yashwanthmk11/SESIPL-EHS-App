@@ -605,7 +605,7 @@
       items.push(["inbox", "Approvals"]);
     }
     items.push(
-      ["daily", isUp ? "Daily uploads" : "Daily Checklists"],
+      ["daily", "Daily Checklists"],
       ["weekly", isUp ? "Weekly / Monthly" : "Weekly Reports"],
       ["permits", "Work permits"],
       ["onetime", isUp ? "One-time docs" : "Compliance Docs"],
@@ -2320,86 +2320,70 @@
                       (f.module === "WEEKLY" ? "📤 Upload report (PDF)" : "Bulk upload files") +
                       "</button>"
                     : ""
-                  : '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-                    (canSubmitForm(f)
-                      ? '<button class="btn small" onclick="openForm(\'' +
-                        f.formCode +
-                        "')\">Open form</button>"
-                      : "") +
-                    (canUploadRole()
-                      ? '<button class="btn small secondary" onclick="openBulkUpload(\'' +
-                        f.formCode +
-                        "')\">📤 Upload PDF / Scan</button>"
-                      : "") +
-                    "</div>") +
+                  : canSubmitForm(f)
+                    ? '<button class="btn small" onclick="openForm(\'' +
+                      f.formCode +
+                      "')\">Open form</button>"
+                    : "") +
                 "</div>" +
                 (f.entryType === "UPLOAD"
                   ? documentLibraryRows(f.module, f.formCode)
-                  : (() => {
-                      const docRows = documentLibraryRows(f.module, f.formCode);
-                      const hasDocs = docRows && docRows.indexOf("<table") >= 0;
-                      return (
-                        (hasDocs ? docRows : "") +
-                        (mine.length
-                          ? '<table style="margin-top:8px"><thead><tr><th>Status</th><th>Ver</th><th>By</th><th>At</th><th></th></tr></thead><tbody>' +
-                            mine
-                              .slice()
-                              .reverse()
-                              .slice(0, 8)
-                              .map(
-                                (s) =>
-                                  "<tr><td>" +
-                                  statusPill(s.status) +
-                                  "</td><td>" +
-                                  s.version +
-                                  "</td><td>" +
-                                  esc(s.submittedBy) +
-                                  "</td><td>" +
-                                  displayDate(s.submittedAt) +
-                                  '</td><td class="row-actions">' +
-                                  (() => {
-                                    const subCm = (STATE.comments || []).filter(
-                                      (c) => c.entityId === s.id,
-                                    );
-                                    return (
-                                      '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Submission\',\'' +
-                                      s.id +
-                                      '\')" title="View discussion thread">💬' +
-                                      (subCm.length ? " " + subCm.length : "") +
-                                      "</button>"
-                                    );
-                                  })() +
-                                  '<button class="ghost" style="color:#0f766e;font-weight:700" onclick="viewSubmissionPdf(\'' +
-                                  s.id +
-                                  "')\">📄 PDF</button>" +
-                                  (s.pdfFileId
-                                    ? '<button class="ghost" onclick="openFile(\'' +
-                                      s.pdfFileId +
-                                      "')\">Drive</button>"
-                                    : "") +
-                                  (s.status === "REJECTED" && USER.role === "EHS_LEAD"
-                                    ? '<button class="btn small" onclick="openForm(\'' +
-                                      f.formCode +
-                                      "','" +
-                                      s.id +
-                                      "')\">Correct & resend</button>"
-                                    : "") +
-                                  (USER.role === "ASST_EHS_MANAGER" ||
-                                  USER.role === "EHS_MANAGER" ||
-                                  USER.role === "DIRECTOR"
-                                    ? '<button class="ghost" onclick="delSub(\'' +
-                                      s.id +
-                                      "')\">Delete</button>"
-                                    : "") +
-                                  "</td></tr>",
-                              )
-                              .join("") +
-                            "</tbody></table>"
-                          : hasDocs
-                            ? ""
-                            : '<p class="muted">No submissions yet.</p>')
-                      );
-                    })()) +
+                  : mine.length
+                    ? '<table style="margin-top:8px"><thead><tr><th>Status</th><th>Ver</th><th>By</th><th>At</th><th></th></tr></thead><tbody>' +
+                      mine
+                        .slice()
+                        .reverse()
+                        .slice(0, 8)
+                        .map(
+                          (s) =>
+                            "<tr><td>" +
+                            statusPill(s.status) +
+                            "</td><td>" +
+                            s.version +
+                            "</td><td>" +
+                            esc(s.submittedBy) +
+                            "</td><td>" +
+                            displayDate(s.submittedAt) +
+                            '</td><td class="row-actions">' +
+                            (() => {
+                              const subCm = (STATE.comments || []).filter(
+                                (c) => c.entityId === s.id,
+                              );
+                              return (
+                                '<button type="button" class="comment-count-btn mini" onclick="openComments(\'Submission\',\'' +
+                                s.id +
+                                '\')" title="View discussion thread">💬' +
+                                (subCm.length ? " " + subCm.length : "") +
+                                "</button>"
+                              );
+                            })() +
+                            '<button class="ghost" style="color:#0f766e;font-weight:700" onclick="viewSubmissionPdf(\'' +
+                            s.id +
+                            "')\">📄 PDF</button>" +
+                            (s.pdfFileId
+                              ? '<button class="ghost" onclick="openFile(\'' +
+                                s.pdfFileId +
+                                "')\">Drive</button>"
+                              : "") +
+                            (s.status === "REJECTED" && USER.role === "EHS_LEAD"
+                              ? '<button class="btn small" onclick="openForm(\'' +
+                                f.formCode +
+                                "','" +
+                                s.id +
+                                "')\">Correct & resend</button>"
+                              : "") +
+                            (USER.role === "ASST_EHS_MANAGER" ||
+                            USER.role === "EHS_MANAGER" ||
+                            USER.role === "DIRECTOR"
+                              ? '<button class="ghost" onclick="delSub(\'' +
+                                s.id +
+                                "')\">Delete</button>"
+                              : "") +
+                            "</td></tr>",
+                        )
+                        .join("") +
+                      "</tbody></table>"
+                    : '<p class="muted">No submissions yet.</p>') +
                 "</div>"
               );
             })
